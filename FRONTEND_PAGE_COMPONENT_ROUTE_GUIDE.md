@@ -12,6 +12,39 @@ Base API prefix for backend routes: `/api/v1`
   - `POST /api/v1/auth/login`
   - `POST /api/v1/pre-login`
 
+#### **POST** `/auth/pre-login`
+*Description*: Checks if account exists and returns allowed farm IDs before full login.
+**Request:**
+```json
+{
+  "email": "user@example.com",
+  "password": "StrongPassword123!"
+}
+```
+
+#### **POST** `/auth/login`
+*Description*: Main login endpoint. Can return JWT directly or a request for OTP.
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "StrongPassword123!",
+  "farmId": "farm-uuid"
+}
+```
+
+**Response (Success - Direct):**
+```json
+{
+  "token": "eyJhbG...",
+  "refreshToken": "ref-...",
+  "expiresIn": 3600,
+  "requiresOTP": false,
+  "user": { "id": "uuid", "email": "user@example.com", "role": "MANAGER" }
+}
+```
+
 ## 1. Dashboard
 > **Assigned to:** Hazzem Ibrahim
 - Page id: `dashboard`
