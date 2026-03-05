@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -10,10 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Slider } from './ui/slider';
 import { Textarea } from './ui/textarea';
 import { Progress } from './ui/progress';
-import { 
-  Fish, 
-  Droplet, 
-  AlertTriangle, 
+import {
+  Fish,
+  Droplet,
+  AlertTriangle,
   Plus,
   ArrowLeft,
   Thermometer,
@@ -25,6 +25,7 @@ import {
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { User, Farm } from '../types';
 import { mockFarms, mockGrowthMeasurements } from '../mockData';
+import { apiGet } from '../api';
 import RecordGrowthMeasurement from './tanks/RecordGrowthMeasurement';
 import GrowthHistory from './tanks/GrowthHistory';
 
@@ -33,129 +34,130 @@ interface TankManagementProps {
   selectedFarm: Farm | null;
 }
 
+// ── API response shape for a single tank (matches actual /api/v1/tanks response) ──
+interface ApiTankBiomass {
+  actual?: number;
+  capacity?: number;
+  unit?: string;
+  overstockPercentage?: number | null;
+}
+interface ApiTankWaterQuality {
+  overallStatus?: string;      // API uses 'overallStatus', not 'overall'
+  temperature?: number;
+  dissolvedOxygen?: number;
+  ph?: number;
+  ammonia?: number;
+}
+interface ApiTankFeeding {
+  currentMeal?: number;       // meals completed so far today
+  totalMeals?: number;
+  weightFed?: number;         // kg fed today
+  targetWeight?: number;      // recommended kg for today
+  percentage?: number;
+}
+interface ApiTank {
+  id: string;
+  name: string;
+  farmId?: string;
+  status?: string;
+  fishType?: string;          // API raw field
+  species?: string;           // normalised from fishType
+  biomass?: ApiTankBiomass | number;  // object from API, number after normalise
+  capacity?: number;          // set from biomass.capacity during normalise
+  volume?: number;            // defaulted to 50 during normalise
+  waterQuality?: ApiTankWaterQuality | {
+    overall?: string;
+    temp?: { value: number; status: string };
+    do?: { value: number; status: string };
+    ph?: { value: number; status: string };
+    nh3?: { value: number; status: string };
+  };
+  feeding?: ApiTankFeeding | {
+    todayMeals?: number;
+    totalMeals?: number;
+    todayFed?: number;
+    recommended?: number;
+  };
+  batches?: any[];
+}
+
 export default function TankManagement({ user, selectedFarm }: TankManagementProps) {
   const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
   const [selectedTank, setSelectedTank] = useState<any>(null);
   const [showFeedingModal, setShowFeedingModal] = useState(false);
   const [showWaterQualityModal, setShowWaterQualityModal] = useState(false);
 
+  // ── API state ──
+  const [tanks, setTanks] = useState<ApiTank[]>([]);
+  const [tanksLoading, setTanksLoading] = useState(true);
+  const [tanksError, setTanksError] = useState<string | null>(null);
+
   const currentFarm = selectedFarm || mockFarms[0];
 
-  // Mock tank data
-  const tanks = [
-    { 
-      id: 'A-03', 
-      name: 'Tank A-03',
-      volume: 50,
-      status: 'critical',
-      species: 'Nile Tilapia',
-      biomass: 5400,
-      capacity: 5000,
-      batches: [
-        {
-          id: '#123',
-          species: 'Nile Tilapia',
-          count: 1200,
-          avgWeight: 250,
-          age: 45,
-          status: 'active',
-          feedType: 'Grower 30% 3mm Floating',
-          dailyFeedKg: 45
-        },
-        {
-          id: '#124',
-          species: 'Nile Tilapia',
-          count: 800,
-          avgWeight: 180,
-          age: 32,
-          status: 'active',
-          feedType: 'Grower 28% 2mm Floating',
-          dailyFeedKg: 28
-        }
-      ],
-      waterQuality: {
-        overall: 'warning',
-        temp: { value: 28, status: 'optimal' },
-        do: { value: 4.2, status: 'acceptable' },
-        ph: { value: 7.8, status: 'optimal' },
-        nh3: { value: 0.08, status: 'warning' }
-      },
-      feeding: {
-        todayMeals: 3,
-        totalMeals: 4,
-        todayFed: 65,
-        recommended: 90
-      }
-    },
-    { 
-      id: 'B-12', 
-      name: 'Tank B-12',
-      volume: 50,
-      status: 'warning',
-      species: 'Nile Tilapia',
-      biomass: 4800,
-      capacity: 5000,
-      batches: [
-        {
-          id: '#125',
-          species: 'Nile Tilapia',
-          count: 800,
-          avgWeight: 180,
-          age: 32,
-          status: 'active',
-          feedType: 'Grower 30% 3mm Floating',
-          dailyFeedKg: 28
-        }
-      ],
-      waterQuality: {
-        overall: 'acceptable',
-        temp: { value: 27, status: 'optimal' },
-        do: { value: 5.8, status: 'optimal' },
-        ph: { value: 7.6, status: 'optimal' },
-        nh3: { value: 0.04, status: 'optimal' }
-      },
-      feeding: {
-        todayMeals: 4,
-        totalMeals: 4,
-        todayFed: 58,
-        recommended: 60
-      }
-    },
-    { 
-      id: 'C-05', 
-      name: 'Tank C-05',
-      volume: 50,
-      status: 'active',
-      species: 'Nile Tilapia',
-      biomass: 3200,
-      capacity: 5000,
-      batches: [
-        {
-          id: '#126',
-          species: 'Nile Tilapia',
-          count: 950,
-          avgWeight: 220,
-          age: 38,
-          status: 'active',
-          feedType: 'Grower 32% 3mm Sinking',
-          dailyFeedKg: 34
-        }
-      ],
-      waterQuality: {
-        overall: 'optimal',
-        temp: { value: 28, status: 'optimal' },
-        do: { value: 6.5, status: 'optimal' },
-        ph: { value: 7.4, status: 'optimal' },
-        nh3: { value: 0.02, status: 'optimal' }
-      },
-      feeding: {
-        todayMeals: 4,
-        totalMeals: 4,
-        todayFed: 72,
-        recommended: 75
-      }
-    },
-  ];
+  // ── Fetch tanks from API ──
+  // WHY fetch here and not inside TankDetailView?
+  // The tank LIST is Hazem's responsibility (GET /api/v1/tanks).
+  // Fetching once at this level means the grid is always populated
+  // and we can pass the full tank object into TankDetailView so it
+  // can immediately show data without an extra round-trip.
+  const fetchTanks = useCallback(async () => {
+    setTanksLoading(true);
+    setTanksError(null);
+    try {
+      // API returns: { success: true, data: [...] }
+      const res = await apiGet<{ success: boolean; data: ApiTank[] } | ApiTank[]>('/tanks');
+      const list: ApiTank[] = Array.isArray(res)
+        ? res
+        : ((res as { success: boolean; data: ApiTank[] }).data ?? []);
+
+      // Normalise: map the REAL API fields to the shape TankDetailView expects
+      // - biomass is an OBJECT { actual, capacity } in the real API
+      // - waterQuality uses 'overallStatus' (not 'overall')
+      // - feeding uses 'weightFed'/'targetWeight'/'currentMeal'
+      // - fishType instead of species
+      const normalised = list.map(t => {
+        const bioObj = t.biomass as unknown as ApiTankBiomass | undefined;
+        const biomassKg = bioObj?.actual ?? 0;
+        const capacityKg = bioObj?.capacity ?? 25000;
+        const wq = t.waterQuality as ApiTankWaterQuality | undefined;
+        const fd = t.feeding as ApiTankFeeding | undefined;
+
+        return {
+          ...t,
+          species: t.fishType ?? 'Unknown',   // rename fishType → species
+          biomass: biomassKg,
+          capacity: capacityKg,
+          volume: 50,                          // not returned by API, default
+          batches: t.batches ?? [],
+          waterQuality: {
+            overall: (wq?.overallStatus ?? 'unknown').toLowerCase(),
+            temp: { value: parseFloat((wq?.temperature ?? 0).toFixed(1)), status: 'unknown' },
+            do: { value: parseFloat((wq?.dissolvedOxygen ?? 0).toFixed(2)), status: 'unknown' },
+            ph: { value: parseFloat((wq?.ph ?? 0).toFixed(2)), status: 'unknown' },
+            nh3: { value: parseFloat((wq?.ammonia ?? 0).toFixed(4)), status: 'unknown' },
+          },
+          feeding: {
+            todayMeals: fd?.currentMeal ?? 0,
+            totalMeals: fd?.totalMeals ?? 4,
+            todayFed: fd?.weightFed ?? 0,
+            recommended: fd?.targetWeight ?? 0,
+          },
+        };
+      });
+
+      setTanks(normalised as any[]);
+    } catch (err) {
+      setTanksError((err as Error).message);
+    } finally {
+      setTanksLoading(false);
+    }
+  }, [currentFarm.id]);
+
+  useEffect(() => {
+    fetchTanks();
+  }, [fetchTanks]);
+
+  // tanks, tanksLoading, tanksError are managed by useEffect above
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -209,84 +211,122 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
           </Button>
         </div>
 
+        {/* Error banner */}
+        {tanksError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-800">Failed to load tanks</p>
+              <p className="text-xs text-red-600 mt-0.5">{tanksError}</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={fetchTanks}>Retry</Button>
+          </div>
+        )}
+
         {/* Tank Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {tanks.map((tank) => (
-            <Card 
-              key={tank.id} 
-              className="bg-white shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => {
-                setSelectedTank(tank);
-                setViewMode('detail');
-              }}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">{tank.name}</CardTitle>
-                  <Badge className={`${getStatusColor(tank.status)} text-white`}>
-                    {tank.status.toUpperCase()}
-                  </Badge>
-                </div>
-                <p className="text-sm text-gray-600">{tank.species}</p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Biomass */}
-                <div>
-                  <div className="flex items-center justify-between text-sm mb-1">
-                    <span className="text-gray-600">Biomass</span>
-                    <span className="font-medium">{tank.biomass} / {tank.capacity} kg</span>
+        {tanksLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <Card key={i} className="bg-white shadow-sm animate-pulse">
+                <CardContent className="p-6 space-y-3">
+                  <div className="h-5 bg-gray-200 rounded w-1/2" />
+                  <div className="h-3 bg-gray-200 rounded w-1/3" />
+                  <div className="h-2 bg-gray-200 rounded w-full" />
+                  <div className="h-12 bg-gray-100 rounded" />
+                  <div className="h-10 bg-gray-100 rounded" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : tanks.length === 0 && !tanksError ? (
+          <div className="text-center py-16">
+            <Fish className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-600">No tanks found for this farm</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {tanks.map((tank) => (
+              <Card
+                key={tank.id}
+                className="bg-white shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => {
+                  setSelectedTank(tank);
+                  setViewMode('detail');
+                }}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">{tank.name}</CardTitle>
+                    <Badge className={`${getStatusColor(tank.status ?? '')} text-white`}>
+                      {(tank.status ?? 'unknown').toUpperCase()}
+                    </Badge>
                   </div>
-                  <Progress value={(tank.biomass / tank.capacity) * 100} className="h-2" />
-                  {tank.biomass > tank.capacity && (
-                    <p className="text-xs text-red-600 mt-1">
-                      ⚠️ Overstocked by {Math.round(((tank.biomass - tank.capacity) / tank.capacity) * 100)}%
-                    </p>
-                  )}
-                </div>
+                  <p className="text-sm text-gray-600">{tank.species}</p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Biomass */}
+                  <div>
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="text-gray-600">Biomass</span>
+                      <span className="font-medium">{tank.biomass as number} / {tank.capacity} kg</span>
+                    </div>
+                    <Progress value={Math.min(((tank.biomass as number) / (tank.capacity as number)) * 100, 100)} className="h-2" />
+                    {(tank.biomass as number) > (tank.capacity as number) && (
+                      <p className="text-xs text-red-600 mt-1">
+                        ⚠️ Overstocked by {Math.round((((tank.biomass as number) - (tank.capacity as number)) / (tank.capacity as number)) * 100)}%
+                      </p>
+                    )}
+                  </div>
 
-                {/* Water Quality */}
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Water Quality</span>
-                    <span className="text-xs">{getStatusIcon(tank.waterQuality.overall)} {tank.waterQuality.overall}</span>
+                  {/* Water Quality */}
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Water Quality</span>
+                      <span className="text-xs">{getStatusIcon((tank.waterQuality as any)?.overall ?? 'unknown')} {(tank.waterQuality as any)?.overall ?? '–'}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-gray-600">Temp:</span>
+                        <span className="ml-1 font-medium">{(tank.waterQuality as any)?.temp?.value ?? '–'}°C</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">DO:</span>
+                        <span className="ml-1 font-medium">{(tank.waterQuality as any)?.do?.value ?? '–'} mg/L</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">pH:</span>
+                        <span className="ml-1 font-medium">{(tank.waterQuality as any)?.ph?.value ?? '–'}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">NH₃:</span>
+                        <span className="ml-1 font-medium">{(tank.waterQuality as any)?.nh3?.value ?? '–'} mg/L</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <span className="text-gray-600">Temp:</span>
-                      <span className="ml-1 font-medium">{tank.waterQuality.temp.value}°C</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">DO:</span>
-                      <span className="ml-1 font-medium">{tank.waterQuality.do.value} mg/L</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">pH:</span>
-                      <span className="ml-1 font-medium">{tank.waterQuality.ph.value}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">NH₃:</span>
-                      <span className="ml-1 font-medium">{tank.waterQuality.nh3.value} mg/L</span>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Feeding */}
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Today's Feeding</span>
-                    <span className="text-xs">{tank.feeding.todayMeals}/{tank.feeding.totalMeals} meals</span>
+                  {/* Feeding */}
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Today's Feeding</span>
+                      <span className="text-xs">{(tank.feeding as any)?.todayMeals ?? 0}/{(tank.feeding as any)?.totalMeals ?? 4} meals</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-600">Fed: {(tank.feeding as any)?.todayFed ?? 0} / {(tank.feeding as any)?.recommended ?? 0} kg</span>
+                      {(tank.feeding as any)?.recommended > 0 && (
+                        <span className={`font-medium ${(tank.feeding as any).todayFed < (tank.feeding as any).recommended
+                          ? 'text-yellow-600'
+                          : 'text-green-600'
+                          }`}>
+                          {Math.round(((tank.feeding as any).todayFed / (tank.feeding as any).recommended) * 100)}%
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-600">Fed: {tank.feeding.todayFed} / {tank.feeding.recommended} kg</span>
-                    <span className={`font-medium ${tank.feeding.todayFed < tank.feeding.recommended ? 'text-yellow-600' : 'text-green-600'}`}>
-                      {Math.round((tank.feeding.todayFed / tank.feeding.recommended) * 100)}%
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -308,54 +348,54 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
 
   // Detailed water quality records
   const waterQualityRecords = [
-    { 
-      id: 1, 
-      measuredAt: '2026-02-13 14:30', 
-      temp: 28, 
-      do: 4.2, 
-      ph: 7.8, 
-      nh3: 0.08, 
-      no2: 0.06, 
-      no3: 18, 
+    {
+      id: 1,
+      measuredAt: '2026-02-13 14:30',
+      temp: 28,
+      do: 4.2,
+      ph: 7.8,
+      nh3: 0.08,
+      no2: 0.06,
+      no3: 18,
       status: 'warning',
       measuredBy: 'Ahmed Mohamed',
       notes: 'DO levels dropping, increased aeration'
     },
-    { 
-      id: 2, 
-      measuredAt: '2026-02-09 09:15', 
-      temp: 28.5, 
-      do: 4.8, 
-      ph: 7.8, 
-      nh3: 0.06, 
-      no2: 0.05, 
-      no3: 16, 
+    {
+      id: 2,
+      measuredAt: '2026-02-09 09:15',
+      temp: 28.5,
+      do: 4.8,
+      ph: 7.8,
+      nh3: 0.06,
+      no2: 0.05,
+      no3: 16,
       status: 'acceptable',
       measuredBy: 'Fatima Hassan',
       notes: ''
     },
-    { 
-      id: 3, 
-      measuredAt: '2026-02-05 16:45', 
-      temp: 28, 
-      do: 5.5, 
-      ph: 7.7, 
-      nh3: 0.04, 
-      no2: 0.03, 
-      no3: 14, 
+    {
+      id: 3,
+      measuredAt: '2026-02-05 16:45',
+      temp: 28,
+      do: 5.5,
+      ph: 7.7,
+      nh3: 0.04,
+      no2: 0.03,
+      no3: 14,
       status: 'optimal',
       measuredBy: 'Ahmed Mohamed',
       notes: 'All parameters optimal'
     },
-    { 
-      id: 4, 
-      measuredAt: '2026-02-01 11:20', 
-      temp: 27.5, 
-      do: 5.8, 
-      ph: 7.6, 
-      nh3: 0.03, 
-      no2: 0.02, 
-      no3: 12, 
+    {
+      id: 4,
+      measuredAt: '2026-02-01 11:20',
+      temp: 27.5,
+      do: 5.8,
+      ph: 7.6,
+      nh3: 0.03,
+      no2: 0.02,
+      no3: 12,
       status: 'optimal',
       measuredBy: 'Omar Ibrahim',
       notes: ''
@@ -370,73 +410,73 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
 
   // Detailed feeding records
   const feedingRecords = [
-    { 
-      id: 1, 
-      date: '2026-02-13', 
-      time: '17:30', 
-      meal: 3, 
-      fed: 25, 
-      recommended: 22.5, 
+    {
+      id: 1,
+      date: '2026-02-13',
+      time: '17:30',
+      meal: 3,
+      fed: 25,
+      recommended: 22.5,
       foodType: 'Grower 30% 3mm Floating',
       status: 'on-target',
       fedBy: 'Ahmed Mohamed',
       notes: ''
     },
-    { 
-      id: 2, 
-      date: '2026-02-13', 
-      time: '13:00', 
-      meal: 2, 
-      fed: 18, 
-      recommended: 22.5, 
+    {
+      id: 2,
+      date: '2026-02-13',
+      time: '13:00',
+      meal: 2,
+      fed: 18,
+      recommended: 22.5,
       foodType: 'Grower 30% 3mm Floating',
       status: 'below',
       fedBy: 'Fatima Hassan',
       notes: 'Fish showing reduced appetite'
     },
-    { 
-      id: 3, 
-      date: '2026-02-13', 
-      time: '08:30', 
-      meal: 1, 
-      fed: 22, 
-      recommended: 22.5, 
+    {
+      id: 3,
+      date: '2026-02-13',
+      time: '08:30',
+      meal: 1,
+      fed: 22,
+      recommended: 22.5,
       foodType: 'Grower 30% 3mm Floating',
       status: 'on-target',
       fedBy: 'Ahmed Mohamed',
       notes: ''
     },
-    { 
-      id: 4, 
-      date: '2026-02-12', 
-      time: '17:30', 
-      meal: 4, 
-      fed: 23, 
-      recommended: 22.5, 
+    {
+      id: 4,
+      date: '2026-02-12',
+      time: '17:30',
+      meal: 4,
+      fed: 23,
+      recommended: 22.5,
       foodType: 'Grower 30% 3mm Floating',
       status: 'on-target',
       fedBy: 'Omar Ibrahim',
       notes: ''
     },
-    { 
-      id: 5, 
-      date: '2026-02-12', 
-      time: '13:00', 
-      meal: 3, 
-      fed: 22, 
-      recommended: 22.5, 
+    {
+      id: 5,
+      date: '2026-02-12',
+      time: '13:00',
+      meal: 3,
+      fed: 22,
+      recommended: 22.5,
       foodType: 'Grower 30% 3mm Floating',
       status: 'on-target',
       fedBy: 'Ahmed Mohamed',
       notes: ''
     },
-    { 
-      id: 6, 
-      date: '2026-02-12', 
-      time: '08:30', 
-      meal: 2, 
-      fed: 24, 
-      recommended: 22.5, 
+    {
+      id: 6,
+      date: '2026-02-12',
+      time: '08:30',
+      meal: 2,
+      fed: 24,
+      recommended: 22.5,
       foodType: 'Grower 30% 3mm Floating',
       status: 'on-target',
       fedBy: 'Fatima Hassan',
@@ -457,9 +497,9 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
       {/* Top Navigation */}
       <div className="bg-[#0A4D68] text-white px-6 py-4">
         <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className="text-white hover:bg-white/10"
             onClick={onBack}
           >
@@ -678,7 +718,7 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
                   const fedToday = Math.round(totalRequired * 0.72);
                   const remaining = totalRequired - fedToday;
                   const uniqueFeedTypes = [...new Set(tank.batches.map((b: any) => b.feedType?.split(' ')[1] || '30%'))];
-                  
+
                   return (
                     <>
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -854,8 +894,8 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Water Quality Trends - Last 30 Days</CardTitle>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   className="bg-[#088395] hover:bg-[#0A4D68]"
                   onClick={() => setShowWaterQualityModal(true)}
                 >
@@ -883,7 +923,7 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
             {/* History Records */}
             <div className="space-y-4">
               <h3 className="font-semibold text-gray-900">Measurement History</h3>
-              
+
               <div className="space-y-3">
                 {waterQualityRecords.map((record) => {
                   const getStatusColor = (status: string) => {
@@ -968,8 +1008,8 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Today's Feeding Schedule - Feb 13, 2026</CardTitle>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   className="bg-[#088395] hover:bg-[#0A4D68]"
                   onClick={() => setShowFeedingModal(true)}
                 >
@@ -1004,7 +1044,7 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
             {/* Feeding History Records */}
             <div className="space-y-4">
               <h3 className="font-semibold text-gray-900">Feeding History Records</h3>
-              
+
               <div className="space-y-3">
                 {feedingRecords.map((record) => {
                   const getStatusColor = (status: string) => {
@@ -1095,7 +1135,7 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
                   <Label className="font-semibold">Select Batch to View Growth:</Label>
                   <div className="flex gap-2">
                     {tank.batches.map((batch: any) => (
-                      <Button 
+                      <Button
                         key={batch.id}
                         variant="outline"
                         className="bg-white"
@@ -1148,7 +1188,7 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
                     <p className="text-2xl font-bold text-green-700">95%</p>
                     <p className="text-xs text-gray-600 mt-1">No active issues</p>
                   </div>
-                  
+
                   <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm text-gray-600">Mortality Rate</span>
@@ -1157,7 +1197,7 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
                     <p className="text-2xl font-bold text-blue-700">2.1%</p>
                     <p className="text-xs text-gray-600 mt-1">Last 30 days</p>
                   </div>
-                  
+
                   <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm text-gray-600">Last Inspection</span>
@@ -1170,7 +1210,7 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
 
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-900">Health History & Observations</h3>
-                  
+
                   {/* Health Record 1 */}
                   <Card className="border-l-4 border-l-green-500">
                     <CardContent className="p-4">
@@ -1297,7 +1337,7 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
                     <span className="font-bold">March 15, 2026 (28 days)</span>
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <h4 className="font-medium">Predictions:</h4>
                   <div className="space-y-1 text-sm">
@@ -1360,15 +1400,15 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
       </div>
 
       {/* Feeding Modal */}
-      <FeedingModal 
-        open={showFeedingModal} 
+      <FeedingModal
+        open={showFeedingModal}
         onOpenChange={setShowFeedingModal}
         tank={tank}
       />
 
       {/* Water Quality Modal */}
-      <WaterQualityModal 
-        open={showWaterQualityModal} 
+      <WaterQualityModal
+        open={showWaterQualityModal}
         onOpenChange={setShowWaterQualityModal}
         tank={tank}
       />
@@ -1428,7 +1468,7 @@ function FeedingModal({ open, onOpenChange, tank }: { open: boolean; onOpenChang
           <DialogTitle>Record Feeding - {tank?.name}</DialogTitle>
           <p className="text-sm text-gray-600">Batch #123 - Nile Tilapia</p>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           {/* Recommendation */}
           <div className="bg-[#E0F4F5] p-4 rounded-lg">
@@ -1454,17 +1494,17 @@ function FeedingModal({ open, onOpenChange, tank }: { open: boolean; onOpenChang
           <div className="space-y-2">
             <Label>Number of Meals: *</Label>
             <div className="flex items-center gap-4">
-              <Slider 
-                value={[meals]} 
-                onValueChange={(value) => setMeals(value[0])}
+              <Slider
+                value={[meals]}
+                onValueChange={(value: number[]) => setMeals(value[0])}
                 min={0.5}
                 max={4}
                 step={0.5}
                 className="flex-1"
               />
-              <Input 
-                type="number" 
-                value={meals} 
+              <Input
+                type="number"
+                value={meals}
                 onChange={(e) => setMeals(parseFloat(e.target.value))}
                 className="w-20"
                 step={0.5}
@@ -1475,9 +1515,9 @@ function FeedingModal({ open, onOpenChange, tank }: { open: boolean; onOpenChang
           {/* Weight Fed */}
           <div className="space-y-2">
             <Label>Weight Fed (kg): *</Label>
-            <Input 
-              type="number" 
-              value={weightFed} 
+            <Input
+              type="number"
+              value={weightFed}
               onChange={(e) => setWeightFed(parseFloat(e.target.value))}
             />
           </div>
@@ -1529,7 +1569,7 @@ function WaterQualityModal({ open, onOpenChange, tank }: { open: boolean; onOpen
   const [totalAmmonia, setTotalAmmonia] = useState(0.15);
   const [nitrite, setNitrite] = useState(0.08);
   const [nitrate, setNitrate] = useState(20);
-  
+
   // Optional parameters
   const [salinity, setSalinity] = useState('');
   const [alkalinity, setAlkalinity] = useState('');
@@ -1561,7 +1601,7 @@ function WaterQualityModal({ open, onOpenChange, tank }: { open: boolean; onOpen
           <DialogTitle>Record Water Quality - {tank?.name}</DialogTitle>
           <p className="text-sm text-gray-600">Last Reading: 4 hours ago</p>
         </DialogHeader>
-        
+
         <div className="space-y-6">
           {/* Required Parameters */}
           <div>
@@ -1569,9 +1609,9 @@ function WaterQualityModal({ open, onOpenChange, tank }: { open: boolean; onOpen
             <div className="grid grid-cols-3 gap-4">
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
                 <Label className="text-sm font-medium">Temperature *</Label>
-                <Input 
-                  type="number" 
-                  value={temp} 
+                <Input
+                  type="number"
+                  value={temp}
                   onChange={(e) => setTemp(parseFloat(e.target.value))}
                   step={0.1}
                 />
@@ -1583,9 +1623,9 @@ function WaterQualityModal({ open, onOpenChange, tank }: { open: boolean; onOpen
 
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
                 <Label className="text-sm font-medium">Dissolved Oxygen *</Label>
-                <Input 
-                  type="number" 
-                  value={doValue} 
+                <Input
+                  type="number"
+                  value={doValue}
                   onChange={(e) => setDoValue(parseFloat(e.target.value))}
                   step={0.1}
                 />
@@ -1597,9 +1637,9 @@ function WaterQualityModal({ open, onOpenChange, tank }: { open: boolean; onOpen
 
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
                 <Label className="text-sm font-medium">pH *</Label>
-                <Input 
-                  type="number" 
-                  value={phValue} 
+                <Input
+                  type="number"
+                  value={phValue}
                   onChange={(e) => setPhValue(parseFloat(e.target.value))}
                   step={0.1}
                 />
@@ -1611,9 +1651,9 @@ function WaterQualityModal({ open, onOpenChange, tank }: { open: boolean; onOpen
 
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
                 <Label className="text-sm font-medium">Total Ammonia (TAN) *</Label>
-                <Input 
-                  type="number" 
-                  value={totalAmmonia} 
+                <Input
+                  type="number"
+                  value={totalAmmonia}
                   onChange={(e) => setTotalAmmonia(parseFloat(e.target.value))}
                   step={0.01}
                 />
@@ -1625,9 +1665,9 @@ function WaterQualityModal({ open, onOpenChange, tank }: { open: boolean; onOpen
 
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
                 <Label className="text-sm font-medium">Nitrite (NO₂) *</Label>
-                <Input 
-                  type="number" 
-                  value={nitrite} 
+                <Input
+                  type="number"
+                  value={nitrite}
                   onChange={(e) => setNitrite(parseFloat(e.target.value))}
                   step={0.01}
                 />
@@ -1639,9 +1679,9 @@ function WaterQualityModal({ open, onOpenChange, tank }: { open: boolean; onOpen
 
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
                 <Label className="text-sm font-medium">Nitrate (NO₃) *</Label>
-                <Input 
-                  type="number" 
-                  value={nitrate} 
+                <Input
+                  type="number"
+                  value={nitrate}
                   onChange={(e) => setNitrate(parseFloat(e.target.value))}
                   step={0.1}
                 />
@@ -1651,7 +1691,7 @@ function WaterQualityModal({ open, onOpenChange, tank }: { open: boolean; onOpen
                 </div>
               </div>
             </div>
-            
+
             <div className="mt-3 bg-blue-50 border border-blue-200 p-3 rounded-lg text-xs">
               <p><strong>Note:</strong> Toxic Ammonia (NH₃), DO Saturation %, and CO₂ Content will be calculated automatically by the system based on temperature, pH, and TAN values.</p>
             </div>
@@ -1663,10 +1703,10 @@ function WaterQualityModal({ open, onOpenChange, tank }: { open: boolean; onOpen
             <div className="grid grid-cols-3 gap-4">
               <div className="border rounded-lg p-3 space-y-2">
                 <Label className="text-sm">Salinity</Label>
-                <Input 
-                  type="number" 
+                <Input
+                  type="number"
                   placeholder="Optional"
-                  value={salinity} 
+                  value={salinity}
                   onChange={(e) => setSalinity(e.target.value)}
                   step={0.1}
                 />
@@ -1675,10 +1715,10 @@ function WaterQualityModal({ open, onOpenChange, tank }: { open: boolean; onOpen
 
               <div className="border rounded-lg p-3 space-y-2">
                 <Label className="text-sm">Alkalinity</Label>
-                <Input 
-                  type="number" 
+                <Input
+                  type="number"
                   placeholder="Optional"
-                  value={alkalinity} 
+                  value={alkalinity}
                   onChange={(e) => setAlkalinity(e.target.value)}
                   step={1}
                 />
@@ -1687,10 +1727,10 @@ function WaterQualityModal({ open, onOpenChange, tank }: { open: boolean; onOpen
 
               <div className="border rounded-lg p-3 space-y-2">
                 <Label className="text-sm">Hardness</Label>
-                <Input 
-                  type="number" 
+                <Input
+                  type="number"
                   placeholder="Optional"
-                  value={hardness} 
+                  value={hardness}
                   onChange={(e) => setHardness(e.target.value)}
                   step={1}
                 />
@@ -1699,10 +1739,10 @@ function WaterQualityModal({ open, onOpenChange, tank }: { open: boolean; onOpen
 
               <div className="border rounded-lg p-3 space-y-2">
                 <Label className="text-sm">Turbidity</Label>
-                <Input 
-                  type="number" 
+                <Input
+                  type="number"
                   placeholder="Optional"
-                  value={turbidity} 
+                  value={turbidity}
                   onChange={(e) => setTurbidity(e.target.value)}
                   step={0.1}
                 />
@@ -1711,10 +1751,10 @@ function WaterQualityModal({ open, onOpenChange, tank }: { open: boolean; onOpen
 
               <div className="border rounded-lg p-3 space-y-2">
                 <Label className="text-sm">CO₂ (Direct)</Label>
-                <Input 
-                  type="number" 
+                <Input
+                  type="number"
                   placeholder="Optional"
-                  value={co2} 
+                  value={co2}
                   onChange={(e) => setCo2(e.target.value)}
                   step={0.1}
                 />
@@ -1725,7 +1765,7 @@ function WaterQualityModal({ open, onOpenChange, tank }: { open: boolean; onOpen
 
           {/* Overall Status */}
           <div className="bg-gray-50 p-4 rounded-lg border-2">
-            <p className="font-semibold mb-2">Overall Assessment: 
+            <p className="font-semibold mb-2">Overall Assessment:
               <span className={doValue < 5 || totalAmmonia > 0.5 ? ' text-yellow-600' : ' text-green-600'}>
                 {doValue < 5 || totalAmmonia > 0.5 ? ' 🟡 WARNING' : ' 🟢 OPTIMAL'}
               </span>
@@ -1760,7 +1800,7 @@ function WaterQualityModal({ open, onOpenChange, tank }: { open: boolean; onOpen
           {/* Action Notes */}
           <div>
             <Label>Action Notes (optional)</Label>
-            <Textarea 
+            <Textarea
               placeholder="Did you take any corrective action? Enter details here..."
               rows={2}
             />
