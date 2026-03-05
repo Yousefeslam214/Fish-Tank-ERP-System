@@ -1,23 +1,81 @@
-import { useState } from 'react';
+// ============================================================
+// Dashboard.tsx  –  Hazem Yasser
+// ============================================================
+// WHY useEffect + fetch?
+//   The dashboard must show live data the moment it loads. We
+//   call GET /api/v1/dashboard inside a useEffect so React first
+//   renders the skeleton/loading UI and then hydrates it with
+//   real numbers when the API responds. This avoids a blank
+//   screen AND keeps the UI responsive while waiting.
+//
+// WHY keep mockFarms for the farm-selector?
+//   The /dashboard endpoint does not return a list of all farms
+//   the user belongs to – that requires a separate /farms route
+//   which is not yet part of Hazem's task scope. The farm dropdown
+//   is therefore still backed by mockFarms so the rest of the app
+//   (tank management, etc.) can still receive a selectedFarm prop.
+// ============================================================
+
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
-import { 
-  Fish, 
-  Scale, 
-  Wheat, 
-  DollarSign, 
-  TrendingUp, 
-  TrendingDown,
+import {
+  Fish,
+  Scale,
+  Wheat,
+  DollarSign,
+  TrendingUp,
   AlertCircle,
   Clock,
-  Calendar
+  Calendar,
+  RefreshCw,
 } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { User, Farm } from '../types';
 import { mockFarms } from '../mockData';
+import { apiGet } from '../api';
+
+// ── Types that mirror the actual /api/v1/dashboard response shape ──
+interface DashboardFishSummary {
+  totalActiveFish: string | number;  // API returns string "12,500" with comma!
+  totalBiomassKg: number;
+  biomassCapacityPercentage?: number;
+  activeTanks?: number;
+  totalTanks?: number;
+}
+interface DashboardFeedStock {
+  totalStockKg: number;
+  estimatedDaysRemaining?: number;
+  feedStockRemainingLabel?: string;
+}
+interface DashboardPredictedRevenue {
+  totalProjectedRevenue: number;
+  nextHarvestRevenue?: number;
+  nearestHarvestDate?: string;
+  nextHarvestDateFormatted?: string;
+}
+interface DashboardUpcomingHarvest {
+  tankName: string;
+  estimatedWeight?: number;
+  projectedRevenue?: number;
+  earliestHarvestDate?: string;
+  batches?: { fishType?: string; daysToHarvest?: number }[];
+}
+interface DashboardWaterAlert {
+  tankName?: string;
+  parameter?: string;
+  value?: string | number;
+  status?: string;
+}
+interface DashboardData {
+  fishSummary?: DashboardFishSummary;
+  feedStock?: DashboardFeedStock;
+  predictedRevenue?: DashboardPredictedRevenue;
+  upcomingHarvests?: DashboardUpcomingHarvest[];
+  waterQualityAlerts?: DashboardWaterAlert[];
+}
 
 interface DashboardProps {
   user: User;
@@ -28,6 +86,42 @@ interface DashboardProps {
 export default function Dashboard({ user, onFarmSelect, selectedFarm }: DashboardProps) {
   const [currentFarm, setCurrentFarm] = useState<Farm>(selectedFarm || mockFarms[0]);
 
+  // ── API state ──
+  const [dashData, setDashData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+
+  // ── Fetch dashboard data ──
+  // WHY async function inside useEffect?
+  // useEffect callbacks cannot be async directly, so we define
+  // an inner async function and immediately invoke it.
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchDashboard = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // API returns: { success: true, data: { fishSummary, feedStock, predictedRevenue, ... } }
+        const res = await apiGet<{ success: boolean; data: DashboardData }>('/dashboard');
+        if (!cancelled) {
+          setDashData(res.data);
+          setLastRefreshed(new Date());
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError((err as Error).message);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    fetchDashboard();
+    return () => { cancelled = true; };
+  }, [currentFarm.id]); // re-fetch when farm changes
+
   const handleFarmChange = (farmId: string) => {
     const farm = mockFarms.find(f => f.id === farmId);
     if (farm) {
@@ -36,83 +130,21 @@ export default function Dashboard({ user, onFarmSelect, selectedFarm }: Dashboar
     }
   };
 
-  // Mock data for KPIs
-  const kpiData = {
-    totalFish: 125000,
-    fishTrend: 2.5,
-    totalBiomass: 5420,
-    biomassCapacity: 6000,
-    feedStock: 2850,
-    feedDaysRemaining: 28,
-    predictedRevenue: 285000,
-    harvestDate: 'Mar 15, 2026'
-  };
+  // ── Resolve safe display values from the real API shape ──
+  // totalActiveFish comes as a comma-formatted string e.g. "12,500"
+  const rawFish = dashData?.fishSummary?.totalActiveFish ?? 0;
+  const totalFish = typeof rawFish === 'string'
+    ? parseInt(rawFish.replace(/,/g, ''), 10)
+    : rawFish;
+  const totalBiomass = dashData?.fishSummary?.totalBiomassKg ?? 0;
+  const biomassCapacityPct = dashData?.fishSummary?.biomassCapacityPercentage ?? 0;
+  const feedStock = dashData?.feedStock?.totalStockKg ?? 0;
+  const feedDaysRemaining = dashData?.feedStock?.estimatedDaysRemaining ?? 0;
+  const predictedRevenue = dashData?.predictedRevenue?.totalProjectedRevenue ?? 0;
+  const nextHarvestDateFormatted = dashData?.predictedRevenue?.nextHarvestDateFormatted ?? 'TBD';
 
-  // Water quality alerts
-  const waterQualityAlerts = [
-    { tank: 'Tank A-03', status: 'critical', parameter: 'DO', value: '2.8 mg/L' },
-    { tank: 'Tank B-12', status: 'warning', parameter: 'NH₃', value: '0.08 mg/L' },
-    { tank: 'Tank C-05', status: 'optimal', parameter: 'All parameters', value: 'optimal' },
-  ];
-
-  // Feeding status
-  const feedingStatus = {
-    tanksAssigned: 15,
-    tanksFed: 12,
-    nextFeedingTime: '14:30',
-    hoursUntilNext: 2,
-    behindSchedule: 3
-  };
-
-  // Upcoming harvests
-  const upcomingHarvests = [
-    { 
-      tankName: 'Tank A-05', 
-      estimatedWeight: 250,
-      batches: [
-        {
-          fishType: 'Nile Tilapia',
-          daysToHarvest: 12
-        }
-      ]
-    },
-    { 
-      tankName: 'Tank B-03', 
-      estimatedWeight: 380,
-      batches: [
-        {
-          fishType: 'Nile Tilapia',
-          daysToHarvest: 28
-        },
-        {
-          fishType: 'Catfish',
-          daysToHarvest: 35
-        }
-      ]
-    },
-    { 
-      tankName: 'Tank C-01', 
-      estimatedWeight: 420,
-      batches: [
-        {
-          fishType: 'Nile Tilapia',
-          daysToHarvest: 45
-        }
-      ]
-    },
-  ];
-
-  // Growth trends data (last 30 days)
-  const growthData = [
-    { date: 'Feb 1', weight: 220, sgr: 2.4, fcr: 1.45 },
-    { date: 'Feb 5', weight: 230, sgr: 2.5, fcr: 1.42 },
-    { date: 'Feb 9', weight: 238, sgr: 2.6, fcr: 1.40 },
-    { date: 'Feb 13', weight: 245, sgr: 2.5, fcr: 1.38 },
-    { date: 'Feb 17', weight: 252, sgr: 2.4, fcr: 1.36 },
-    { date: 'Feb 21', weight: 260, sgr: 2.6, fcr: 1.35 },
-    { date: 'Feb 25', weight: 268, sgr: 2.5, fcr: 1.33 },
-    { date: 'Mar 1', weight: 275, sgr: 2.5, fcr: 1.32 },
-  ];
+  const upcomingHarvests = dashData?.upcomingHarvests ?? [];
+  const waterAlerts = dashData?.waterQualityAlerts ?? [];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -124,7 +156,7 @@ export default function Dashboard({ user, onFarmSelect, selectedFarm }: Dashboar
   };
 
   const getStatusIcon = (status: string) => {
-    switch (status) {
+    switch (status.toLowerCase()) {
       case 'critical': return '🔴';
       case 'warning': return '🟡';
       case 'optimal': return '🟢';
@@ -132,18 +164,27 @@ export default function Dashboard({ user, onFarmSelect, selectedFarm }: Dashboar
     }
   };
 
+  // ── Skeleton card used while loading ──
+  const SkeletonCard = () => (
+    <Card className="bg-white shadow-sm animate-pulse">
+      <CardContent className="p-6">
+        <div className="h-4 bg-gray-200 rounded w-1/2 mb-3" />
+        <div className="h-8 bg-gray-200 rounded w-3/4 mb-2" />
+        <div className="h-3 bg-gray-200 rounded w-1/3" />
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="min-h-screen bg-[#F9FAFB]">
-      {/* Top Navigation Bar */}
+      {/* ── Top Navigation Bar ── */}
       <div className="bg-[#0A4D68] text-white px-6 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Fish className="w-6 h-6" />
-              <span className="text-xl font-semibold">Fish Farm 360</span>
-            </div>
+          <div className="flex items-center gap-2">
+            <Fish className="w-6 h-6" />
+            <span className="text-xl font-semibold">Fish Farm 360</span>
           </div>
-          
+
           <div className="flex items-center gap-4">
             <Select value={currentFarm.id} onValueChange={handleFarmChange}>
               <SelectTrigger className="w-64 bg-white text-gray-900">
@@ -157,7 +198,7 @@ export default function Dashboard({ user, onFarmSelect, selectedFarm }: Dashboar
                 ))}
               </SelectContent>
             </Select>
-            
+
             <div className="flex items-center gap-2">
               <div className="text-right">
                 <p className="text-sm font-medium">{user.name}</p>
@@ -172,95 +213,150 @@ export default function Dashboard({ user, onFarmSelect, selectedFarm }: Dashboar
       </div>
 
       <div className="p-6 space-y-6">
-        {/* Page Title */}
-        <div>
-          <h1 className="text-3xl font-semibold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-1">Welcome back, {user.name}</p>
+        {/* ── Page Title + Refresh ── */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold text-gray-900">Dashboard</h1>
+            <p className="text-gray-600 mt-1">Welcome back, {user.name}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            {/* WHY show last-refreshed?
+                Operators in a fish farm need to know how fresh the
+                numbers are so they can judge whether to act on them. */}
+            <span className="text-xs text-gray-500">
+              Last updated: {lastRefreshed.toLocaleTimeString()}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setLoading(true);
+                apiGet<DashboardData>('/dashboard')
+                  .then(d => { setDashData(d); setLastRefreshed(new Date()); })
+                  .catch(e => setError((e as Error).message))
+                  .finally(() => setLoading(false));
+              }}
+              disabled={loading}
+            >
+              <RefreshCw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
-        {/* Top Row - KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Total Active Fish */}
-          <Card className="bg-white shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Total Active Fish</p>
-                  <p className="text-3xl font-bold text-gray-900">{kpiData.totalFish.toLocaleString()}</p>
-                  <p className="text-sm text-gray-500 mt-1">Across 15 tanks</p>
-                  <div className="flex items-center gap-1 mt-2">
-                    <TrendingUp className="w-4 h-4 text-green-600" />
-                    <span className="text-sm text-green-600 font-medium">+{kpiData.fishTrend}% vs last week</span>
+        {/* ── Error banner ── */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-red-800">Failed to load dashboard data</p>
+              <p className="text-xs text-red-600 mt-0.5">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── KPI Cards ── */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => <SkeletonCard key={i} />)}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Total Active Fish */}
+            <Card className="bg-white shadow-sm">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Total Active Fish</p>
+                    <p className="text-3xl font-bold text-gray-900">{totalFish.toLocaleString()}</p>
+                    <p className="text-sm text-gray-500 mt-1">Across {dashData?.fishSummary?.activeTanks ?? 0} tanks</p>
+                    {totalFish > 0 && (
+                      <div className="flex items-center gap-1 mt-2">
+                        <TrendingUp className="w-4 h-4 text-green-600" />
+                        <span className="text-sm text-green-600 font-medium">Live from API</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="w-12 h-12 rounded-lg bg-[#E0F4F5] flex items-center justify-center">
+                    <Fish className="w-6 h-6 text-[#088395]" />
                   </div>
                 </div>
-                <div className="w-12 h-12 rounded-lg bg-[#E0F4F5] flex items-center justify-center">
-                  <Fish className="w-6 h-6 text-[#088395]" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          {/* Total Biomass */}
-          <Card className="bg-white shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <p className="text-sm text-gray-600 mb-1">Total Biomass</p>
-                  <p className="text-3xl font-bold text-gray-900">{kpiData.totalBiomass.toLocaleString()} kg</p>
-                  <p className="text-sm text-gray-500 mt-1">Current farm biomass</p>
-                  <div className="mt-2">
-                    <Progress value={(kpiData.totalBiomass / kpiData.biomassCapacity) * 100} className="h-2" />
-                    <p className="text-xs text-gray-500 mt-1">{Math.round((kpiData.totalBiomass / kpiData.biomassCapacity) * 100)}% of capacity</p>
+            {/* Total Biomass */}
+            <Card className="bg-white shadow-sm">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-600 mb-1">Total Biomass</p>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {totalBiomass.toLocaleString()} kg
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">Current farm biomass</p>
+                    <div className="mt-2">
+                      <Progress value={biomassCapacityPct} className="h-2" />
+                      <p className="text-xs text-gray-500 mt-1">
+                        {biomassCapacityPct}% of capacity
+                      </p>
+                    </div>
+                  </div>
+                  <div className="w-12 h-12 rounded-lg bg-[#E0F4F5] flex items-center justify-center">
+                    <Scale className="w-6 h-6 text-[#088395]" />
                   </div>
                 </div>
-                <div className="w-12 h-12 rounded-lg bg-[#E0F4F5] flex items-center justify-center">
-                  <Scale className="w-6 h-6 text-[#088395]" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          {/* Feed Stock */}
-          <Card className="bg-white shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Feed Stock</p>
-                  <p className="text-3xl font-bold text-gray-900">{kpiData.feedStock.toLocaleString()} kg</p>
-                  <p className="text-sm text-gray-500 mt-1">{kpiData.feedDaysRemaining} days remaining</p>
-                  {kpiData.feedDaysRemaining < 14 && (
-                    <Badge className="mt-2 bg-[#F59E0B]">Low Stock</Badge>
-                  )}
-                </div>
-                <div className="w-12 h-12 rounded-lg bg-[#FEF3C7] flex items-center justify-center">
-                  <Wheat className="w-6 h-6 text-[#F59E0B]" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Predicted Revenue */}
-          <Card className="bg-white shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Predicted Revenue</p>
-                  <p className="text-3xl font-bold text-gray-900">{kpiData.predictedRevenue.toLocaleString()} EGP</p>
-                  <p className="text-sm text-gray-500 mt-1">At next harvest</p>
-                  <div className="flex items-center gap-1 mt-2">
-                    <Calendar className="w-4 h-4 text-gray-500" />
-                    <span className="text-sm text-gray-600">{kpiData.harvestDate}</span>
+            {/* Feed Stock */}
+            <Card className="bg-white shadow-sm">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Feed Stock</p>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {feedStock.toLocaleString()} kg
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">Current inventory</p>
+                    {feedStock > 0 && feedStock < 500 && (
+                      <Badge className="mt-2 bg-[#F59E0B]">Low Stock</Badge>
+                    )}
+                    {feedDaysRemaining >= 0 && (
+                      <p className="text-sm text-gray-500 mt-1">{feedDaysRemaining} days remaining</p>
+                    )}
+                  </div>
+                  <div className="w-12 h-12 rounded-lg bg-[#FEF3C7] flex items-center justify-center">
+                    <Wheat className="w-6 h-6 text-[#F59E0B]" />
                   </div>
                 </div>
-                <div className="w-12 h-12 rounded-lg bg-[#ECFDF5] flex items-center justify-center">
-                  <DollarSign className="w-6 h-6 text-[#10B981]" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              </CardContent>
+            </Card>
 
-        {/* Second Row - Alert Panels */}
+            {/* Predicted Revenue */}
+            <Card className="bg-white shadow-sm">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Predicted Revenue</p>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {predictedRevenue.toLocaleString()} EGP
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">At next harvest</p>
+                    <div className="flex items-center gap-1 mt-2">
+                      <Calendar className="w-4 h-4 text-gray-500" />
+                      <span className="text-sm text-gray-600">{nextHarvestDateFormatted}</span>
+                    </div>
+                  </div>
+                  <div className="w-12 h-12 rounded-lg bg-[#ECFDF5] flex items-center justify-center">
+                    <DollarSign className="w-6 h-6 text-[#10B981]" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* ── Second Row – Water Alerts + Tanks + Upcoming Harvests ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Water Quality Alerts */}
           <Card className="bg-white shadow-sm">
@@ -268,68 +364,60 @@ export default function Dashboard({ user, onFarmSelect, selectedFarm }: Dashboar
               <CardTitle className="text-lg">Water Quality Alerts</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {waterQualityAlerts.map((alert, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{getStatusIcon(alert.status)}</span>
-                      <div>
-                        <p className="font-medium text-sm">{alert.tank}</p>
-                        <p className="text-xs text-gray-600">{alert.parameter}: {alert.value}</p>
+              {loading ? (
+                <div className="space-y-2 animate-pulse">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="h-12 bg-gray-100 rounded-lg" />
+                  ))}
+                </div>
+              ) : waterAlerts.length === 0 ? (
+                <div className="text-center py-6">
+                  <span className="text-3xl">🟢</span>
+                  <p className="text-sm text-gray-600 mt-2">All parameters optimal</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {waterAlerts.map((alert, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{getStatusIcon((alert as any).status ?? 'unknown')}</span>
+                        <div>
+                          <p className="font-medium text-sm">{(alert as any).tankName ?? 'Tank'}</p>
+                          <p className="text-xs text-gray-600">{(alert as any).parameter ?? 'Water Quality'}</p>
+                        </div>
                       </div>
+                      <Badge className={getStatusColor((alert as any).status ?? 'unknown') + ' text-xs'}>
+                        {((alert as any).status ?? 'UNKNOWN').toUpperCase()}
+                      </Badge>
                     </div>
-                    <Badge className={getStatusColor(alert.status) + ' text-xs'}>
-                      {alert.status.toUpperCase()}
-                    </Badge>
-                  </div>
-                ))}
-                <Button variant="outline" className="w-full mt-2">View All</Button>
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Feeding Status */}
+          {/* Active Tanks Summary */}
           <Card className="bg-white shadow-sm">
             <CardHeader>
-              <CardTitle className="text-lg">Feeding Status</CardTitle>
+              <CardTitle className="text-lg">Active Tanks</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="text-center">
-                  <div className="relative inline-block">
-                    <svg className="w-32 h-32">
-                      <circle cx="64" cy="64" r="56" fill="none" stroke="#E5E7EB" strokeWidth="8" />
-                      <circle 
-                        cx="64" 
-                        cy="64" 
-                        r="56" 
-                        fill="none" 
-                        stroke="#088395" 
-                        strokeWidth="8"
-                        strokeDasharray={`${(feedingStatus.tanksFed / feedingStatus.tanksAssigned) * 352} 352`}
-                        strokeLinecap="round"
-                        transform="rotate(-90 64 64)"
-                      />
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <p className="text-2xl font-bold text-gray-900">{feedingStatus.tanksFed}/{feedingStatus.tanksAssigned}</p>
-                      <p className="text-xs text-gray-600">tanks fed</p>
-                    </div>
-                  </div>
+              {loading ? (
+                <div className="space-y-2 animate-pulse">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="h-10 bg-gray-100 rounded" />
+                  ))}
                 </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Next feeding</span>
-                    <span className="font-medium">{feedingStatus.nextFeedingTime} ({feedingStatus.hoursUntilNext}h)</span>
-                  </div>
-                  {feedingStatus.behindSchedule > 0 && (
-                    <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 p-2 rounded">
-                      <AlertCircle className="w-4 h-4" />
-                      <span>{feedingStatus.behindSchedule} tanks behind schedule</span>
-                    </div>
-                  )}
+              ) : (dashData?.fishSummary?.totalTanks ?? 0) === 0 ? (
+                <p className="text-sm text-gray-500 py-4 text-center">No active tanks</p>
+              ) : (
+                <div className="text-center py-4">
+                  <Fish className="w-8 h-8 text-[#088395] mx-auto mb-2" />
+                  <p className="text-2xl font-bold text-gray-900">{dashData?.fishSummary?.activeTanks ?? 0}</p>
+                  <p className="text-sm text-gray-500">active tanks</p>
+                  <p className="text-xs text-gray-400 mt-1">out of {dashData?.fishSummary?.totalTanks ?? 0} total</p>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
@@ -339,40 +427,44 @@ export default function Dashboard({ user, onFarmSelect, selectedFarm }: Dashboar
               <CardTitle className="text-lg">Upcoming Harvests</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {upcomingHarvests.map((harvest, idx) => (
-                  <div key={idx} className="p-3 rounded-lg bg-gray-50 border border-gray-200">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <p className="font-medium text-sm">{harvest.tankName}</p>
-                        <p className="text-xs text-gray-600">{harvest.estimatedWeight}kg estimated</p>
-                      </div>
-                      <Badge className="bg-[#088395] text-white">
-                        {harvest.batches.length} batch{harvest.batches.length > 1 ? 'es' : ''}
-                      </Badge>
-                    </div>
-                    <div className="space-y-1">
-                      {harvest.batches.map((batch, bIdx) => (
-                        <div key={bIdx} className="flex items-center justify-between bg-white p-2 rounded text-xs border">
-                          <div className="flex items-center gap-2">
-                            <Fish className="w-3 h-3 text-[#088395]" />
-                            <span className="font-medium">{batch.fishType}</span>
-                          </div>
-                          <div className="flex items-center gap-1 text-[#088395]">
-                            <Clock className="w-3 h-3" />
-                            <span className="font-bold">{batch.daysToHarvest}d</span>
-                          </div>
+              {loading ? (
+                <div className="space-y-3 animate-pulse">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="h-16 bg-gray-100 rounded-lg" />
+                  ))}
+                </div>
+              ) : upcomingHarvests.length === 0 ? (
+                <p className="text-sm text-gray-500 py-4 text-center">
+                  No harvest dates scheduled yet
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {upcomingHarvests.map((harvest, idx) => (
+                    <div key={idx} className="p-3 rounded-lg bg-gray-50 border border-gray-200">
+                      <div className="flex items-center justify-between mb-1">
+                        <div>
+                          <p className="font-medium text-sm">{harvest.tankName}</p>
+                          {harvest.estimatedWeight && (
+                            <p className="text-xs text-gray-600">{harvest.estimatedWeight.toLocaleString()} kg est.</p>
+                          )}
                         </div>
+                        {harvest.batches?.[0]?.daysToHarvest != null && (
+                          <Badge className="bg-[#088395] text-white text-xs flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {harvest.batches[0].daysToHarvest}d
+                          </Badge>
+                        )}
+                      </div>
+                      {harvest.batches?.map((b, bi) => (
+                        <p key={bi} className="text-xs text-gray-500">{b.fishType}</p>
                       ))}
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
-
-
       </div>
     </div>
   );

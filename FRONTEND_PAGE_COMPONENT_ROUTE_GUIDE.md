@@ -46,14 +46,14 @@ Base API prefix for backend routes: `/api/v1`
 ```
 
 ## 1. Dashboard
-> **Assigned to:** Hazzem Ibrahim
+> **Assigned to:** Hazem Yasser
 - Page id: `dashboard`
 - Component: `src/components/Dashboard.tsx`
 - Backend route group:
   - `GET /api/v1/dashboard`
 
 ## 2. Tank Management
-> **Assigned to:** Hazzem Ibrahim
+> **Assigned to:** Hazem Yasser
 - Page id: `tanks`
 - Component: `src/components/TankManagement.tsx`
 - Backend route group:
@@ -92,7 +92,7 @@ Base API prefix for backend routes: `/api/v1`
 ## 4. Fish Types
 > **Assigned to:** Youssef Eslam
 - Page id: `fish-types`
-- Component: `src/components/FishTypeManagement.tsx`
+- Component: `src/components/FishTypeManagement.tsx` *(re-exports from `FishTypeManagementEnhanced.tsx`)*
 - Backend route group:
   - `GET /api/v1/farm/fish-types`
   - `POST /api/v1/farm/fish-types`
@@ -103,7 +103,7 @@ Base API prefix for backend routes: `/api/v1`
   - `GET /api/v1/farm/fish-types/:id/protein-requirement?weight=45`
 
 ## 5. Food Types
-> **Assigned to:** Hazzem Ibrahim
+> **Assigned to:** Hazem Yasser
 - Page id: `food-types`
 - Component: `src/components/FoodTypeManagement.tsx`
 - Backend route group:
@@ -157,11 +157,13 @@ Base API prefix for backend routes: `/api/v1`
 
 ## 9. Health Library
 > **Assigned to:** Later ....
+- Page id: `health`
 - Component: `src/components/HealthLibrary.tsx`
 - Backend route group:
   - currently available system endpoint: `GET /api/v1/health`
 
 ## 10. AI Assistant
+> **Assigned to:** Later ....
 - Page id: `ai-assistant`
 - Component: `src/components/AIAssistant.tsx`
 - Backend route group:
