@@ -111,8 +111,22 @@ Base API prefix for backend routes: `/api/v1`
   - `POST /api/v1/aquaculture/food-types`
   - `PUT /api/v1/aquaculture/food-types/:id`
   - `GET /api/v1/aquaculture/food-types/species?name=Tilapia`
+ 
+## 6. Inventory
+> **Assigned to:** Andrew Ashraf
+- Page id: `inventory`
+- Component: `src/components/Inventory.tsx`
+- Backend route group:
+  - `GET /api/v1/inventory/feed`
+  - `POST /api/v1/inventory/feed`
+  - `GET /api/v1/inventory/feed/food-type/:foodId`
+  - `GET /api/v1/inventory/batches`
+  - `GET /api/v1/inventory/batches/:id`
+  - `PATCH /api/v1/inventory/batches/:id/quarantine`
+  - `PATCH /api/v1/inventory/batches/:id/health-check`
+  - `PATCH /api/v1/inventory/batches/:id/allocate`
 
-## 6. Procurement
+## 7. Procurement
 > **Assigned to:** Later ....
 - Page id: `procurement`
 - Component: `src/components/Procurement.tsx`
@@ -129,7 +143,7 @@ Base API prefix for backend routes: `/api/v1`
   - `GET /api/v1/procurement/suppliers`
   - `POST /api/v1/procurement/suppliers`
 
-## 7. Notifications
+## 8. Notifications
 - Page id: `notifications`
 - Component: `src/components/NotificationCenter.tsx`
 - Backend route group:
@@ -140,31 +154,17 @@ Base API prefix for backend routes: `/api/v1`
   - `GET /api/v1/notification-templates`
   - `PATCH /api/v1/notification-templates/:id`
 
-## 8. Health Library
+## 9. Health Library
 - Page id: `health`
 - Component: `src/components/HealthLibrary.tsx`
 - Backend route group:
   - currently available system endpoint: `GET /api/v1/health`
 
-## 9. AI Assistant
+## 10. AI Assistant
 - Page id: `ai-assistant`
 - Component: `src/components/AIAssistant.tsx`
 - Backend route group:
   - no dedicated AI endpoints yet (to be defined)
-
-## 10. Inventory
-> **Assigned to:** Later ....
-- Page id: `inventory`
-- Component: `src/components/Inventory.tsx`
-- Backend route group:
-  - `GET /api/v1/inventory/feed`
-  - `POST /api/v1/inventory/feed`
-  - `GET /api/v1/inventory/feed/food-type/:foodId`
-  - `GET /api/v1/inventory/batches`
-  - `GET /api/v1/inventory/batches/:id`
-  - `PATCH /api/v1/inventory/batches/:id/quarantine`
-  - `PATCH /api/v1/inventory/batches/:id/health-check`
-  - `PATCH /api/v1/inventory/batches/:id/allocate`
 
 ## 11. Sales
 > **Assigned to:** Later ....
