@@ -1,13 +1,13 @@
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { Input } from './ui/input';
-import { Progress } from './ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { 
-  Package, 
-  AlertTriangle, 
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
+import { Input } from "./ui/input";
+import { Progress } from "./ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import {
+  Package,
+  AlertTriangle,
   Search,
   Plus,
   ShoppingCart,
@@ -17,113 +17,222 @@ import {
   Fish,
   CheckCircle,
   Clock,
-  XCircle
-} from 'lucide-react';
-import { User, Farm, FishInventoryBatch, FishBatch } from '../types';
-import { mockInventory, mockFishInventoryBatches, mockFishBatches } from '../mockData';
-import AllocateFishToTank from './AllocateFishToTank';
+  XCircle,
+} from "lucide-react";
+import { User, Farm, FishInventoryBatch } from "../types";
+import { mockInventory } from "../mockData";
+import AllocateFishToTank from "./AllocateFishToTank";
+
+import {
+  getFeedInventory,
+  createFeed,
+  getFeedByFoodType,
+  getBatches,
+  getBatchById,
+  quarantineBatch,
+  healthCheckBatch,
+  allocateBatch,
+} from "../api/inventoryApi";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface FeedItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  foodType?: string;
+  [key: string]: unknown;
+}
 
 interface InventoryProps {
   user: User;
   selectedFarm: Farm | null;
 }
 
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export default function Inventory({ user, selectedFarm }: InventoryProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterType, setFilterType] = useState<string>("all");
+
+  // Fish batches — API-driven
+  const [fishBatches, setFishBatches] = useState<FishInventoryBatch[]>([]);
+
+  // Allocation modal
   const [selectedBatch, setSelectedBatch] = useState<FishInventoryBatch | null>(null);
   const [showAllocateModal, setShowAllocateModal] = useState(false);
 
-  // State to manage fish inventory batches
-  const [fishBatches, setFishBatches] = useState<FishInventoryBatch[]>(mockFishInventoryBatches);
-  const [tankBatches, setTankBatches] = useState<FishBatch[]>(mockFishBatches);
+  // Feed inventory — API-driven
+  const [feedInventory, setFeedInventory] = useState<FeedItem[]>([]);
 
-  const inventory = selectedFarm
-    ? mockInventory.filter(item => item.farmId === selectedFarm.id)
-    : mockInventory;
+  // ── Data loaders ─────────────────────────────────────────────────────────────
 
-  const filteredInventory = inventory.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = filterType === 'all' || item.type === filterType;
-    return matchesSearch && matchesType;
-  });
+  // GET /api/v1/inventory/batches
+  const loadBatches = async () => {
+    try {
+      const res = await getBatches();
+      // Handle both { data: [...] } and plain [...] response shapes
+      const batches = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.data)
+        ? res.data.data
+        : [];
+      setFishBatches(batches);
+    } catch (error) {
+      console.error("Error loading batches", error);
+      setFishBatches([]);
+    }
+  };
 
-  // Filter fish batches by farm
-  const filteredFishBatches = selectedFarm
-    ? fishBatches.filter(batch => batch.farmId === selectedFarm.id)
-    : fishBatches;
+  // GET /api/v1/inventory/feed
+  const loadFeed = async () => {
+    try {
+      const res = await getFeedInventory();
+      // Handle both { data: [...] } and plain [...] response shapes
+      const feed = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.data)
+        ? res.data.data
+        : [];
+      setFeedInventory(feed);
+    } catch (error) {
+      console.error("Error loading feed inventory", error);
+      setFeedInventory([]);
+    }
+  };
 
-  // Handle allocation
-  const handleAllocate = (
+  useEffect(() => {
+    loadBatches();
+    loadFeed();
+  }, []);
+
+  // ── Handlers ──────────────────────────────────────────────────────────────────
+
+  // GET /api/v1/inventory/batches/:id
+  const fetchBatch = async (id: string) => {
+    try {
+      const res = await getBatchById(id);
+      console.log(res.data);
+    } catch (error) {
+      console.error("Error fetching batch", error);
+    }
+  };
+
+  // PATCH /api/v1/inventory/batches/:id/allocate
+  const handleAllocate = async (
     batchId: string,
     tankId: string,
     quantity: number,
     stockingDate: string,
     notes?: string
   ) => {
-    // Update fish inventory batch quantity
-    setFishBatches(prevBatches =>
-      prevBatches.map(batch => {
-        if (batch.id === batchId) {
-          const newQuantity = batch.quantity - quantity;
-          return {
-            ...batch,
-            quantity: newQuantity,
-            status: newQuantity === 0 ? 'DEPLETED' : batch.status
-          } as FishInventoryBatch;
-        }
-        return batch;
-      })
-    );
-
-    // Create new fish batch in tank
-    const sourceBatch = fishBatches.find(b => b.id === batchId);
-    if (sourceBatch) {
-      const newBatch: FishBatch = {
-        id: `batch-${Date.now()}`,
-        tankId,
-        farmId: sourceBatch.farmId,
-        inventoryBatchId: batchId,
-        species: sourceBatch.species,
-        initialCount: quantity,
-        currentCount: quantity,
-        initialAverageWeight: sourceBatch.averageWeight,
-        remainingProportion: 1.0,
-        status: 'ACTIVE',
-        stockedDate,
-        notes
-      };
-      setTankBatches(prev => [...prev, newBatch]);
+    try {
+      await allocateBatch(batchId, { tankId, quantity, stockingDate, notes });
+      await loadBatches();
+    } catch (error) {
+      console.error("Allocation failed", error);
+    } finally {
+      setShowAllocateModal(false);
+      setSelectedBatch(null);
     }
-
-    setShowAllocateModal(false);
-    setSelectedBatch(null);
   };
 
-  const lowStockItems = inventory.filter(item => item.quantity <= item.reorderLevel);
-  const expiringItems = inventory.filter(item => {
+  // PATCH /api/v1/inventory/batches/:id/quarantine
+  const handleQuarantine = async (id: string) => {
+    try {
+      await quarantineBatch(id);
+      await loadBatches();
+    } catch (error) {
+      console.error("Quarantine failed", error);
+    }
+  };
+
+  // PATCH /api/v1/inventory/batches/:id/health-check
+  const handleHealthCheck = async (id: string) => {
+    try {
+      await healthCheckBatch(id, { status: "PASSED" });
+      await loadBatches();
+    } catch (error) {
+      console.error("Health check failed", error);
+    }
+  };
+
+  // POST /api/v1/inventory/feed
+  const handleAddFeed = async () => {
+    try {
+      await createFeed({ name: "Tilapia Feed", quantity: 100, unit: "kg" });
+      await loadFeed();
+    } catch (error) {
+      console.error("Add feed failed", error);
+    }
+  };
+
+  // GET /api/v1/inventory/feed/food-type/:foodId
+  const filterFeed = async (foodId: string) => {
+    try {
+      const res = await getFeedByFoodType(foodId);
+      const feed = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.data)
+        ? res.data.data
+        : [];
+      setFeedInventory(feed);
+    } catch (error) {
+      console.error("Feed filter failed", error);
+      setFeedInventory([]);
+    }
+  };
+
+  // ── Mock-inventory helpers ────────────────────────────────────────────────────
+
+  const inventory = selectedFarm
+    ? mockInventory.filter((item) => item.farmId === selectedFarm.id)
+    : mockInventory;
+
+  const filteredInventory = inventory.filter((item) => {
+    const matchesSearch = item.name
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    const matchesType = filterType === "all" || item.type === filterType;
+    return matchesSearch && matchesType;
+  });
+
+  const filteredFishBatches = selectedFarm
+    ? fishBatches.filter((batch) => batch.farmId === selectedFarm.id)
+    : fishBatches;
+
+  const lowStockItems = inventory.filter(
+    (item) => item.quantity <= item.reorderLevel
+  );
+
+  const expiringItems = inventory.filter((item) => {
     if (!item.expiryDate) return false;
-    const daysUntilExpiry = Math.ceil((new Date(item.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    const daysUntilExpiry = Math.ceil(
+      (new Date(item.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+    );
     return daysUntilExpiry <= 90 && daysUntilExpiry > 0;
   });
 
+  // ── Badge / icon helpers ──────────────────────────────────────────────────────
+
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'READY_TO_STOCK':
+      case "READY_TO_STOCK":
         return (
           <Badge className="bg-green-100 text-green-800" variant="outline">
             <CheckCircle className="w-3 h-3 mr-1" />
             Ready to Stock
           </Badge>
         );
-      case 'QUARANTINE':
+      case "QUARANTINE":
         return (
           <Badge className="bg-yellow-100 text-yellow-800" variant="outline">
             <Clock className="w-3 h-3 mr-1" />
             Quarantine
           </Badge>
         );
-      case 'DEPLETED':
+      case "DEPLETED":
         return (
           <Badge className="bg-gray-100 text-gray-800" variant="outline">
             <XCircle className="w-3 h-3 mr-1" />
@@ -137,21 +246,21 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
   const getHealthCheckBadge = (status: string) => {
     switch (status) {
-      case 'PASSED':
+      case "PASSED":
         return (
           <Badge className="bg-green-100 text-green-800" variant="outline">
             <CheckCircle className="w-3 h-3 mr-1" />
             Passed
           </Badge>
         );
-      case 'PENDING':
+      case "PENDING":
         return (
           <Badge className="bg-yellow-100 text-yellow-800" variant="outline">
             <Clock className="w-3 h-3 mr-1" />
             Pending
           </Badge>
         );
-      case 'FAILED':
+      case "FAILED":
         return (
           <Badge className="bg-red-100 text-red-800" variant="outline">
             <XCircle className="w-3 h-3 mr-1" />
@@ -165,39 +274,53 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'feed': return ShoppingCart;
-      case 'medicine': return Pill;
-      case 'tool': return Wrench;
-      case 'fuel': return Fuel;
-      default: return Package;
+      case "feed":
+        return ShoppingCart;
+      case "medicine":
+        return Pill;
+      case "tool":
+        return Wrench;
+      case "fuel":
+        return Fuel;
+      default:
+        return Package;
     }
   };
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'feed': return 'bg-blue-100 text-blue-800';
-      case 'medicine': return 'bg-green-100 text-green-800';
-      case 'tool': return 'bg-purple-100 text-purple-800';
-      case 'fuel': return 'bg-orange-100 text-orange-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case "feed":
+        return "bg-blue-100 text-blue-800";
+      case "medicine":
+        return "bg-green-100 text-green-800";
+      case "tool":
+        return "bg-purple-100 text-purple-800";
+      case "fuel":
+        return "bg-orange-100 text-orange-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   };
 
-  const getStockLevel = (item: typeof inventory[0]) => {
+  const getStockLevel = (item: (typeof inventory)[0]) => {
     const percentage = (item.quantity / (item.reorderLevel * 2)) * 100;
     return Math.min(percentage, 100);
   };
 
-  const getStockStatus = (item: typeof inventory[0]) => {
-    if (item.quantity <= item.reorderLevel * 0.5) return 'critical';
-    if (item.quantity <= item.reorderLevel) return 'low';
-    return 'good';
+  const getStockStatus = (item: (typeof inventory)[0]) => {
+    if (item.quantity <= item.reorderLevel * 0.5) return "critical";
+    if (item.quantity <= item.reorderLevel) return "low";
+    return "good";
   };
 
   const getDaysUntilExpiry = (expiryDate?: string) => {
     if (!expiryDate) return null;
-    return Math.ceil((new Date(expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    return Math.ceil(
+      (new Date(expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+    );
   };
+
+  // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <div className="p-6 space-y-6">
@@ -231,7 +354,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
               <p className="text-xs text-gray-500 mt-1">Across all tanks</p>
             </div>
             <div className="bg-white p-4 rounded-lg border">
-              <p className="text-xs text-gray-600 mb-1">Predicted Need (30 days)</p>
+              <p className="text-xs text-gray-600 mb-1">
+                Predicted Need (30 days)
+              </p>
               <p className="text-2xl font-bold text-gray-900">3,200 kg</p>
               <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
                 <AlertTriangle className="w-3 h-3" />
@@ -252,10 +377,12 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
             </h4>
             <div className="text-sm space-y-1">
               <p className="text-blue-800">
-                Order <span className="font-bold">850 kg</span> of feed (with 20% safety buffer)
+                Order <span className="font-bold">850 kg</span> of feed (with
+                20% safety buffer)
               </p>
               <p className="text-blue-700">
-                Order By: <span className="font-bold">Feb 18, 2026</span> to avoid stockout
+                Order By: <span className="font-bold">Feb 18, 2026</span> to
+                avoid stockout
               </p>
               <p className="text-xs text-blue-600 mt-2">
                 Based on current consumption rates across all active tanks
@@ -291,7 +418,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                 {lowStockItems.length} item(s) below reorder level
               </p>
               <div className="mt-2 space-y-1">
-                {lowStockItems.slice(0, 3).map(item => (
+                {lowStockItems.slice(0, 3).map((item) => (
                   <p key={item.id} className="text-xs text-gray-600">
                     • {item.name} ({item.quantity} {item.unit})
                   </p>
@@ -314,7 +441,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                 {expiringItems.length} item(s) expiring within 90 days
               </p>
               <div className="mt-2 space-y-1">
-                {expiringItems.slice(0, 3).map(item => (
+                {expiringItems.slice(0, 3).map((item) => (
                   <p key={item.id} className="text-xs text-gray-600">
                     • {item.name} ({getDaysUntilExpiry(item.expiryDate)} days)
                   </p>
@@ -349,8 +476,11 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {filteredFishBatches.map(batch => (
-                  <div key={batch.id} className="p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                {filteredFishBatches.map((batch) => (
+                  <div
+                    key={batch.id}
+                    className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                  >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-start gap-3 flex-1">
                         <div className="bg-blue-100 p-2 rounded-lg">
@@ -358,26 +488,36 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <p className="text-sm font-medium">{batch.species}</p>
+                            <p className="text-sm font-medium">
+                              {batch.species}
+                            </p>
                             {getStatusBadge(batch.status)}
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <div>
-                              <span className="text-gray-600">PO:</span>{' '}
-                              <span className="font-medium">{batch.purchaseOrderId}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Delivered:</span>{' '}
+                              <span className="text-gray-600">PO:</span>{" "}
                               <span className="font-medium">
-                                {new Date(batch.deliveryDate).toLocaleDateString()}
+                                {batch.purchaseOrderId}
                               </span>
                             </div>
                             <div>
-                              <span className="text-gray-600">Avg Weight:</span>{' '}
-                              <span className="font-medium">{batch.averageWeight}g</span>
+                              <span className="text-gray-600">Delivered:</span>{" "}
+                              <span className="font-medium">
+                                {new Date(
+                                  batch.deliveryDate
+                                ).toLocaleDateString()}
+                              </span>
                             </div>
                             <div>
-                              <span className="text-gray-600">Health Check:</span>{' '}
+                              <span className="text-gray-600">Avg Weight:</span>{" "}
+                              <span className="font-medium">
+                                {batch.averageWeight}g
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">
+                                Health Check:
+                              </span>{" "}
                               {getHealthCheckBadge(batch.healthCheckStatus)}
                             </div>
                           </div>
@@ -399,37 +539,69 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                     </div>
 
                     {/* Progress Bar */}
-                    {batch.status !== 'DEPLETED' && (
+                    {batch.status !== "DEPLETED" && (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-gray-600">Available</span>
                           <span className="text-gray-900 font-medium">
-                            {Math.round((batch.quantity / batch.initialQuantity) * 100)}%
+                            {Math.round(
+                              (batch.quantity / batch.initialQuantity) * 100
+                            )}
+                            %
                           </span>
                         </div>
-                        <Progress 
+                        <Progress
                           value={(batch.quantity / batch.initialQuantity) * 100}
                           className="[&>div]:bg-[#0A4D68]"
                         />
                       </div>
                     )}
 
-                    {/* Action Button */}
-                    {batch.status === 'READY_TO_STOCK' && batch.quantity > 0 && (
-                      <div className="mt-3 pt-3 border-t">
-                        <Button 
+                    {/* Batch Action Buttons */}
+                    <div className="mt-3 pt-3 border-t flex gap-2">
+                      {/* Quarantine — PATCH /api/v1/inventory/batches/:id/quarantine */}
+                      {batch.status !== "QUARANTINE" &&
+                        batch.status !== "DEPLETED" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 border-yellow-400 text-yellow-700 hover:bg-yellow-50"
+                            onClick={() => handleQuarantine(batch.id)}
+                          >
+                            <Clock className="w-4 h-4 mr-2" />
+                            Quarantine
+                          </Button>
+                        )}
+
+                      {/* Health Check — PATCH /api/v1/inventory/batches/:id/health-check */}
+                      {batch.healthCheckStatus === "PENDING" && (
+                        <Button
                           size="sm"
-                          className="w-full bg-[#0A4D68] hover:bg-[#083d52]"
-                          onClick={() => {
-                            setSelectedBatch(batch);
-                            setShowAllocateModal(true);
-                          }}
+                          variant="outline"
+                          className="flex-1 border-green-400 text-green-700 hover:bg-green-50"
+                          onClick={() => handleHealthCheck(batch.id)}
                         >
-                          <Fish className="w-4 h-4 mr-2" />
-                          Allocate to Tank
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Health Check
                         </Button>
-                      </div>
-                    )}
+                      )}
+
+                      {/* Allocate — PATCH /api/v1/inventory/batches/:id/allocate */}
+                      {batch.status === "READY_TO_STOCK" &&
+                        batch.quantity > 0 && (
+                          <Button
+                            size="sm"
+                            className="flex-1 bg-[#0A4D68] hover:bg-[#083d52]"
+                            onClick={() => {
+                              setSelectedBatch(batch);
+                              setShowAllocateModal(true);
+                            }}
+                          >
+                            <Fish className="w-4 h-4 mr-2" />
+                            Allocate to Tank
+                          </Button>
+                        )}
+                    </div>
                   </div>
                 ))}
 
@@ -437,7 +609,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                   <div className="text-center py-12">
                     <Fish className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                     <p className="text-gray-600">No fish inventory found</p>
-                    <p className="text-sm text-gray-500 mt-1">Purchase orders will appear here</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Purchase orders will appear here
+                    </p>
                   </div>
                 )}
               </div>
@@ -465,9 +639,17 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl">
-                  ${inventory.reduce((sum, item) => sum + (item.quantity * item.costPerUnit), 0).toLocaleString()}
+                  $
+                  {inventory
+                    .reduce(
+                      (sum, item) => sum + item.quantity * item.costPerUnit,
+                      0
+                    )
+                    .toLocaleString()}
                 </div>
-                <p className="text-xs text-gray-600 mt-1">Current stock value</p>
+                <p className="text-xs text-gray-600 mt-1">
+                  Current stock value
+                </p>
               </CardContent>
             </Card>
 
@@ -476,7 +658,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                 <CardTitle className="text-sm">Low Stock</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl text-orange-600">{lowStockItems.length}</div>
+                <div className="text-2xl text-orange-600">
+                  {lowStockItems.length}
+                </div>
                 <p className="text-xs text-gray-600 mt-1">Need reordering</p>
               </CardContent>
             </Card>
@@ -486,7 +670,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                 <CardTitle className="text-sm">Expiring Soon</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl text-red-600">{expiringItems.length}</div>
+                <div className="text-2xl text-red-600">
+                  {expiringItems.length}
+                </div>
                 <p className="text-xs text-gray-600 mt-1">Within 90 days</p>
               </CardContent>
             </Card>
@@ -507,37 +693,37 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                 </div>
                 <div className="flex gap-2">
                   <Button
-                    variant={filterType === 'all' ? 'default' : 'outline'}
+                    variant={filterType === "all" ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setFilterType('all')}
+                    onClick={() => setFilterType("all")}
                   >
                     All
                   </Button>
                   <Button
-                    variant={filterType === 'feed' ? 'default' : 'outline'}
+                    variant={filterType === "feed" ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setFilterType('feed')}
+                    onClick={() => setFilterType("feed")}
                   >
                     Feed
                   </Button>
                   <Button
-                    variant={filterType === 'medicine' ? 'default' : 'outline'}
+                    variant={filterType === "medicine" ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setFilterType('medicine')}
+                    onClick={() => setFilterType("medicine")}
                   >
                     Medicine
                   </Button>
                   <Button
-                    variant={filterType === 'tool' ? 'default' : 'outline'}
+                    variant={filterType === "tool" ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setFilterType('tool')}
+                    onClick={() => setFilterType("tool")}
                   >
                     Tools
                   </Button>
                   <Button
-                    variant={filterType === 'fuel' ? 'default' : 'outline'}
+                    variant={filterType === "fuel" ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setFilterType('fuel')}
+                    onClick={() => setFilterType("fuel")}
                   >
                     Fuel
                   </Button>
@@ -546,14 +732,17 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {filteredInventory.map(item => {
+                {filteredInventory.map((item) => {
                   const Icon = getTypeIcon(item.type);
                   const stockLevel = getStockLevel(item);
                   const stockStatus = getStockStatus(item);
                   const daysUntilExpiry = getDaysUntilExpiry(item.expiryDate);
 
                   return (
-                    <div key={item.id} className="p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                    <div
+                      key={item.id}
+                      className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                    >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-start gap-3 flex-1">
                           <div className="bg-gray-100 p-2 rounded-lg">
@@ -562,58 +751,90 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <p className="text-sm">{item.name}</p>
-                              <Badge className={getTypeColor(item.type)} variant="outline">
+                              <Badge
+                                className={getTypeColor(item.type)}
+                                variant="outline"
+                              >
                                 {item.type}
                               </Badge>
                             </div>
-                            <p className="text-xs text-gray-600">Supplier: {item.supplier}</p>
+                            <p className="text-xs text-gray-600">
+                              Supplier: {item.supplier}
+                            </p>
                             {item.expiryDate && (
-                              <p className={`text-xs mt-1 ${
-                                daysUntilExpiry && daysUntilExpiry <= 30 ? 'text-red-600' :
-                                daysUntilExpiry && daysUntilExpiry <= 90 ? 'text-orange-600' :
-                                'text-gray-600'
-                              }`}>
-                                Expires: {new Date(item.expiryDate).toLocaleDateString()} ({daysUntilExpiry} days)
+                              <p
+                                className={`text-xs mt-1 ${
+                                  daysUntilExpiry && daysUntilExpiry <= 30
+                                    ? "text-red-600"
+                                    : daysUntilExpiry && daysUntilExpiry <= 90
+                                      ? "text-orange-600"
+                                      : "text-gray-600"
+                                }`}
+                              >
+                                Expires:{" "}
+                                {new Date(item.expiryDate).toLocaleDateString()}{" "}
+                                ({daysUntilExpiry} days)
                               </p>
                             )}
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm">{item.quantity} {item.unit}</p>
-                          <p className="text-xs text-gray-600">${(item.quantity * item.costPerUnit).toLocaleString()}</p>
+                          <p className="text-sm">
+                            {item.quantity} {item.unit}
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            $
+                            {(item.quantity * item.costPerUnit).toLocaleString()}
+                          </p>
                         </div>
                       </div>
 
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-gray-600">Stock Level</span>
-                          <span className={`${
-                            stockStatus === 'critical' ? 'text-red-600' :
-                            stockStatus === 'low' ? 'text-orange-600' :
-                            'text-green-600'
-                          }`}>
-                            {stockStatus === 'critical' ? 'Critical' :
-                             stockStatus === 'low' ? 'Low Stock' :
-                             'Good'}
+                          <span
+                            className={`${
+                              stockStatus === "critical"
+                                ? "text-red-600"
+                                : stockStatus === "low"
+                                  ? "text-orange-600"
+                                  : "text-green-600"
+                            }`}
+                          >
+                            {stockStatus === "critical"
+                              ? "Critical"
+                              : stockStatus === "low"
+                                ? "Low Stock"
+                                : "Good"}
                           </span>
                         </div>
-                        <Progress 
-                          value={stockLevel} 
+                        <Progress
+                          value={stockLevel}
                           className={
-                            stockStatus === 'critical' ? '[&>div]:bg-red-600' :
-                            stockStatus === 'low' ? '[&>div]:bg-orange-600' :
-                            '[&>div]:bg-green-600'
+                            stockStatus === "critical"
+                              ? "[&>div]:bg-red-600"
+                              : stockStatus === "low"
+                                ? "[&>div]:bg-orange-600"
+                                : "[&>div]:bg-green-600"
                           }
                         />
                         <div className="flex items-center justify-between text-xs text-gray-600">
-                          <span>Reorder at: {item.reorderLevel} {item.unit}</span>
-                          <span>${item.costPerUnit} per {item.unit}</span>
+                          <span>
+                            Reorder at: {item.reorderLevel} {item.unit}
+                          </span>
+                          <span>
+                            ${item.costPerUnit} per {item.unit}
+                          </span>
                         </div>
                       </div>
 
-                      {stockStatus !== 'good' && (
+                      {stockStatus !== "good" && (
                         <div className="mt-3 pt-3 border-t">
-                          <Button size="sm" variant="outline" className="w-full">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full"
+                          >
                             <ShoppingCart className="w-4 h-4 mr-2" />
                             Reorder from {item.supplier}
                           </Button>
@@ -628,7 +849,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                 <div className="text-center py-12">
                   <Package className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                   <p className="text-gray-600">No items found</p>
-                  <p className="text-sm text-gray-500 mt-1">Try adjusting your search or filters</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Try adjusting your search or filters
+                  </p>
                 </div>
               )}
             </CardContent>

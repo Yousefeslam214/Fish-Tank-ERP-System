@@ -24,10 +24,16 @@ export default function App() {
 
   useEffect(() => {
     setCurrentUser(getStoredAppUser());
+    // Check for stored session
+    const storedUser = localStorage.getItem('fishfarm_user');
+    if (storedUser) {
+      setCurrentUser(JSON.parse(storedUser));
+    }
   }, []);
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
+    localStorage.setItem('fishfarm_user', JSON.stringify(user));
   };
 
   const handleLogout = () => {
@@ -35,6 +41,8 @@ export default function App() {
     clearAuthSession();
     setCurrentPage('dashboard');
     setSelectedFarm(null);
+    localStorage.removeItem('fishfarm_user');
+    setCurrentPage('dashboard');
   };
 
   if (!currentUser) {
