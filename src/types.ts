@@ -62,9 +62,14 @@ export interface FishBatch {
 // ============================================
 // HARVEST
 // ============================================
-export type HarvestType = 'FULL' | 'PARTIAL' | 'SELECTIVE';
+export type HarvestType = 'QUARTER' | 'HALF' | 'FULL';
+export const HARVEST_TYPE_LABELS: Record<HarvestType, string> = {
+  QUARTER: 'Selective',
+  HALF: 'Partial',
+  FULL: 'Full',
+};
 export type HarvestStatus = 'DRAFT' | 'GRADING' | 'REVIEW' | 'COMPLETED' | 'CANCELLED';
-export type HarvestCondition = 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
+export type HarvestCondition = 'EXCELLENT' | 'GOOD' | 'ACCEPTABLE' | 'DAMAGED';
 export type StorageType = 'FRESH' | 'ICED' | 'FROZEN';
 export type GradeType = 'SUPER' | 'GRADE_1' | 'GRADE_2' | 'SHERR' | 'WASTE';
 
