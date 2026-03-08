@@ -15,6 +15,7 @@ import FoodTypeManagement from './components/FoodTypeManagement';
 import { HarvestManagement } from './components/HarvestManagement';
 import Sidebar from './components/Sidebar';
 import { User, Farm } from './types';
+import { clearAuthSession, getStoredAppUser } from './services/authSession';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -22,22 +23,18 @@ export default function App() {
   const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
 
   useEffect(() => {
-    // Check for stored session
-    const storedUser = localStorage.getItem('fishfarm_user');
-    if (storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
-    }
+    setCurrentUser(getStoredAppUser());
   }, []);
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
-    localStorage.setItem('fishfarm_user', JSON.stringify(user));
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
-    localStorage.removeItem('fishfarm_user');
+    clearAuthSession();
     setCurrentPage('dashboard');
+    setSelectedFarm(null);
   };
 
   if (!currentUser) {
