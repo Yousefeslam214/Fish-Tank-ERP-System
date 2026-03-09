@@ -16,6 +16,7 @@ import { HarvestManagement } from './components/HarvestManagement';
 import Sidebar from './components/Sidebar';
 import { User, Farm } from './types';
 import { clearAuthSession, getStoredAppUser } from './services/authSession';
+import { mockFarms } from './mockData';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -23,17 +24,22 @@ export default function App() {
   const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
 
   useEffect(() => {
-    setCurrentUser(getStoredAppUser());
-    // Check for stored session
-    const storedUser = localStorage.getItem('fishfarm_user');
-    if (storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
+    const user = getStoredAppUser();
+    if (user) {
+      setCurrentUser(user);
+      if (user.farmId) {
+        const farm = mockFarms.find(f => f.id === user.farmId);
+        if (farm) setSelectedFarm(farm);
+      }
     }
   }, []);
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
-    localStorage.setItem('fishfarm_user', JSON.stringify(user));
+    if (user.farmId) {
+      const farm = mockFarms.find(f => f.id === user.farmId);
+      if (farm) setSelectedFarm(farm);
+    }
   };
 
   const handleLogout = () => {
@@ -41,8 +47,6 @@ export default function App() {
     clearAuthSession();
     setCurrentPage('dashboard');
     setSelectedFarm(null);
-    localStorage.removeItem('fishfarm_user');
-    setCurrentPage('dashboard');
   };
 
   if (!currentUser) {
@@ -51,41 +55,40 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-[#F9FAFB]">
-      <Sidebar 
-        currentPage={currentPage} 
+      <Sidebar
+        currentPage={currentPage}
         onPageChange={setCurrentPage}
         onLogout={handleLogout}
         user={currentUser}
       />
-      
+
       <div className="flex-1 overflow-auto">
         {currentPage === 'dashboard' && (
-          <Dashboard 
-            user={currentUser} 
-            onFarmSelect={setSelectedFarm}
+          <Dashboard
+            user={currentUser}
             selectedFarm={selectedFarm}
           />
         )}
         {currentPage === 'tanks' && (
-          <TankManagement 
+          <TankManagement
             user={currentUser}
             selectedFarm={selectedFarm}
           />
         )}
         {currentPage === 'accounting' && (
-          <Accounting 
+          <Accounting
             user={currentUser}
             selectedFarm={selectedFarm}
           />
         )}
         {currentPage === 'inventory' && (
-          <Inventory 
+          <Inventory
             user={currentUser}
             selectedFarm={selectedFarm}
           />
         )}
         {currentPage === 'analytics' && (
-          <Analytics 
+          <Analytics
             user={currentUser}
             selectedFarm={selectedFarm}
           />
@@ -94,7 +97,7 @@ export default function App() {
           <AIAssistant user={currentUser} />
         )}
         {currentPage === 'health' && (
-          <HealthLibrary 
+          <HealthLibrary
             user={currentUser}
             selectedFarm={selectedFarm}
           />
@@ -103,31 +106,31 @@ export default function App() {
           <NotificationCenter user={currentUser} />
         )}
         {currentPage === 'procurement' && (
-          <Procurement 
+          <Procurement
             user={currentUser}
             selectedFarm={selectedFarm}
           />
         )}
         {currentPage === 'sales' && (
-          <SalesModule 
+          <SalesModule
             user={currentUser}
             selectedFarm={selectedFarm}
           />
         )}
         {currentPage === 'fish-types' && (
-          <FishTypeManagement 
+          <FishTypeManagement
             user={currentUser}
             selectedFarm={selectedFarm}
           />
         )}
         {currentPage === 'food-types' && (
-          <FoodTypeManagement 
+          <FoodTypeManagement
             user={currentUser}
             selectedFarm={selectedFarm}
           />
         )}
         {currentPage === 'harvest' && (
-          <HarvestManagement 
+          <HarvestManagement
             farmId={selectedFarm?.id || 'farm-1'}
           />
         )}

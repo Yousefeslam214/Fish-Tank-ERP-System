@@ -79,12 +79,18 @@ interface DashboardData {
 
 interface DashboardProps {
   user: User;
-  onFarmSelect: (farm: Farm) => void;
   selectedFarm: Farm | null;
 }
 
-export default function Dashboard({ user, onFarmSelect, selectedFarm }: DashboardProps) {
+export default function Dashboard({ user, selectedFarm }: DashboardProps) {
   const [currentFarm, setCurrentFarm] = useState<Farm>(selectedFarm || mockFarms[0]);
+
+  // Update currentFarm if selectedFarm changes from props
+  useEffect(() => {
+    if (selectedFarm) {
+      setCurrentFarm(selectedFarm);
+    }
+  }, [selectedFarm]);
 
   // ── API state ──
   const [dashData, setDashData] = useState<DashboardData | null>(null);
@@ -122,13 +128,7 @@ export default function Dashboard({ user, onFarmSelect, selectedFarm }: Dashboar
     return () => { cancelled = true; };
   }, [currentFarm.id]); // re-fetch when farm changes
 
-  const handleFarmChange = (farmId: string) => {
-    const farm = mockFarms.find(f => f.id === farmId);
-    if (farm) {
-      setCurrentFarm(farm);
-      onFarmSelect(farm);
-    }
-  };
+
 
   // ── Resolve safe display values from the real API shape ──
   // totalActiveFish comes as a comma-formatted string e.g. "12,500"
@@ -186,18 +186,9 @@ export default function Dashboard({ user, onFarmSelect, selectedFarm }: Dashboar
           </div>
 
           <div className="flex items-center gap-4">
-            <Select value={currentFarm.id} onValueChange={handleFarmChange}>
-              <SelectTrigger className="w-64 bg-white text-gray-900">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {mockFarms.map(farm => (
-                  <SelectItem key={farm.id} value={farm.id}>
-                    {farm.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="bg-white/10 px-4 py-2 rounded-lg border border-white/20">
+              <span className="text-sm font-medium">{currentFarm.name}</span>
+            </div>
 
             <div className="flex items-center gap-2">
               <div className="text-right">
