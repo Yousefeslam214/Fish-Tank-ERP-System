@@ -99,36 +99,44 @@ export default function Dashboard({ user, selectedFarm }: DashboardProps) {
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
   // ── Fetch dashboard data ──
-  // WHY async function inside useEffect?
-  // useEffect callbacks cannot be async directly, so we define
-  // an inner async function and immediately invoke it.
+  const fetchDashboard = async (isManual = false) => {
+    if (isManual) setLoading(true);
+    setError(null);
+    try {
+      // API returns: { success: true, data: { fishSummary, feedStock, predictedRevenue, ... } }
+      const res = await apiGet<{ success: boolean; data: DashboardData }>('/dashboard');
+      setDashData(res.data);
+      setLastRefreshed(new Date());
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
 
-    const fetchDashboard = async () => {
+    // Wrapped version that respects cancellation for the useEffect
+    const loadData = async () => {
       setLoading(true);
       setError(null);
       try {
-        // API returns: { success: true, data: { fishSummary, feedStock, predictedRevenue, ... } }
         const res = await apiGet<{ success: boolean; data: DashboardData }>('/dashboard');
         if (!cancelled) {
           setDashData(res.data);
           setLastRefreshed(new Date());
         }
       } catch (err) {
-        if (!cancelled) {
-          setError((err as Error).message);
-        }
+        if (!cancelled) setError((err as Error).message);
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
 
-    fetchDashboard();
+    loadData();
     return () => { cancelled = true; };
   }, [currentFarm.id]); // re-fetch when farm changes
-
-
 
   // ── Resolve safe display values from the real API shape ──
   // totalActiveFish comes as a comma-formatted string e.g. "12,500"
@@ -220,13 +228,7 @@ export default function Dashboard({ user, selectedFarm }: DashboardProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                setLoading(true);
-                apiGet<DashboardData>('/dashboard')
-                  .then(d => { setDashData(d); setLastRefreshed(new Date()); })
-                  .catch(e => setError((e as Error).message))
-                  .finally(() => setLoading(false));
-              }}
+              onClick={() => fetchDashboard(true)}
               disabled={loading}
             >
               <RefreshCw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
@@ -234,6 +236,7 @@ export default function Dashboard({ user, selectedFarm }: DashboardProps) {
             </Button>
           </div>
         </div>
+
 
         {/* ── Error banner ── */}
         {error && (
