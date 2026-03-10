@@ -65,8 +65,8 @@ Base API prefix for backend routes: `/api/v1`
   - `GET /api/v1/tanks/:id/feeding-history`
   - `GET /api/v1/tanks/:id/growth-metrics`
   - `POST /api/v1/tanks/feeding-records/:batchId`
-  - `GET /api/v1/tanks/feeding-records/:tankId/calculate`
-  - `GET /api/v1/tanks/feeding-records/batch/:batchId/calculate`
+  - `GET /api/v1/tanks/feeding-records/calculation/tank/:tankId`
+  - `GET /api/v1/tanks/feeding-records/calculation/batch/:batchId`
   - `POST /api/v1/tanks/water-quality/:batchId`
   - `GET /api/v1/tanks/water-quality/batch/:batchId`
   - `GET /api/v1/tanks/growth/batch/:batchId`
