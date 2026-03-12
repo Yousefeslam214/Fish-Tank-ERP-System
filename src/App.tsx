@@ -16,6 +16,7 @@ import { HarvestManagement } from './components/HarvestManagement';
 import Sidebar from './components/Sidebar';
 import { User, Farm } from './types';
 import { clearAuthSession, getStoredAppUser } from './services/authSession';
+import { apiGet } from './api';
 import { mockFarms } from './mockData';
 
 export default function App() {
@@ -27,19 +28,36 @@ export default function App() {
     const user = getStoredAppUser();
     if (user) {
       setCurrentUser(user);
-      if (user.farmId) {
-        const farm = mockFarms.find(f => f.id === user.farmId);
-        if (farm) setSelectedFarm(farm);
-      }
+      fetchFarms(user);
     }
   }, []);
 
+  const fetchFarms = async (user: User) => {
+    try {
+      const res = await apiGet<any>('/farms');
+      const apiFarms = res.data || (Array.isArray(res) ? res : []);
+      
+      if (apiFarms.length > 0) {
+        const farm = apiFarms.find((f: any) => f.id === user.farmId) || apiFarms[0];
+        setSelectedFarm(farm);
+      } else if (user.farmId) {
+        // Fallback to mock if needed, but only if they belong to one
+        const mockFarm = mockFarms.find(f => f.id === user.farmId);
+        if (mockFarm) setSelectedFarm(mockFarm);
+      }
+    } catch (err) {
+      console.error('Failed to fetch farms:', err);
+      // Fallback
+      if (user.farmId) {
+        const mockFarm = mockFarms.find(f => f.id === user.farmId);
+        if (mockFarm) setSelectedFarm(mockFarm);
+      }
+    }
+  };
+
   const handleLogin = (user: User) => {
     setCurrentUser(user);
-    if (user.farmId) {
-      const farm = mockFarms.find(f => f.id === user.farmId);
-      if (farm) setSelectedFarm(farm);
-    }
+    fetchFarms(user);
   };
 
   const handleLogout = () => {
