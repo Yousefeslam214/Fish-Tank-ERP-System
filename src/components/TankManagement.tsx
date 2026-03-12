@@ -11,6 +11,17 @@ import { Slider } from './ui/slider';
 import { Textarea } from './ui/textarea';
 import { Progress } from './ui/progress';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from './ui/alert-dialog';
+import { toast } from 'sonner';
+import {
   Fish,
   Droplet,
   Scale,
@@ -23,15 +34,20 @@ import {
   Settings,
   MoreVertical,
   Plus,
+  Trash2,
   Thermometer,
-  Calendar
+  Calendar,
+  Save,
+  Ruler
 } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { User, Farm } from '../types';
 import { mockFarms, mockGrowthMeasurements } from '../mockData';
-import { apiGet } from '../api';
+import { apiGet, apiPost, apiDelete, apiPut } from '../api';
 import RecordGrowthMeasurement from './tanks/RecordGrowthMeasurement';
 import GrowthHistory from './tanks/GrowthHistory';
+import { getFoodTypesBySpecies, FoodType } from '../services/foodTypesApi';
+import { getTranslation, Language } from '../i18n/translations';
 
 interface TankManagementProps {
   user: User;
@@ -105,6 +121,8 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
   const [tanks, setTanks] = useState<ApiTank[]>([]);
   const [tanksLoading, setTanksLoading] = useState(true);
   const [tanksError, setTanksError] = useState<string | null>(null);
+  const [showAddTankModal, setShowAddTankModal] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const currentFarm = selectedFarm || mockFarms[0];
 
@@ -167,6 +185,39 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
     }
   }, [currentFarm.id]);
 
+  const handleAddTank = async (data: { name: string; capacity: number; volume: number; location: string }) => {
+    try {
+      const payload = {
+        name: data.name,
+        location: data.location || 'General',
+        volumeCubicMeters: data.volume,
+        status: 'EMPTY'
+      };
+
+      await apiPost('/tanks', payload);
+      setShowAddTankModal(false);
+      fetchTanks();
+      toast.success('Tank created successfully');
+    } catch (err) {
+      console.error('Failed to create tank:', err);
+      toast.error('Failed to create tank: ' + (err as Error).message);
+    }
+  };
+
+  const handleDeleteTank = async () => {
+    if (!deleteConfirmId) return;
+    try {
+      await apiDelete(`/tanks/${deleteConfirmId}`);
+      setDeleteConfirmId(null);
+      fetchTanks();
+      toast.success('Tank deleted successfully');
+    } catch (err) {
+      console.error('Failed to delete tank:', err);
+      toast.error('Failed to delete tank: ' + (err as Error).message);
+      setDeleteConfirmId(null);
+    }
+  };
+
   useEffect(() => {
     fetchTanks();
   }, [fetchTanks]);
@@ -201,7 +252,7 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
   };
 
   if (viewMode === 'detail' && selectedTank) {
-    return <TankDetailView tank={selectedTank} onBack={() => setViewMode('list')} />;
+    return <TankDetailView user={user} tank={selectedTank} onBack={() => setViewMode('list')} />;
   }
 
   return (
@@ -225,11 +276,17 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-semibold text-gray-900">All Tanks</h1>
-          <Button className="bg-[#088395] hover:bg-[#0A4D68]">
+          <Button className="bg-[#088395] hover:bg-[#0A4D68]" onClick={() => setShowAddTankModal(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Add New Tank
           </Button>
         </div>
+
+        <AddTankModal
+          open={showAddTankModal}
+          onOpenChange={setShowAddTankModal}
+          onConfirm={handleAddTank}
+        />
 
         {/* Error banner */}
         {tanksError && (
@@ -277,9 +334,22 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">{tank.name}</CardTitle>
-                    <Badge className={`${getStatusColor(tank.status ?? '')} text-white`}>
-                      {(tank.status ?? 'unknown').toUpperCase()}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge className={`${getStatusColor(tank.status ?? '')} text-white`}>
+                        {(tank.status ?? 'unknown').toUpperCase()}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        onClick={(e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          setDeleteConfirmId(tank.id);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                   <p className="text-sm text-gray-600">{tank.species}</p>
                 </CardHeader>
@@ -360,15 +430,38 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
           </div>
         )}
       </div>
+
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(open: boolean) => !open && setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this tank?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. All data associated with this tank, including historical records and batches, might be affected or lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTank} className="bg-red-600 hover:bg-red-700 text-white">
+              Delete Tank
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
 // Tank Detail View Component
-function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
+function TankDetailView({ user, tank, onBack }: { user: User; tank: any; onBack: () => void }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [showFeedingModal, setShowFeedingModal] = useState(false);
   const [showWaterQualityModal, setShowWaterQualityModal] = useState(false);
+  const [showGrowthHistoryModal, setShowGrowthHistoryModal] = useState(false);
+  const [showRecordGrowthModal, setShowRecordGrowthModal] = useState(false);
+  const [selectedBatchForHistory, setSelectedBatchForHistory] = useState<any>(null);
+  const [selectedBatchForUpdate, setSelectedBatchForUpdate] = useState<any>(null);
+  const [batchGrowthHistory, setBatchGrowthHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   // ── API state for detailed records ──
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -400,7 +493,7 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
       const wqData = Array.isArray(wqRes.data) ? wqRes.data : (Array.isArray(wqRes) ? wqRes : []);
       const fdData = Array.isArray(fdRes.data) ? fdRes.data : (Array.isArray(fdRes) ? fdRes : []);
       const gmData = Array.isArray(gmRes.data) ? gmRes.data : (Array.isArray(gmRes) ? gmRes : []);
-      
+
       // Handle batches based on the provided JSON structure
       let btData = [];
       let btSummary = null;
@@ -440,6 +533,43 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
       setLoadingDetails(false);
     }
   }, [tank.id]);
+
+  const fetchBatchGrowthHistory = async (batchId: string) => {
+    setLoadingHistory(true);
+    try {
+      const res = await apiGet<any>(`/tanks/growth/batch/${batchId}`);
+      const data = res.data ?? res;
+      const mappedHistory = (Array.isArray(data) ? data : (Array.isArray(data.history) ? data.history : [])).map((m: any) => ({
+        id: m.id,
+        measuredAt: new Date(m.measuredAt || m.date),
+        daysInCulture: m.daysInCulture || 0,
+        sampleSize: m.sampleSize || 0,
+        averageWeightGrams: m.averageWeightGrams || m.avgWeight || 0,
+        sgr: m.sgr,
+        fcr: m.fcr,
+        sgrRating: m.sgrRating,
+        fcrRating: m.fcrRating,
+        overallRating: m.overallRating
+      }));
+      setBatchGrowthHistory(mappedHistory);
+    } catch (err) {
+      console.error('Failed to fetch batch growth history:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const handleViewGrowthHistory = (batch: any) => {
+    setSelectedBatchForHistory(batch);
+    setBatchGrowthHistory([]);
+    fetchBatchGrowthHistory(batch.id);
+    setShowGrowthHistoryModal(true);
+  };
+
+  const handleUpdateBatchData = (batch: any) => {
+    setSelectedBatchForUpdate(batch);
+    setShowRecordGrowthModal(true);
+  };
 
   useEffect(() => {
     fetchTankDetails();
@@ -483,7 +613,7 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
   }, [growthMetrics]);
 
   return (
-    <div className="flex-1 overflow-auto bg-[#F9FAFB]">
+    <div className="bg-[#F9FAFB] min-h-full">
       {/* Top Navigation */}
       <div className="bg-[#0A4D68] text-white px-6 py-4">
         <div className="flex items-center gap-4">
@@ -973,11 +1103,18 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
                       </div>
 
                       <div className="mt-4 flex gap-2">
-                        <Button variant="outline" className="flex-1">
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => handleViewGrowthHistory(batch)}
+                        >
                           <Scale className="w-4 h-4 mr-2" />
                           View Growth History
                         </Button>
-                        <Button className="flex-1 bg-[#088395] hover:bg-[#0A4D68]">
+                        <Button
+                          className="flex-1 bg-[#088395] hover:bg-[#0A4D68]"
+                          onClick={() => handleUpdateBatchData(batch)}
+                        >
                           Update Batch Data
                         </Button>
                       </div>
@@ -1270,14 +1407,14 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
             {tankBatches.length > 0 && (
               <GrowthHistory
                 batch={{
-                   id: tankBatches[0].id,
-                   batchNumber: tankBatches[0].batchNumber || tankBatches[0].id.substring(0, 8),
-                   tankName: tank.name,
-                   fishType: tankBatches[0].fishType || tankBatches[0].species || tank.species,
-                   stockedDate: new Date(tankBatches[0].dates?.stockedDate || tankBatches[0].stockedDate || tankBatches[0].createdAt || Date.now()),
-                   initialCount: tankBatches[0].counts?.initial || tankBatches[0].initialCount || 0,
-                   currentCount: tankBatches[0].counts?.current || tankBatches[0].currentCount || tankBatches[0].count || 0,
-                   initialWeight: parseFloat(tankBatches[0].weights?.initial || tankBatches[0].initialAverageWeight || '0')
+                  id: tankBatches[0].id,
+                  batchNumber: tankBatches[0].batchNumber || tankBatches[0].id.substring(0, 8),
+                  tankName: tank.name,
+                  fishType: tankBatches[0].fishType || tankBatches[0].species || tank.species,
+                  stockedDate: new Date(tankBatches[0].dates?.stockedDate || tankBatches[0].stockedDate || tankBatches[0].createdAt || Date.now()),
+                  initialCount: tankBatches[0].counts?.initial || tankBatches[0].initialCount || 0,
+                  currentCount: tankBatches[0].counts?.current || tankBatches[0].currentCount || tankBatches[0].count || 0,
+                  initialWeight: parseFloat(tankBatches[0].weights?.initial || tankBatches[0].initialAverageWeight || '0')
                 }}
                 measurements={growthMetrics}
                 language="en"
@@ -1521,11 +1658,47 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
         </Tabs>
       </div>
 
+      <Dialog open={showGrowthHistoryModal} onOpenChange={setShowGrowthHistoryModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Batch Growth History</DialogTitle>
+          </DialogHeader>
+          {loadingHistory ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <RefreshCw className="w-8 h-8 animate-spin text-[#088395] mb-4" />
+              <p className="text-gray-600">Loading history...</p>
+            </div>
+          ) : selectedBatchForHistory ? (
+            <GrowthHistory
+              batch={{
+                id: selectedBatchForHistory.id,
+                batchNumber: selectedBatchForHistory.batchNumber || `Batch ${selectedBatchForHistory.id.substring(0, 8)}`,
+                tankName: tank.name,
+                fishType: selectedBatchForHistory.species || selectedBatchForHistory.fishType || tank.species,
+                stockedDate: new Date(selectedBatchForHistory.dates?.stockedDate || selectedBatchForHistory.stockedDate || Date.now()),
+                initialCount: selectedBatchForHistory.counts?.initial || selectedBatchForHistory.initialCount || 0,
+                currentCount: selectedBatchForHistory.counts?.current || selectedBatchForHistory.currentCount || 0,
+                initialWeight: typeof selectedBatchForHistory.weights?.initial === 'number'
+                  ? selectedBatchForHistory.weights.initial
+                  : parseFloat(selectedBatchForHistory.weights?.initial || selectedBatchForHistory.initialAverageWeight || '0')
+              }}
+              measurements={batchGrowthHistory}
+              onMeasurementAdded={() => fetchBatchGrowthHistory(selectedBatchForHistory.id)}
+            />
+          ) : (
+            <div className="py-12 text-center text-gray-500">
+              No batch selected
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Feeding Modal */}
       <FeedingModal
         open={showFeedingModal}
         onOpenChange={setShowFeedingModal}
         tank={tank}
+        onSuccess={fetchTankDetails}
       />
 
       {/* Water Quality Modal */}
@@ -1533,7 +1706,34 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
         open={showWaterQualityModal}
         onOpenChange={setShowWaterQualityModal}
         tank={tank}
+        onSuccess={fetchTankDetails}
       />
+
+      {/* Record Growth Measurement Modal */}
+      {selectedBatchForUpdate && (
+        <RecordGrowthMeasurement
+          open={showRecordGrowthModal}
+          onClose={() => setShowRecordGrowthModal(false)}
+          batch={{
+            id: selectedBatchForUpdate.id,
+            batchNumber: selectedBatchForUpdate.batchNumber || `Batch ${selectedBatchForUpdate.id.substring(0, 8)}`,
+            tankName: tank.name,
+            tankId: tank.id, // Added tankId here
+            fishType: selectedBatchForUpdate.species || selectedBatchForUpdate.fishType || tank.species,
+            daysInCulture: selectedBatchForUpdate.ageInDays || selectedBatchForUpdate.age || selectedBatchForUpdate.daysInCulture || 0,
+            lastWeight: typeof selectedBatchForUpdate.weights?.currentAvg === 'number'
+              ? selectedBatchForUpdate.weights.currentAvg
+              : parseFloat(selectedBatchForUpdate.weights?.currentAvg || selectedBatchForUpdate.currentAverageWeight || selectedBatchForUpdate.avgWeight || '0'),
+            lastMeasurementDate: selectedBatchForUpdate.dates?.lastSampled ? new Date(selectedBatchForUpdate.dates.lastSampled) : undefined,
+            currentCount: selectedBatchForUpdate.counts?.current || selectedBatchForUpdate.currentCount || selectedBatchForUpdate.count || 0
+          }}
+          onSuccess={() => {
+            fetchTankDetails();
+            setShowRecordGrowthModal(false);
+          }}
+          measuredBy={user.name}
+        />
+      )}
     </div>
   );
 }
@@ -1572,109 +1772,263 @@ function WaterParameter({ name, value, status }: { name: string; value: string |
 }
 
 // Feeding Modal Component
-function FeedingModal({ open, onOpenChange, tank }: { open: boolean; onOpenChange: (open: boolean) => void; tank: any }) {
-  const [meals, setMeals] = useState(2.5);
-  const [weightFed, setWeightFed] = useState(45);
+function FeedingModal({ open, onOpenChange, tank, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; tank: any; onSuccess?: () => void }) {
+  const [meals, setMeals] = useState(1);
+  const [weightFed, setWeightFed] = useState(0);
+  const [foodTypeId, setFoodTypeId] = useState<string>('');
+  const [availableFoodTypes, setAvailableFoodTypes] = useState<FoodType[]>([]);
+  const [isLoadingFoodTypes, setIsLoadingFoodTypes] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const dailyRecommended = 90;
+  useEffect(() => {
+    if (open && tank?.species) {
+      const fetchFood = async () => {
+        setIsLoadingFoodTypes(true);
+        try {
+          // Fetch food types specific to this tank's species (e.g. Nile Tilapia)
+          const data = await getFoodTypesBySpecies(tank.species);
+          setAvailableFoodTypes(data);
+          if (data.length > 0) {
+            setFoodTypeId(data[0].id);
+          }
+        } catch (err) {
+          console.error('Failed to fetch food types:', err);
+        } finally {
+          setIsLoadingFoodTypes(false);
+        }
+      };
+      fetchFood();
+    }
+  }, [open, tank?.species]);
+
+  // Recommendation logic (mocked for now, usually comes from backend or complex model)
+  const dailyRecommended = tank?.feeding?.recommended ?? 90;
   const perMeal = dailyRecommended / 4;
+  const currentTotalFed = (tank?.feeding?.todayFed ?? 0);
+  const totalWithNewMeal = currentTotalFed + weightFed;
+  
   const progress = {
-    meals: meals / 4,
-    weight: weightFed / dailyRecommended
+    weight: dailyRecommended > 0 ? totalWithNewMeal / dailyRecommended : 0
+  };
+
+  const selectedFood = availableFoodTypes.find(f => f.id === foodTypeId);
+
+  const handleSave = async () => {
+    if (!foodTypeId) {
+      toast.error('Please select a food type');
+      return;
+    }
+    if (weightFed <= 0) {
+      toast.error('Please enter weight fed');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const payload = {
+        tankId: tank.id,
+        foodTypeId: foodTypeId,
+        weightFed: weightFed,
+        mealsCount: meals,
+        measuredAt: new Date().toISOString()
+      };
+
+      await apiPost(`/tanks/${tank.id}/feeding`, payload);
+      toast.success('Feeding record saved successfully');
+      if (onSuccess) onSuccess();
+      onOpenChange(false);
+    } catch (err) {
+      console.error('Failed to record feeding:', err);
+      toast.error('Failed to record feeding: ' + (err as Error).message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Record Feeding - {tank?.name}</DialogTitle>
-          <p className="text-sm text-gray-600">Batch #123 - Nile Tilapia</p>
-        </DialogHeader>
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto p-0 border-none shadow-2xl">
+        {/* Modal Header with Background */}
+        <div className="bg-gradient-to-r from-[#0A4D68] to-[#088395] p-6 text-white">
+          <DialogHeader className="text-left">
+            <DialogTitle className="text-2xl font-bold text-white leading-tight">Record Feeding</DialogTitle>
+            <div className="flex flex-wrap items-center gap-2 mt-2 opacity-90">
+              <span className="flex items-center gap-1 bg-white/20 px-2 py-0.5 rounded text-xs font-medium">
+                <Droplet className="w-3 h-3" /> {tank?.name}
+              </span>
+              <span className="text-xs text-white/70">·</span>
+              <span className="flex items-center gap-1 bg-white/20 px-2 py-0.5 rounded text-xs font-medium">
+                <Fish className="w-3 h-3" /> Batch #123
+              </span>
+              <span className="text-xs text-white/70">· Nile Tilapia</span>
+            </div>
+          </DialogHeader>
+        </div>
 
-        <div className="space-y-4">
-          {/* Recommendation */}
-          <div className="bg-[#E0F4F5] p-4 rounded-lg">
-            <p className="font-medium mb-2">🎯 Recommendation</p>
-            <div className="text-sm space-y-1">
-              <p>Daily: {dailyRecommended} kg / 4 meals</p>
-              <p>Per Meal: {perMeal} kg</p>
-              <p>Food: Grower 30% 3mm Floating</p>
+        <div className="p-6 space-y-6">
+          {/* Recommendation Premium Card */}
+          <div className="bg-[#E0F4F5]/40 border border-[#088395]/20 rounded-2xl p-5 relative overflow-hidden group">
+            <div className="absolute top-1/2 -right-4 -translate-y-1/2 opacity-[0.03] group-hover:scale-110 transition-transform duration-500">
+              <TrendingUp className="w-32 h-32 text-[#0A4D68]" />
+            </div>
+            
+            <div className="flex items-center gap-2 text-[#0A4D68] font-bold mb-4">
+              <div className="w-8 h-8 rounded-lg bg-[#088395] flex items-center justify-center shadow-sm">
+                <Activity className="w-4 h-4 text-white" />
+              </div>
+              <span className="tracking-tight">Feeding Recommendation</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+              <div className="space-y-1">
+                <p className="text-[#0A4D68]/60 text-[10px] uppercase font-bold tracking-wider">Daily Target</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-xl font-bold text-[#0A4D68]">{dailyRecommended}</span>
+                  <span className="text-sm font-medium text-[#0A4D68]/70">kg / day</span>
+                </div>
+              </div>
+              <div className="space-y-1 border-l pl-6 border-[#088395]/10">
+                <p className="text-[#0A4D68]/60 text-[10px] uppercase font-bold tracking-wider">Per Meal (Avg)</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-xl font-bold text-[#0A4D68]">{perMeal.toFixed(1)}</span>
+                  <span className="text-sm font-medium text-[#0A4D68]/70">kg</span>
+                </div>
+              </div>
+              <div className="col-span-2 pt-2 border-t border-[#088395]/10">
+                <p className="text-[#0A4D68]/60 text-[10px] uppercase font-bold tracking-wider mb-1">Recommended Feed Type</p>
+                <p className="text-[#0A4D68] font-semibold text-sm">Grower 30% 3mm Floating</p>
+              </div>
             </div>
           </div>
 
-          {/* Food Type */}
-          <div className="space-y-2">
-            <Label>Food Type *</Label>
-            <select className="w-full border rounded-md p-2">
-              <option>✓ Grower 30% 3mm (Recommended)</option>
-              <option>○ Grower 28% 3mm (Alternative)</option>
-              <option>○ Grower 32% 2mm</option>
-            </select>
-          </div>
+          <div className="space-y-5">
+            {/* Food Type Selection */}
+            <div className="grid gap-2">
+              <Label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Food Type Selection</Label>
+              <Select value={foodTypeId} onValueChange={setFoodTypeId}>
+                <SelectTrigger className="h-11 bg-gray-50/50 border-gray-200">
+                  <SelectValue placeholder={isLoadingFoodTypes ? "Loading food types..." : "Select food type"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableFoodTypes.length === 0 && !isLoadingFoodTypes ? (
+                    <SelectItem value="none" disabled>No matching food types found</SelectItem>
+                  ) : (
+                    availableFoodTypes.map(ft => (
+                      <SelectItem key={ft.id} value={ft.id}>
+                        {ft.name} ({ft.proteinPercentage}% Protein, {ft.pelletSizeMm}mm)
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
 
-          {/* Number of Meals */}
-          <div className="space-y-2">
-            <Label>Number of Meals: *</Label>
-            <div className="flex items-center gap-4">
-              <Slider
-                value={[meals]}
-                onValueChange={(value: number[]) => setMeals(value[0])}
-                min={0.5}
-                max={4}
-                step={0.5}
-                className="flex-1"
-              />
-              <Input
-                type="number"
-                value={meals}
-                onChange={(e) => setMeals(parseFloat(e.target.value))}
-                className="w-20"
-                step={0.5}
-              />
+            {/* Meals Slider with better visual */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Number of Meals</Label>
+                <div className="text-lg font-bold text-[#0A4D68]">{meals} <span className="text-[10px] font-medium text-gray-400">Meals</span></div>
+              </div>
+              <div className="flex items-center gap-6 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                <Slider
+                  value={[meals]}
+                  onValueChange={(value: number[]) => setMeals(value[0])}
+                  min={0.5}
+                  max={4}
+                  step={0.5}
+                  className="flex-1"
+                />
+                <Input
+                  type="number"
+                  value={meals}
+                  onChange={(e) => setMeals(parseFloat(e.target.value) || 0)}
+                  className="w-14 h-9 text-center font-bold border-none shadow-none bg-transparent"
+                  step={0.5}
+                />
+              </div>
+            </div>
+
+            {/* Weight Input with clear unit */}
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Total Weight Fed Today</Label>
+              <div className="relative group">
+                <Input
+                  type="number"
+                  value={weightFed}
+                  onChange={(e) => setWeightFed(parseFloat(e.target.value) || 0)}
+                  className="h-12 pl-4 pr-12 text-lg font-bold bg-white border-2 border-gray-100 focus:border-[#088395] transition-all"
+                />
+                <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-[#0A4D68]/40 font-bold">
+                  KG
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Weight Fed */}
-          <div className="space-y-2">
-            <Label>Weight Fed (kg): *</Label>
-            <Input
-              type="number"
-              value={weightFed}
-              onChange={(e) => setWeightFed(parseFloat(e.target.value))}
+          {/* Enhanced Progress Tracking */}
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 shadow-inner">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Live Progress</h4>
+              <Badge className={`${progress.weight >= 1 ? 'bg-green-500' : 'bg-[#088395]'} text-[10px] uppercase font-bold`}>
+                {Math.round(progress.weight * 100)}% Fulfilled
+              </Badge>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex justify-between text-[11px] font-medium text-gray-500">
+                  <span>Consumption Status</span>
+                  <span className="text-white">{totalWithNewMeal.toFixed(1)} / {dailyRecommended} kg</span>
+                </div>
+                <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-700 ease-out rounded-full ${progress.weight >= 1 ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)]' : 'bg-[#088395] shadow-[0_0_10px_rgba(8,131,149,0.4)]'}`}
+                    style={{ width: `${Math.min(progress.weight * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white/5 border border-white/10 p-3 rounded-xl flex items-center justify-between">
+                  <span className="text-[10px] text-gray-500 font-bold uppercase">Meals</span>
+                  <span className="text-sm font-bold text-white">{meals} <span className="text-[10px] text-gray-600">/ 4</span></span>
+                </div>
+                <div className="bg-white/5 border border-white/10 p-3 rounded-xl flex items-center justify-between">
+                  <span className="text-[10px] text-gray-500 font-bold uppercase">Diff</span>
+                  <span className={`text-sm font-bold ${totalWithNewMeal >= dailyRecommended ? 'text-green-400' : 'text-orange-400'}`}>
+                    {Math.max(0, dailyRecommended - totalWithNewMeal).toFixed(1)} <span className="text-[10px] opacity-70">KG</span>
+                  </span>
+                </div>
+              </div>
+
+              {weightFed < dailyRecommended * 0.8 && (
+                <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl text-[10px] text-amber-200 leading-relaxed shadow-sm">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 animate-pulse" />
+                  <p><strong className="text-amber-500">Caution:</strong> Currently underfeeding relative to optimal growth projection. If appetite is low, verify water parameters immediately.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <Label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Field Observations</Label>
+            <Textarea
+              placeholder="Record any unusual behavior, water clarity issues, or external conditions..."
+              className="resize-none min-h-[80px] bg-gray-50/50 border-gray-200 focus:bg-white transition-colors"
             />
           </div>
 
-          {/* Progress */}
-          <div className="bg-gray-50 p-3 rounded-lg text-sm space-y-1">
-            <p className="font-medium">Today's Progress:</p>
-            <p>Meals: {meals} / 4 ({Math.round(progress.meals * 100)}%)</p>
-            <p>Weight: {weightFed} / {dailyRecommended} kg ({Math.round(progress.weight * 100)}%)</p>
-            <p>Remaining: {4 - meals} meals, {dailyRecommended - weightFed} kg</p>
-          </div>
-
-          {/* Warning */}
-          {weightFed < dailyRecommended * 0.8 && (
-            <div className="bg-yellow-50 border border-yellow-200 p-3 rounded text-sm">
-              ⚠️ Warnings:
-              <ul className="list-disc ml-4 mt-1">
-                <li>Fed {Math.round(progress.weight * 100)}% of daily recommendation</li>
-              </ul>
-            </div>
-          )}
-
-          {/* Notes */}
-          <div className="space-y-2">
-            <Label>Notes (optional):</Label>
-            <Textarea placeholder="Cloudy weather, reduced appetite..." />
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-2">
-            <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
-              Cancel
+          <div className="flex gap-3 pt-4 border-t">
+            <Button variant="ghost" className="flex-1 h-12 text-gray-500 font-bold uppercase text-[10px] tracking-widest hover:bg-gray-100" onClick={() => onOpenChange(false)}>
+              Discard
             </Button>
-            <Button className="flex-1 bg-[#088395] hover:bg-[#0A4D68]">
-              Record Feeding
+            <Button 
+              className="flex-[2] h-12 bg-gradient-to-r from-[#0A4D68] to-[#088395] hover:shadow-lg transition-all text-white font-bold uppercase text-[10px] tracking-widest"
+              onClick={handleSave}
+              disabled={isSaving}
+            >
+              {isSaving ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+              Finalize & Save
             </Button>
           </div>
         </div>
@@ -1684,7 +2038,7 @@ function FeedingModal({ open, onOpenChange, tank }: { open: boolean; onOpenChang
 }
 
 // Water Quality Modal Component
-function WaterQualityModal({ open, onOpenChange, tank }: { open: boolean; onOpenChange: (open: boolean) => void; tank: any }) {
+function WaterQualityModal({ open, onOpenChange, tank, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; tank: any; onSuccess?: () => void }) {
   const [temp, setTemp] = useState(28.5);
   const [doValue, setDoValue] = useState(4.2);
   const [phValue, setPhValue] = useState(7.8);
@@ -1933,11 +2287,135 @@ function WaterQualityModal({ open, onOpenChange, tank }: { open: boolean; onOpen
             <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button className="flex-1 bg-[#088395] hover:bg-[#0A4D68]">
+            <Button 
+              className="flex-1 bg-[#088395] hover:bg-[#0A4D68]"
+              onClick={async () => {
+                try {
+                  const payload = {
+                    temperature: temp,
+                    dissolvedOxygen: doValue,
+                    ph: phValue,
+                    ammonia: totalAmmonia,
+                    nitrite: nitrite,
+                    nitrate: nitrate,
+                    salinity: salinity ? parseFloat(salinity) : undefined,
+                    alkalinity: alkalinity ? parseFloat(alkalinity) : undefined,
+                    hardness: hardness ? parseFloat(hardness) : undefined,
+                    turbidity: turbidity ? parseFloat(turbidity) : undefined,
+                    co2: co2 ? parseFloat(co2) : undefined
+                  };
+                  await apiPost(`/tanks/${tank.id}/water-quality`, payload);
+                  toast.success('Water quality record saved');
+                  if (onSuccess) onSuccess();
+                  onOpenChange(false);
+                } catch (err) {
+                  toast.error('Failed to save: ' + (err as Error).message);
+                }
+              }}
+            >
               💾 Save Water Quality Reading
             </Button>
           </div>
         </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Add Tank Modal Component
+function AddTankModal({
+  open,
+  onOpenChange,
+  onConfirm
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: (data: { name: string; capacity: number; volume: number; location: string }) => Promise<void>;
+}) {
+  const [name, setName] = useState('');
+  const [location, setLocation] = useState('');
+  const [capacity, setCapacity] = useState(5000);
+  const [volume, setVolume] = useState(50);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    setError(null);
+    try {
+      await onConfirm({ name, capacity, volume, location });
+      setName('');
+      setLocation('');
+      setCapacity(5000);
+      setVolume(50);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add New Tank</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="tank-name">Tank Name *</Label>
+            <Input
+              id="tank-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Tank A-05"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="tank-location">Location *</Label>
+            <Input
+              id="tank-location"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g. Section A"
+              required
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="tank-capacity">Capacity (kg) *</Label>
+              <Input
+                id="tank-capacity"
+                type="number"
+                value={capacity}
+                onChange={(e) => setCapacity(Number(e.target.value))}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tank-volume">Volume (m³) *</Label>
+              <Input
+                id="tank-volume"
+                type="number"
+                value={volume}
+                onChange={(e) => setVolume(Number(e.target.value))}
+                required
+              />
+            </div>
+          </div>
+          {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
+          <div className="flex gap-2 pt-4">
+            <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" className="flex-1 bg-[#088395] hover:bg-[#0A4D68]" disabled={isSaving}>
+              {isSaving ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+              Create Tank
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

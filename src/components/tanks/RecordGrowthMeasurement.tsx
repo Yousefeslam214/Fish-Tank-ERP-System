@@ -15,6 +15,7 @@ import {
   Ruler
 } from 'lucide-react';
 import { getTranslation, Language } from '../../i18n/translations';
+import { apiPut } from '../../api';
 
 interface RecordGrowthMeasurementProps {
   open: boolean;
@@ -23,6 +24,7 @@ interface RecordGrowthMeasurementProps {
     id: string;
     batchNumber: string;
     tankName: string;
+    tankId?: string;
     fishType: string;
     daysInCulture: number;
     lastWeight?: number;
@@ -31,6 +33,7 @@ interface RecordGrowthMeasurementProps {
   };
   language?: Language;
   onSuccess?: (data: any) => void;
+  measuredBy?: string;
 }
 
 export default function RecordGrowthMeasurement({ 
@@ -38,7 +41,8 @@ export default function RecordGrowthMeasurement({
   onClose, 
   batch,
   language = 'en',
-  onSuccess 
+  onSuccess,
+  measuredBy = 'Caretaker'
 }: RecordGrowthMeasurementProps) {
   const t = (key: string) => getTranslation(language, key);
   const isRTL = language === 'ar';
@@ -56,9 +60,21 @@ export default function RecordGrowthMeasurement({
     maxWeight: 0,
     averageLength: 0,
     notes: '',
-    measuredBy: 'Ahmed Mohamed',
+    measuredBy: measuredBy,
     individualWeights: [] as number[]
   });
+
+  // Pre-fill form when batch data is available
+  useEffect(() => {
+    if (open && batch.lastWeight && batch.lastWeight > 0 && (formData.totalSampleWeight === 0 || formData.totalSampleWeight === 1)) {
+      setFormData(prev => ({
+        ...prev,
+        totalSampleWeight: parseFloat((batch.lastWeight! * prev.sampleSize).toFixed(1)),
+        minWeight: parseFloat((batch.lastWeight! * 0.85).toFixed(1)),
+        maxWeight: parseFloat((batch.lastWeight! * 1.15).toFixed(1)),
+      }));
+    }
+  }, [open, batch.lastWeight]);
 
   // Calculate metrics
   const averageWeight = formData.sampleSize > 0 
@@ -156,8 +172,7 @@ export default function RecordGrowthMeasurement({
       return;
     }
 
-    // Mock API call
-    const payload = {
+    const payload: any = {
       measuredAt: formData.measuredAt,
       daysInCulture: batch.daysInCulture,
       sampleSize: formData.sampleSize,
@@ -175,9 +190,15 @@ export default function RecordGrowthMeasurement({
       measuredBy: formData.measuredBy
     };
 
-    // Simulate API response
-    setTimeout(() => {
-      const mockResponse = {
+    try {
+      // Corrected API endpoint based on Route Guide line 73: PUT /api/v1/tanks/growth/:id
+      // We use the batch ID as the identifier to update the growth metrics for that batch
+      await apiPut(`/tanks/growth/${batch.id}`, {
+        ...payload,
+        tankId: batch.tankId
+      });
+      
+      const res = {
         id: 'growth-' + Date.now(),
         ...payload,
         sgr: parseFloat(sgr.toFixed(2)),
@@ -197,13 +218,16 @@ export default function RecordGrowthMeasurement({
         ]
       };
 
-      setSuccessData(mockResponse);
+      setSuccessData(res);
       setShowSuccess(true);
       
       if (onSuccess) {
-        onSuccess(mockResponse);
+        onSuccess(res);
       }
-    }, 1000);
+    } catch (err) {
+      console.error('Failed to record growth:', err);
+      alert('Failed to record growth: ' + (err as Error).message);
+    }
   };
 
   const handleSuccessClose = () => {
@@ -500,7 +524,7 @@ export default function RecordGrowthMeasurement({
 
       {/* Success Dialog */}
       <Dialog open={showSuccess} onOpenChange={handleSuccessClose}>
-        <DialogContent className={`max-w-2xl ${isRTL ? 'rtl' : 'ltr'}`}>
+        <DialogContent className={`max-w-2xl max-h-[90vh] overflow-y-auto ${isRTL ? 'rtl' : 'ltr'}`}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl text-[#10B981]">
               <CheckCircle className="w-6 h-6" />

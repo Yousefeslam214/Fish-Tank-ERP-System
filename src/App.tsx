@@ -14,6 +14,7 @@ import FishTypeManagement from './components/FishTypeManagement';
 import FoodTypeManagement from './components/FoodTypeManagement';
 import { HarvestManagement } from './components/HarvestManagement';
 import Sidebar from './components/Sidebar';
+import { Toaster } from './components/ui/sonner';
 import { User, Farm } from './types';
 import { clearAuthSession, getStoredAppUser } from './services/authSession';
 import { apiGet } from './api';
@@ -153,6 +154,7 @@ export default function App() {
           />
         )}
       </div>
+      <Toaster />
     </div>
   );
 }
