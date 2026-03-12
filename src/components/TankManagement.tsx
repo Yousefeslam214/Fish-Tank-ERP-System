@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -13,13 +13,17 @@ import { Progress } from './ui/progress';
 import {
   Fish,
   Droplet,
-  AlertTriangle,
-  Plus,
-  ArrowLeft,
-  Thermometer,
-  Activity,
-  TrendingUp,
   Scale,
+  Activity,
+  ArrowLeft,
+  RefreshCw,
+  AlertTriangle,
+  History,
+  TrendingUp,
+  Settings,
+  MoreVertical,
+  Plus,
+  Thermometer,
   Calendar
 } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
@@ -42,42 +46,52 @@ interface ApiTankBiomass {
   overstockPercentage?: number | null;
 }
 interface ApiTankWaterQuality {
-  overallStatus?: string;      // API uses 'overallStatus', not 'overall'
+  overallStatus?: string;
   temperature?: number;
   dissolvedOxygen?: number;
   ph?: number;
   ammonia?: number;
 }
 interface ApiTankFeeding {
-  currentMeal?: number;       // meals completed so far today
+  currentMeal?: number;
   totalMeals?: number;
-  weightFed?: number;         // kg fed today
-  targetWeight?: number;      // recommended kg for today
+  weightFed?: number;
+  targetWeight?: number;
   percentage?: number;
+}
+interface RawApiTank {
+  id: string;
+  name: string;
+  status: string;
+  fishType?: string;
+  biomass?: ApiTankBiomass;
+  waterQuality: ApiTankWaterQuality | null;
+  feeding: ApiTankFeeding | null;
+  batches?: any[];
 }
 interface ApiTank {
   id: string;
   name: string;
   farmId?: string;
-  status?: string;
-  fishType?: string;          // API raw field
-  species?: string;           // normalised from fishType
-  biomass?: ApiTankBiomass | number;  // object from API, number after normalise
-  capacity?: number;          // set from biomass.capacity during normalise
-  volume?: number;            // defaulted to 50 during normalise
-  waterQuality?: ApiTankWaterQuality | {
-    overall?: string;
-    temp?: { value: number; status: string };
-    do?: { value: number; status: string };
-    ph?: { value: number; status: string };
-    nh3?: { value: number; status: string };
-  };
-  feeding?: ApiTankFeeding | {
-    todayMeals?: number;
-    totalMeals?: number;
-    todayFed?: number;
-    recommended?: number;
-  };
+  status: string;
+  fishType?: string;
+  species: string;
+  biomass: number;
+  capacity: number;
+  volume: number;
+  waterQuality: {
+    overall: string;
+    temp: { value: number; status: string };
+    do: { value: number; status: string };
+    ph: { value: number; status: string };
+    nh3: { value: number; status: string };
+  } | null;
+  feeding: {
+    todayMeals: number;
+    totalMeals: number;
+    todayFed: number;
+    recommended: number;
+  } | null;
   batches?: any[];
 }
 
@@ -105,10 +119,10 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
     setTanksError(null);
     try {
       // API returns: { success: true, data: [...] }
-      const res = await apiGet<{ success: boolean; data: ApiTank[] } | ApiTank[]>('/tanks');
-      const list: ApiTank[] = Array.isArray(res)
+      const res = await apiGet<{ success: boolean; data: RawApiTank[] } | RawApiTank[]>('/tanks');
+      const list: RawApiTank[] = Array.isArray(res)
         ? res
-        : ((res as { success: boolean; data: ApiTank[] }).data ?? []);
+        : ((res as { success: boolean; data: RawApiTank[] }).data ?? []);
 
       // Normalise: map the REAL API fields to the shape TankDetailView expects
       // - biomass is an OBJECT { actual, capacity } in the real API
@@ -129,19 +143,19 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
           capacity: capacityKg,
           volume: 50,                          // not returned by API, default
           batches: t.batches ?? [],
-          waterQuality: {
+          waterQuality: wq ? {
             overall: (wq?.overallStatus ?? 'unknown').toLowerCase(),
             temp: { value: parseFloat((wq?.temperature ?? 0).toFixed(1)), status: 'unknown' },
             do: { value: parseFloat((wq?.dissolvedOxygen ?? 0).toFixed(2)), status: 'unknown' },
             ph: { value: parseFloat((wq?.ph ?? 0).toFixed(2)), status: 'unknown' },
             nh3: { value: parseFloat((wq?.ammonia ?? 0).toFixed(4)), status: 'unknown' },
-          },
-          feeding: {
+          } : null,
+          feeding: fd ? {
             todayMeals: fd?.currentMeal ?? 0,
             totalMeals: fd?.totalMeals ?? 4,
             todayFed: fd?.weightFed ?? 0,
             recommended: fd?.targetWeight ?? 0,
-          },
+          } : null,
         };
       });
 
@@ -160,22 +174,28 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
   // tanks, tanksLoading, tanksError are managed by useEffect above
 
   const getStatusColor = (status: string) => {
-    switch (status) {
+    const s = status.toLowerCase();
+    switch (s) {
       case 'critical': return 'bg-[#EF4444]';
       case 'warning': return 'bg-[#F59E0B]';
       case 'acceptable': return 'bg-[#3B82F6]';
       case 'optimal': return 'bg-[#10B981]';
       case 'active': return 'bg-[#10B981]';
+      case 'maintenance': return 'bg-purple-500';
+      case 'empty': return 'bg-gray-400';
       default: return 'bg-gray-500';
     }
   };
 
   const getStatusIcon = (status: string) => {
-    switch (status) {
+    const s = status.toLowerCase();
+    switch (s) {
       case 'critical': return '🔴';
       case 'warning': return '🟡';
       case 'acceptable': return '🔵';
       case 'optimal': return '🟢';
+      case 'maintenance': return '🔧';
+      case 'empty': return '⚪';
       default: return '⚪';
     }
   };
@@ -279,49 +299,61 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
                   </div>
 
                   {/* Water Quality */}
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">Water Quality</span>
-                      <span className="text-xs">{getStatusIcon((tank.waterQuality as any)?.overall ?? 'unknown')} {(tank.waterQuality as any)?.overall ?? '–'}</span>
+                  {tank.waterQuality ? (
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">Water Quality</span>
+                        <span className="text-xs">{getStatusIcon(tank.waterQuality.overall)} {tank.waterQuality.overall}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-gray-600">Temp:</span>
+                          <span className="ml-1 font-medium">{tank.waterQuality.temp.value}°C</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">DO:</span>
+                          <span className="ml-1 font-medium">{tank.waterQuality.do.value} mg/L</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">pH:</span>
+                          <span className="ml-1 font-medium">{tank.waterQuality.ph.value}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">NH₃:</span>
+                          <span className="ml-1 font-medium">{tank.waterQuality.nh3.value} mg/L</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <span className="text-gray-600">Temp:</span>
-                        <span className="ml-1 font-medium">{(tank.waterQuality as any)?.temp?.value ?? '–'}°C</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">DO:</span>
-                        <span className="ml-1 font-medium">{(tank.waterQuality as any)?.do?.value ?? '–'} mg/L</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">pH:</span>
-                        <span className="ml-1 font-medium">{(tank.waterQuality as any)?.ph?.value ?? '–'}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">NH₃:</span>
-                        <span className="ml-1 font-medium">{(tank.waterQuality as any)?.nh3?.value ?? '–'} mg/L</span>
-                      </div>
+                  ) : (
+                    <div className="bg-gray-50 p-3 rounded-lg text-center py-4 border border-dashed border-gray-200">
+                      <p className="text-xs text-gray-400 italic">No water quality data</p>
                     </div>
-                  </div>
+                  )}
 
                   {/* Feeding */}
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">Today's Feeding</span>
-                      <span className="text-xs">{(tank.feeding as any)?.todayMeals ?? 0}/{(tank.feeding as any)?.totalMeals ?? 4} meals</span>
+                  {tank.feeding ? (
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">Today's Feeding</span>
+                        <span className="text-xs">{tank.feeding.todayMeals}/{tank.feeding.totalMeals} meals</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-600">Fed: {tank.feeding.todayFed} / {tank.feeding.recommended} kg</span>
+                        {tank.feeding.recommended > 0 && (
+                          <span className={`font-medium ${tank.feeding.todayFed < tank.feeding.recommended
+                            ? 'text-yellow-600'
+                            : 'text-green-600'
+                            }`}>
+                            {Math.round((tank.feeding.todayFed / tank.feeding.recommended) * 100)}%
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-600">Fed: {(tank.feeding as any)?.todayFed ?? 0} / {(tank.feeding as any)?.recommended ?? 0} kg</span>
-                      {(tank.feeding as any)?.recommended > 0 && (
-                        <span className={`font-medium ${(tank.feeding as any).todayFed < (tank.feeding as any).recommended
-                          ? 'text-yellow-600'
-                          : 'text-green-600'
-                          }`}>
-                          {Math.round(((tank.feeding as any).todayFed / (tank.feeding as any).recommended) * 100)}%
-                        </span>
-                      )}
+                  ) : (
+                    <div className="bg-gray-50 p-3 rounded-lg text-center py-4 border border-dashed border-gray-200">
+                      <p className="text-xs text-gray-400 italic">No feeding plan</p>
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -338,159 +370,117 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
   const [showFeedingModal, setShowFeedingModal] = useState(false);
   const [showWaterQualityModal, setShowWaterQualityModal] = useState(false);
 
-  // Mock historical data
-  const waterQualityHistory = [
-    { date: 'Feb 1', temp: 27.5, do: 5.8, ph: 7.6, nh3: 0.03 },
-    { date: 'Feb 5', temp: 28, do: 5.5, ph: 7.7, nh3: 0.04 },
-    { date: 'Feb 9', temp: 28.5, do: 4.8, ph: 7.8, nh3: 0.06 },
-    { date: 'Feb 13', temp: 28, do: 4.2, ph: 7.8, nh3: 0.08 },
-  ];
+  // ── API state for detailed records ──
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [predictionData, setPredictionData] = useState<any>(null);
+  const [waterQualityRecords, setWaterQualityRecords] = useState<any[]>([]);
+  const [feedingRecords, setFeedingRecords] = useState<any[]>([]);
+  const [growthMetrics, setGrowthMetrics] = useState<any[]>([]);
+  const [tankBatches, setTankBatches] = useState<any[]>(tank.batches || []);
+  const [batchesSummary, setBatchesSummary] = useState<any>(null);
+  const [loadingDetails, setLoadingDetails] = useState(true);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
 
-  // Detailed water quality records
-  const waterQualityRecords = [
-    {
-      id: 1,
-      measuredAt: '2026-02-13 14:30',
-      temp: 28,
-      do: 4.2,
-      ph: 7.8,
-      nh3: 0.08,
-      no2: 0.06,
-      no3: 18,
-      status: 'warning',
-      measuredBy: 'Ahmed Mohamed',
-      notes: 'DO levels dropping, increased aeration'
-    },
-    {
-      id: 2,
-      measuredAt: '2026-02-09 09:15',
-      temp: 28.5,
-      do: 4.8,
-      ph: 7.8,
-      nh3: 0.06,
-      no2: 0.05,
-      no3: 16,
-      status: 'acceptable',
-      measuredBy: 'Fatima Hassan',
-      notes: ''
-    },
-    {
-      id: 3,
-      measuredAt: '2026-02-05 16:45',
-      temp: 28,
-      do: 5.5,
-      ph: 7.7,
-      nh3: 0.04,
-      no2: 0.03,
-      no3: 14,
-      status: 'optimal',
-      measuredBy: 'Ahmed Mohamed',
-      notes: 'All parameters optimal'
-    },
-    {
-      id: 4,
-      measuredAt: '2026-02-01 11:20',
-      temp: 27.5,
-      do: 5.8,
-      ph: 7.6,
-      nh3: 0.03,
-      no2: 0.02,
-      no3: 12,
-      status: 'optimal',
-      measuredBy: 'Omar Ibrahim',
-      notes: ''
-    },
-  ];
+  const fetchTankDetails = useCallback(async () => {
+    setLoadingDetails(true);
+    setDetailsError(null);
+    try {
+      // First fetch basic details and dashboard
+      const [dashRes, wqRes, fdRes, gmRes, btRes] = await Promise.all([
+        apiGet<any>(`/tanks/${tank.id}/dashboard`),
+        apiGet<any>(`/tanks/${tank.id}/water-quality`),
+        apiGet<any>(`/tanks/${tank.id}/feeding-history`),
+        apiGet<any>(`/tanks/${tank.id}/growth-metrics`),
+        apiGet<any>(`/tanks/${tank.id}/batches`)
+      ]);
 
-  const feedingHistory = [
-    { time: '08:30', meal: 1, fed: 22, recommended: 22.5, status: 'on-target' },
-    { time: '13:00', meal: 2, fed: 18, recommended: 22.5, status: 'below' },
-    { time: '17:30', meal: 3, fed: 25, recommended: 22.5, status: 'on-target' },
-  ];
+      const dashData = dashRes.data ?? dashRes;
+      setDashboardData(dashData);
 
-  // Detailed feeding records
-  const feedingRecords = [
-    {
-      id: 1,
-      date: '2026-02-13',
-      time: '17:30',
-      meal: 3,
-      fed: 25,
-      recommended: 22.5,
-      foodType: 'Grower 30% 3mm Floating',
-      status: 'on-target',
-      fedBy: 'Ahmed Mohamed',
-      notes: ''
-    },
-    {
-      id: 2,
-      date: '2026-02-13',
-      time: '13:00',
-      meal: 2,
-      fed: 18,
-      recommended: 22.5,
-      foodType: 'Grower 30% 3mm Floating',
-      status: 'below',
-      fedBy: 'Fatima Hassan',
-      notes: 'Fish showing reduced appetite'
-    },
-    {
-      id: 3,
-      date: '2026-02-13',
-      time: '08:30',
-      meal: 1,
-      fed: 22,
-      recommended: 22.5,
-      foodType: 'Grower 30% 3mm Floating',
-      status: 'on-target',
-      fedBy: 'Ahmed Mohamed',
-      notes: ''
-    },
-    {
-      id: 4,
-      date: '2026-02-12',
-      time: '17:30',
-      meal: 4,
-      fed: 23,
-      recommended: 22.5,
-      foodType: 'Grower 30% 3mm Floating',
-      status: 'on-target',
-      fedBy: 'Omar Ibrahim',
-      notes: ''
-    },
-    {
-      id: 5,
-      date: '2026-02-12',
-      time: '13:00',
-      meal: 3,
-      fed: 22,
-      recommended: 22.5,
-      foodType: 'Grower 30% 3mm Floating',
-      status: 'on-target',
-      fedBy: 'Ahmed Mohamed',
-      notes: ''
-    },
-    {
-      id: 6,
-      date: '2026-02-12',
-      time: '08:30',
-      meal: 2,
-      fed: 24,
-      recommended: 22.5,
-      foodType: 'Grower 30% 3mm Floating',
-      status: 'on-target',
-      fedBy: 'Fatima Hassan',
-      notes: ''
-    },
-  ];
+      const wqData = Array.isArray(wqRes.data) ? wqRes.data : (Array.isArray(wqRes) ? wqRes : []);
+      const fdData = Array.isArray(fdRes.data) ? fdRes.data : (Array.isArray(fdRes) ? fdRes : []);
+      const gmData = Array.isArray(gmRes.data) ? gmRes.data : (Array.isArray(gmRes) ? gmRes : []);
+      
+      // Handle batches based on the provided JSON structure
+      let btData = [];
+      let btSummary = null;
+      if (btRes) {
+        if (btRes.data && Array.isArray(btRes.data.batches)) {
+          btData = btRes.data.batches;
+          btSummary = btRes.data.summary;
+        } else if (Array.isArray(btRes.data)) {
+          btData = btRes.data;
+        } else if (Array.isArray(btRes.batches)) {
+          btData = btRes.batches;
+        } else if (Array.isArray(btRes)) {
+          btData = btRes;
+        }
+      }
 
-  const growthData = [
-    { week: 'Week 1', weight: 180 },
-    { week: 'Week 2', weight: 200 },
-    { week: 'Week 3', weight: 220 },
-    { week: 'Week 4', weight: 235 },
-    { week: 'Week 5', weight: 250 },
-  ];
+      setWaterQualityRecords(wqData);
+      setFeedingRecords(fdData);
+      setGrowthMetrics(gmData);
+      const finalBatches = btData.length > 0 ? btData : tank.batches || [];
+      setTankBatches(finalBatches);
+      setBatchesSummary(btSummary);
+
+      // If there are batches, fetch prediction for the first one
+      if (finalBatches.length > 0) {
+        try {
+          const predRes = await apiGet<any>(`/harvest/events/prediction/batch/${finalBatches[0].id}`);
+          setPredictionData(predRes.data ?? predRes);
+        } catch (err) {
+          console.warn('Failed to fetch harvest prediction:', err);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch tank details:', err);
+      setDetailsError((err as Error).message);
+    } finally {
+      setLoadingDetails(false);
+    }
+  }, [tank.id]);
+
+  useEffect(() => {
+    fetchTankDetails();
+  }, [fetchTankDetails]);
+
+  // Map API records to the shape expected by charts and tables
+  const waterQualityHistory = useMemo(() => {
+    if (!Array.isArray(waterQualityRecords)) return [];
+    return [...waterQualityRecords]
+      .sort((a, b) => new Date(a.measuredAt || a.createdAt).getTime() - new Date(b.measuredAt || b.createdAt).getTime())
+      .map(r => ({
+        date: new Date(r.measuredAt || r.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        temp: r.temperature,
+        do: r.dissolvedOxygen,
+        ph: r.ph,
+        nh3: r.ammonia
+      }));
+  }, [waterQualityRecords]);
+
+  const feedingHistory = useMemo(() => {
+    if (!Array.isArray(feedingRecords)) return [];
+    // Only show today's feedings in the "Today's Schedule" summary
+    const today = new Date().toISOString().split('T')[0];
+    return feedingRecords
+      .filter(r => (r.date || r.createdAt)?.startsWith(today))
+      .map(r => ({
+        time: r.time || (r.createdAt ? new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '–'),
+        meal: r.mealNumber ?? 0,
+        fed: r.weightFed ?? 0,
+        recommended: r.targetWeight ?? 0,
+        status: (r.weightFed ?? 0) >= (r.targetWeight ?? 0) ? 'on-target' : 'below'
+      }));
+  }, [feedingRecords]);
+
+  const growthData = useMemo(() => {
+    if (!Array.isArray(growthMetrics)) return [];
+    return growthMetrics.map(m => ({
+      week: `Day ${m.daysInCulture ?? m.dayCount}`,
+      weight: m.averageWeightGrams ?? m.avgWeight
+    }));
+  }, [growthMetrics]);
 
   return (
     <div className="flex-1 overflow-auto bg-[#F9FAFB]">
@@ -510,14 +500,26 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
               <h1 className="text-xl font-semibold">{tank.name}</h1>
               <p className="text-sm text-gray-300">{tank.volume}m³ volume · Stocking density: {Math.round((tank.biomass / tank.volume))} kg/m³</p>
             </div>
-            <Badge className={`${tank.status === 'critical' ? 'bg-[#EF4444]' : tank.status === 'warning' ? 'bg-[#F59E0B]' : 'bg-[#10B981]'} text-white text-sm px-3 py-1`}>
-              {tank.status.toUpperCase()}
-            </Badge>
+            <div className="flex items-center gap-3">
+              {loadingDetails && <RefreshCw className="w-4 h-4 animate-spin text-gray-300" />}
+              <Badge className={`${tank.status === 'critical' ? 'bg-[#EF4444]' : tank.status === 'warning' ? 'bg-[#F59E0B]' : 'bg-[#10B981]'} text-white text-sm px-3 py-1`}>
+                {tank.status.toUpperCase()}
+              </Badge>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="p-6">
+      <div className={`p-6 ${loadingDetails ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}`}>
+        {detailsError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-500" />
+              <p className="text-sm text-red-800">Failed to load tank history: {detailsError}</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={fetchTankDetails}>Retry</Button>
+          </div>
+        )}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="bg-white">
             <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -533,57 +535,79 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
           <TabsContent value="overview" className="space-y-4">
             {/* Summary Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">Total Fish</p>
-                      <p className="text-2xl font-bold">{tank.batches.reduce((sum: number, b: any) => sum + b.count, 0)}</p>
-                      <p className="text-xs text-gray-500 mt-1">{tank.batches.length} batches</p>
-                    </div>
-                    <Fish className="w-8 h-8 text-[#0A4D68] opacity-20" />
-                  </div>
-                </CardContent>
-              </Card>
+              {dashboardData?.summary ? (
+                dashboardData.summary.map((item: any, idx: number) => {
+                  const Icon = idx === 0 ? Fish : idx === 1 ? Scale : idx === 2 ? Droplet : Activity;
+                  return (
+                    <Card key={idx}>
+                      <CardContent className="pt-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-gray-600">{item.label}</p>
+                            <p className="text-2xl font-bold">{item.value}</p>
+                            {item.subValue && <p className="text-xs text-gray-500 mt-1">{item.subValue}</p>}
+                          </div>
+                          <Icon className="w-8 h-8 text-[#0A4D68] opacity-20" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              ) : (
+                <>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600">Total Fish</p>
+                          <p className="text-2xl font-bold">{tankBatches.reduce((sum: number, b: any) => sum + (b.count || b.currentCount || 0), 0).toLocaleString()}</p>
+                          <p className="text-xs text-gray-500 mt-1">{tankBatches.length} batches</p>
+                        </div>
+                        <Fish className="w-8 h-8 text-[#0A4D68] opacity-20" />
+                      </div>
+                    </CardContent>
+                  </Card>
 
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">Total Biomass</p>
-                      <p className="text-2xl font-bold">{tank.biomass} kg</p>
-                      <p className="text-xs text-gray-500 mt-1">{Math.round((tank.biomass / tank.capacity) * 100)}% capacity</p>
-                    </div>
-                    <Scale className="w-8 h-8 text-[#0A4D68] opacity-20" />
-                  </div>
-                </CardContent>
-              </Card>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600">Total Biomass</p>
+                          <p className="text-2xl font-bold">{tank.biomass} kg</p>
+                          <p className="text-xs text-gray-500 mt-1">{Math.round((tank.biomass / tank.capacity) * 100)}% capacity</p>
+                        </div>
+                        <Scale className="w-8 h-8 text-[#0A4D68] opacity-20" />
+                      </div>
+                    </CardContent>
+                  </Card>
 
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">Water Quality</p>
-                      <p className="text-2xl font-bold capitalize">{tank.waterQuality.overall}</p>
-                      <p className="text-xs text-gray-500 mt-1">Last: 2 hours ago</p>
-                    </div>
-                    <Droplet className="w-8 h-8 text-[#0A4D68] opacity-20" />
-                  </div>
-                </CardContent>
-              </Card>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600">Water Quality</p>
+                          <p className="text-2xl font-bold capitalize">{tank.waterQuality?.overall || 'Unknown'}</p>
+                          <p className="text-xs text-gray-500 mt-1">Last: 2 hours ago</p>
+                        </div>
+                        <Droplet className="w-8 h-8 text-[#0A4D68] opacity-20" />
+                      </div>
+                    </CardContent>
+                  </Card>
 
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600">Feed Today</p>
-                      <p className="text-2xl font-bold">{tank.feeding.todayFed} kg</p>
-                      <p className="text-xs text-gray-500 mt-1">{tank.feeding.todayMeals}/{tank.feeding.totalMeals} meals</p>
-                    </div>
-                    <Activity className="w-8 h-8 text-[#0A4D68] opacity-20" />
-                  </div>
-                </CardContent>
-              </Card>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600">Feed Today</p>
+                          <p className="text-2xl font-bold">{tank.feeding?.todayFed || 0} kg</p>
+                          <p className="text-xs text-gray-500 mt-1">{tank.feeding?.todayMeals || 0}/{tank.feeding?.totalMeals || 0} meals</p>
+                        </div>
+                        <Activity className="w-8 h-8 text-[#0A4D68] opacity-20" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
             </div>
 
             {/* Tank Capacity & Status */}
@@ -596,22 +620,28 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
                   <div>
                     <div className="flex justify-between text-sm mb-2">
                       <span className="text-gray-600">Current Load</span>
-                      <span className="font-medium">{tank.biomass} / {tank.capacity} kg</span>
+                      <span className="font-medium">
+                        {dashboardData?.capacity?.currentLoadKg ?? tank.biomass} / {dashboardData?.capacity?.capacityKg ?? tank.capacity} kg
+                      </span>
                     </div>
-                    <Progress value={(tank.biomass / tank.capacity) * 100} className="h-3" />
-                    <p className="text-xs text-gray-600 mt-1">{Math.round((tank.biomass / tank.capacity) * 100)}% capacity used</p>
+                    <Progress value={dashboardData?.capacity?.percentageUsed ?? (tank.biomass / tank.capacity) * 100} className="h-3" />
+                    <p className="text-xs text-gray-600 mt-1">
+                      {Math.round(dashboardData?.capacity?.percentageUsed ?? (tank.biomass / tank.capacity) * 100)}% capacity used
+                    </p>
                   </div>
-                  {tank.biomass > tank.capacity && (
+                  {(dashboardData?.capacity?.percentageUsed > 100 || tank.biomass > tank.capacity) && (
                     <div className="bg-red-50 border border-red-200 p-3 rounded-lg">
                       <div className="flex items-center gap-2 text-red-700">
                         <AlertTriangle className="w-4 h-4" />
-                        <span className="text-sm font-medium">⚠️ Overstocked by {Math.round(((tank.biomass - tank.capacity) / tank.capacity) * 100)}%</span>
+                        <span className="text-sm font-medium">
+                          ⚠️ Overstocked by {Math.round(dashboardData?.capacity?.overstockPercentage?.value || ((tank.biomass - tank.capacity) / tank.capacity) * 100)}%
+                        </span>
                       </div>
                     </div>
                   )}
                   <div className="text-sm text-gray-600">
-                    <p>Volume: {tank.volume}m³</p>
-                    <p>Stocking Density: {Math.round((tank.biomass / tank.volume))} kg/m³</p>
+                    <p>Volume: {dashboardData?.tankInfo?.volume ?? tank.volume}m³</p>
+                    <p>Stocking Density: {Math.round(dashboardData?.capacity?.stockingDensity ?? (tank.biomass / tank.volume))} kg/m³</p>
                   </div>
                 </CardContent>
               </Card>
@@ -622,28 +652,32 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {tank.batches.map((batch: any) => (
-                      <div key={batch.id} className="border-l-4 border-[#0A4D68] pl-3 py-2 bg-gray-50 rounded">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-semibold text-sm">Batch {batch.id}</span>
-                          <Badge className="bg-[#10B981] text-white text-xs">{batch.status}</Badge>
+                    {tankBatches.length === 0 ? (
+                      <p className="text-sm text-gray-500 text-center py-4">No active batches in this tank</p>
+                    ) : (
+                      tankBatches.map((batch: any) => (
+                        <div key={batch.id} className="border-l-4 border-[#0A4D68] pl-3 py-2 bg-gray-50 rounded">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-semibold text-sm">Batch {batch.batchNumber || batch.id}</span>
+                            <Badge className="bg-[#10B981] text-white">{batch.status || 'ACTIVE'}</Badge>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 text-xs text-gray-600">
+                            <div>
+                              <span className="block">Count:</span>
+                              <span className="font-medium text-gray-900">{(batch.counts?.current ?? batch.currentCount ?? batch.count ?? 0).toLocaleString()}</span>
+                            </div>
+                            <div>
+                              <span className="block">Avg Weight:</span>
+                              <span className="font-medium text-gray-900">{batch.weights?.currentAvg ?? batch.currentAverageWeight ?? batch.avgWeight ?? '0g'}</span>
+                            </div>
+                            <div>
+                              <span className="block">Age:</span>
+                              <span className="font-medium text-gray-900">{batch.age ?? '0d'}</span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 text-xs text-gray-600">
-                          <div>
-                            <span className="block">Count:</span>
-                            <span className="font-medium text-gray-900">{batch.count}</span>
-                          </div>
-                          <div>
-                            <span className="block">Avg Weight:</span>
-                            <span className="font-medium text-gray-900">{batch.avgWeight}g</span>
-                          </div>
-                          <div>
-                            <span className="block">Age:</span>
-                            <span className="font-medium text-gray-900">{batch.age}d</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -656,21 +690,28 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
                   <CardTitle className="text-lg">Latest Water Quality</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="font-medium">Overall Status</span>
-                      <Badge className={`${tank.waterQuality.overall === 'optimal' ? 'bg-[#10B981]' : 'bg-[#F59E0B]'} text-white`}>
-                        {tank.waterQuality.overall.toUpperCase()}
-                      </Badge>
+                  {tank.waterQuality ? (
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="font-medium">Overall Status</span>
+                        <Badge className={`${tank.waterQuality.overall === 'optimal' ? 'bg-[#10B981]' : 'bg-[#F59E0B]'} text-white`}>
+                          {tank.waterQuality.overall.toUpperCase()}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <WaterParameter name="Temperature" value={tank.waterQuality.temp.value + '°C'} status={tank.waterQuality.temp.status} />
+                        <WaterParameter name="DO" value={tank.waterQuality.do.value + ' mg/L'} status={tank.waterQuality.do.status} />
+                        <WaterParameter name="pH" value={tank.waterQuality.ph.value} status={tank.waterQuality.ph.status} />
+                        <WaterParameter name="NH₃" value={tank.waterQuality.nh3.value + ' mg/L'} status={tank.waterQuality.nh3.status} />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-3">Last measured: {dashboardData?.waterQuality?.lastUpdated || 'Recently'}</p>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <WaterParameter name="Temperature" value={tank.waterQuality.temp.value + '°C'} status={tank.waterQuality.temp.status} />
-                      <WaterParameter name="DO" value={tank.waterQuality.do.value + ' mg/L'} status={tank.waterQuality.do.status} />
-                      <WaterParameter name="pH" value={tank.waterQuality.ph.value} status={tank.waterQuality.ph.status} />
-                      <WaterParameter name="NH₃" value={tank.waterQuality.nh3.value + ' mg/L'} status={tank.waterQuality.nh3.status} />
+                  ) : (
+                    <div className="bg-gray-50 p-8 rounded-lg text-center border border-dashed flex flex-col items-center justify-center">
+                      <Droplet className="w-8 h-8 text-gray-300 mb-2" />
+                      <p className="text-sm text-gray-500 italic">No recent water quality readings for this tank</p>
                     </div>
-                    <p className="text-xs text-gray-500 mt-3">Last measured: 2 hours ago</p>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -679,27 +720,34 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
                   <CardTitle className="text-lg">Today's Feeding Progress</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="bg-gray-50 p-4 rounded-lg space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Meals Completed</span>
-                      <span className="font-medium">{tank.feeding.todayMeals}/{tank.feeding.totalMeals}</span>
+                  {tank.feeding ? (
+                    <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Meals Completed</span>
+                        <span className="font-medium">{tank.feeding.todayMeals}/{tank.feeding.totalMeals}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Total Fed Today</span>
+                        <span className="font-medium">{tank.feeding.todayFed} kg</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Recommended</span>
+                        <span className="font-medium">{tank.feeding.recommended} kg</span>
+                      </div>
+                      <Progress value={tank.feeding.recommended > 0 ? (tank.feeding.todayFed / tank.feeding.recommended) * 100 : 0} className="h-2" />
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-600">Achievement</span>
+                        <span className={`font-medium ${tank.feeding.todayFed < tank.feeding.recommended ? 'text-yellow-600' : 'text-green-600'}`}>
+                          {tank.feeding.recommended > 0 ? Math.round((tank.feeding.todayFed / tank.feeding.recommended) * 100) : 0}%
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Total Fed Today</span>
-                      <span className="font-medium">{tank.feeding.todayFed} kg</span>
+                  ) : (
+                    <div className="bg-gray-50 p-8 rounded-lg text-center border border-dashed flex flex-col items-center justify-center">
+                      <Activity className="w-8 h-8 text-gray-300 mb-2" />
+                      <p className="text-sm text-gray-500 italic">No feeding plan active for this tank</p>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Recommended</span>
-                      <span className="font-medium">{tank.feeding.recommended} kg</span>
-                    </div>
-                    <Progress value={(tank.feeding.todayFed / tank.feeding.recommended) * 100} className="h-2" />
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-600">Achievement</span>
-                      <span className={`font-medium ${tank.feeding.todayFed < tank.feeding.recommended ? 'text-yellow-600' : 'text-green-600'}`}>
-                        {Math.round((tank.feeding.todayFed / tank.feeding.recommended) * 100)}%
-                      </span>
-                    </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -714,10 +762,54 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
               </CardHeader>
               <CardContent>
                 {(() => {
-                  const totalRequired = tank.batches.reduce((sum: number, b: any) => sum + (b.dailyFeedKg || 0), 0);
-                  const fedToday = Math.round(totalRequired * 0.72);
-                  const remaining = totalRequired - fedToday;
-                  const uniqueFeedTypes = [...new Set(tank.batches.map((b: any) => b.feedType?.split(' ')[1] || '30%'))];
+                  if (batchesSummary) {
+                    return (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div className="bg-white p-3 rounded-lg border">
+                            <p className="text-xs text-gray-600 mb-1">Total Daily Required</p>
+                            <p className="text-2xl font-bold text-gray-900">{batchesSummary.totalDailyRequired}</p>
+                            <p className="text-xs text-gray-500 mt-1">{batchesSummary.batchesCombined}</p>
+                          </div>
+                          <div className="bg-white p-3 rounded-lg border">
+                            <p className="text-xs text-gray-600 mb-1">Fed Today</p>
+                            <p className="text-2xl font-bold text-blue-600">{batchesSummary.fedToday}</p>
+                            <p className="text-xs text-gray-500 mt-1">{batchesSummary.achievementPercentage}</p>
+                          </div>
+                          <div className="bg-white p-3 rounded-lg border">
+                            <p className="text-xs text-gray-600 mb-1">Remaining Today</p>
+                            <p className="text-2xl font-bold text-orange-600">{batchesSummary.remainingToday}</p>
+                            <p className="text-xs text-gray-500 mt-1">{batchesSummary.mealsLeft}</p>
+                          </div>
+                          <div className="bg-white p-3 rounded-lg border">
+                            <p className="text-xs text-gray-600 mb-1">Feed Types Used</p>
+                            <p className="text-lg font-bold text-gray-900">{batchesSummary.feedTypesUsed}</p>
+                            <p className="text-xs text-gray-500 mt-1 truncate" title={batchesSummary.feedTypeList}>{batchesSummary.feedTypeList}</p>
+                          </div>
+                        </div>
+                        <div className="mt-4 bg-white p-3 rounded-lg border">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium">Overall Feeding Progress</span>
+                            <span className="text-sm text-gray-600">{batchesSummary.overallProgress}</span>
+                          </div>
+                          {(() => {
+                            const achievementStr = batchesSummary.achievementPercentage || '0%';
+                            const achievementValue = parseFloat(achievementStr.replace(/[^0-9.]/g, '')) || 0;
+                            return <Progress value={achievementValue} className="h-2" />;
+                          })()}
+                        </div>
+                      </>
+                    );
+                  }
+
+                  // Fallback to existing calculations if batchesSummary is null
+                  const totalRequired = tankBatches.reduce((sum: number, b: any) => {
+                    const daily = parseFloat(b.feedingPlan?.dailyFeedingAmount || b.dailyFeedKg || '0');
+                    return sum + (isNaN(daily) ? 0 : daily);
+                  }, 0);
+                  const fedToday = tank.feeding?.todayFed || 0;
+                  const remaining = Math.max(0, totalRequired - fedToday);
+                  const uniqueFeedTypes = [...new Set(tankBatches.map((b: any) => b.feedingPlan?.assignedFeedType || b.feedType || 'Unknown'))];
 
                   return (
                     <>
@@ -725,30 +817,30 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
                         <div className="bg-white p-3 rounded-lg border">
                           <p className="text-xs text-gray-600 mb-1">Total Daily Required</p>
                           <p className="text-2xl font-bold text-gray-900">{totalRequired} kg</p>
-                          <p className="text-xs text-gray-500 mt-1">{tank.batches.length} batches combined</p>
+                          <p className="text-xs text-gray-500 mt-1">{tankBatches.length} batches combined</p>
                         </div>
                         <div className="bg-white p-3 rounded-lg border">
                           <p className="text-xs text-gray-600 mb-1">Fed Today</p>
                           <p className="text-2xl font-bold text-blue-600">{fedToday} kg</p>
-                          <p className="text-xs text-gray-500 mt-1">{Math.round((fedToday / totalRequired) * 100)}% of requirement</p>
+                          <p className="text-xs text-gray-500 mt-1">{totalRequired > 0 ? Math.round((fedToday / totalRequired) * 100) : 0}% of requirement</p>
                         </div>
                         <div className="bg-white p-3 rounded-lg border">
                           <p className="text-xs text-gray-600 mb-1">Remaining Today</p>
                           <p className="text-2xl font-bold text-orange-600">{remaining} kg</p>
-                          <p className="text-xs text-gray-500 mt-1">1 meal left</p>
+                          <p className="text-xs text-gray-500 mt-1">{totalRequired > 0 ? `${Math.max(0, 4 - (tank.feeding?.todayMeals || 0))} meals left` : 'No feeding plan'}</p>
                         </div>
                         <div className="bg-white p-3 rounded-lg border">
                           <p className="text-xs text-gray-600 mb-1">Feed Types Used</p>
                           <p className="text-lg font-bold text-gray-900">{uniqueFeedTypes.length} types</p>
-                          <p className="text-xs text-gray-500 mt-1">{uniqueFeedTypes.join(', ')}</p>
+                          <p className="text-xs text-gray-500 mt-1">{uniqueFeedTypes.join(', ') || 'N/A'}</p>
                         </div>
                       </div>
                       <div className="mt-4 bg-white p-3 rounded-lg border">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-medium">Overall Feeding Progress</span>
-                          <span className="text-sm text-gray-600">3/4 meals completed</span>
+                          <span className="text-sm text-gray-600">{tank.feeding?.todayMeals || 0}/{tank.feeding?.totalMeals || 4} meals completed</span>
                         </div>
-                        <Progress value={(fedToday / totalRequired) * 100} className="h-2" />
+                        <Progress value={totalRequired > 0 ? (fedToday / totalRequired) * 100 : 0} className="h-2" />
                       </div>
                     </>
                   );
@@ -758,133 +850,141 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
 
             {/* Individual Batch Details */}
             <div className="grid grid-cols-1 gap-4">
-              {tank.batches.map((batch: any) => (
-                <Card key={batch.id}>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="text-lg">Batch {batch.id}</CardTitle>
-                        <p className="text-sm text-gray-600">{batch.species}</p>
-                      </div>
-                      <Badge className="bg-[#10B981] text-white">{batch.status}</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <p className="text-xs text-gray-600 mb-1">Initial Count</p>
-                        <p className="text-lg font-semibold">1,200 fish</p>
-                      </div>
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <p className="text-xs text-gray-600 mb-1">Current Count</p>
-                        <p className="text-lg font-semibold">{batch.count} fish</p>
-                      </div>
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <p className="text-xs text-gray-600 mb-1">Initial Weight</p>
-                        <p className="text-lg font-semibold">100g</p>
-                      </div>
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <p className="text-xs text-gray-600 mb-1">Current Avg Weight</p>
-                        <p className="text-lg font-semibold">{batch.avgWeight}g</p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                      <div className="bg-[#E0F4F5] p-3 rounded-lg">
-                        <p className="text-xs text-gray-600 mb-1">Age (Days in Culture)</p>
-                        <p className="text-lg font-semibold">{batch.age} days</p>
-                      </div>
-                      <div className="bg-[#E0F4F5] p-3 rounded-lg">
-                        <p className="text-xs text-gray-600 mb-1">Current Biomass</p>
-                        <p className="text-lg font-semibold">{Math.round(batch.count * batch.avgWeight / 1000)}kg</p>
-                      </div>
-                      <div className="bg-[#E0F4F5] p-3 rounded-lg">
-                        <p className="text-xs text-gray-600 mb-1">Survival Rate</p>
-                        <p className="text-lg font-semibold text-green-600">92%</p>
-                      </div>
-                      <div className="bg-[#E0F4F5] p-3 rounded-lg">
-                        <p className="text-xs text-gray-600 mb-1">Current SGR</p>
-                        <p className="text-lg font-semibold">2.1%/day</p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                      <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                        <p className="text-xs text-gray-600 mb-1">Total Feed Consumed</p>
-                        <p className="text-lg font-semibold">450 kg</p>
-                      </div>
-                      <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                        <p className="text-xs text-gray-600 mb-1">Current FCR</p>
-                        <p className="text-lg font-semibold">1.52</p>
-                      </div>
-                      <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                        <p className="text-xs text-gray-600 mb-1">Feed Cost</p>
-                        <p className="text-lg font-semibold">6,750 EGP</p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                        <p className="text-xs text-gray-600 mb-1">Cost Basis (Fish Purchase)</p>
-                        <p className="text-lg font-semibold">12,000 EGP</p>
-                      </div>
-                      <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                        <p className="text-xs text-gray-600 mb-1">Stocked Date</p>
-                        <p className="text-lg font-semibold">Dec 28, 2025</p>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 bg-gray-50 p-3 rounded-lg">
-                      <p className="text-xs text-gray-600 mb-1">Last Sampled</p>
-                      <p className="text-sm font-medium">Feb 12, 2026 (30 fish sampled)</p>
-                    </div>
-
-                    {/* Feeding Plan for this Batch */}
-                    <div className="mt-4 border-t pt-4">
-                      <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                        <Fish className="w-4 h-4" />
-                        Feeding Plan for Batch {batch.id}
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
-                          <p className="text-xs text-gray-600 mb-2">Assigned Feed Type</p>
-                          <p className="font-semibold text-sm mb-1">{batch.feedType || 'Grower 30% 3mm Floating'}</p>
-                          <p className="text-xs text-gray-600">Optimal for current weight range ({batch.avgWeight - 50}-{batch.avgWeight + 50}g)</p>
-                        </div>
-                        <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
-                          <p className="text-xs text-gray-600 mb-2">Daily Feeding Amount</p>
-                          <p className="font-semibold text-sm mb-1">{batch.dailyFeedKg || 45} kg/day (2.5% body weight)</p>
-                          <p className="text-xs text-gray-600">Distributed over 4 meals</p>
-                        </div>
-                      </div>
-                      <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
-                        <div className="bg-gray-50 p-2 rounded">
-                          <span className="text-gray-600">Today's Fed:</span>
-                          <span className="ml-1 font-medium">{Math.round((batch.dailyFeedKg || 45) * 0.72)} kg</span>
-                        </div>
-                        <div className="bg-gray-50 p-2 rounded">
-                          <span className="text-gray-600">This Week:</span>
-                          <span className="ml-1 font-medium">{Math.round((batch.dailyFeedKg || 45) * 7)} kg</span>
-                        </div>
-                        <div className="bg-gray-50 p-2 rounded">
-                          <span className="text-gray-600">Last FCR:</span>
-                          <span className="ml-1 font-medium">1.52</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex gap-2">
-                      <Button variant="outline" className="flex-1">
-                        <Scale className="w-4 h-4 mr-2" />
-                        View Growth History
-                      </Button>
-                      <Button className="flex-1 bg-[#088395] hover:bg-[#0A4D68]">
-                        Update Batch Data
-                      </Button>
-                    </div>
+              {tankBatches.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center text-gray-500">
+                    <p>No batches found for this tank.</p>
                   </CardContent>
                 </Card>
-              ))}
+              ) : (
+                tankBatches.map((batch: any) => (
+                  <Card key={batch.id}>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-lg">Batch {batch.batchNumber || batch.id}</CardTitle>
+                          <p className="text-sm text-gray-600">{batch.species || batch.fishType || tank.species}</p>
+                        </div>
+                        <Badge className="bg-[#10B981] text-white">{batch.status || 'ACTIVE'}</Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div className="bg-gray-50 p-3 rounded-lg">
+                          <p className="text-xs text-gray-600 mb-1">Initial Count</p>
+                          <p className="text-lg font-semibold">{(batch.counts?.initial ?? batch.initialCount ?? 0).toLocaleString()} fish</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded-lg">
+                          <p className="text-xs text-gray-600 mb-1">Current Count</p>
+                          <p className="text-lg font-semibold">{(batch.counts?.current ?? batch.currentCount ?? batch.count ?? 0).toLocaleString()} fish</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded-lg">
+                          <p className="text-xs text-gray-600 mb-1">Initial Weight</p>
+                          <p className="text-lg font-semibold">{batch.weights?.initial ?? batch.initialAverageWeight ?? '0g'}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded-lg">
+                          <p className="text-xs text-gray-600 mb-1">Current Avg Weight</p>
+                          <p className="text-lg font-semibold">{batch.weights?.currentAvg ?? batch.currentAverageWeight ?? batch.avgWeight ?? '0g'}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div className="bg-[#E0F4F5] p-3 rounded-lg">
+                          <p className="text-xs text-gray-600 mb-1">Age (Days in Culture)</p>
+                          <p className="text-lg font-semibold">{batch.age ?? '0 days'}</p>
+                        </div>
+                        <div className="bg-[#E0F4F5] p-3 rounded-lg">
+                          <p className="text-xs text-gray-600 mb-1">Current Biomass</p>
+                          <p className="text-lg font-semibold">{batch.biomass ?? '0kg'}</p>
+                        </div>
+                        <div className="bg-[#E0F4F5] p-3 rounded-lg">
+                          <p className="text-xs text-gray-600 mb-1">Survival Rate</p>
+                          <p className="text-lg font-semibold text-green-600">{batch.survivalRate ?? '92%'}</p>
+                        </div>
+                        <div className="bg-[#E0F4F5] p-3 rounded-lg">
+                          <p className="text-xs text-gray-600 mb-1">Current SGR</p>
+                          <p className="text-lg font-semibold">{batch.sgr ?? '2.1%/day'}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                        <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                          <p className="text-xs text-gray-600 mb-1">Total Feed Consumed</p>
+                          <p className="text-lg font-semibold">{batch.totalFeedConsumed ?? '450 kg'}</p>
+                        </div>
+                        <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                          <p className="text-xs text-gray-600 mb-1">Current FCR</p>
+                          <p className="text-lg font-semibold">{batch.fcr ?? '1.52'}</p>
+                        </div>
+                        <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                          <p className="text-xs text-gray-600 mb-1">Feed Cost</p>
+                          <p className="text-lg font-semibold">{batch.costs?.feedCost ?? '6,750 EGP'}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                          <p className="text-xs text-gray-600 mb-1">Cost Basis (Fish Purchase)</p>
+                          <p className="text-lg font-semibold">{batch.costs?.costBasis ?? '12,000 EGP'}</p>
+                        </div>
+                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                          <p className="text-xs text-gray-600 mb-1">Stocked Date</p>
+                          <p className="text-lg font-semibold">{batch.dates?.stockedDate ?? 'Dec 28, 2025'}</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 bg-gray-50 p-3 rounded-lg">
+                        <p className="text-xs text-gray-600 mb-1">Last Sampled</p>
+                        <p className="text-sm font-medium">{batch.dates?.lastSampled ?? 'Never'}</p>
+                      </div>
+
+                      {/* Feeding Plan for this Batch */}
+                      <div className="mt-4 border-t pt-4">
+                        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                          <Fish className="w-4 h-4" />
+                          Feeding Plan for Batch {batch.id}
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
+                            <p className="text-xs text-gray-600 mb-2">Assigned Feed Type</p>
+                            <p className="font-semibold text-sm mb-1">{batch.feedingPlan?.assignedFeedType || 'Grower 30% 3mm Floating'}</p>
+                            <p className="text-xs text-gray-600">{batch.feedingPlan?.optimalLabel || 'Optimal for current weight range'}</p>
+                          </div>
+                          <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
+                            <p className="text-xs text-gray-600 mb-2">Daily Feeding Amount</p>
+                            <p className="font-semibold text-sm mb-1">{batch.feedingPlan?.dailyFeedingAmount || '45 kg/day (2.5% body weight)'}</p>
+                            <p className="text-xs text-gray-600">Distributed over {batch.feedingPlan?.mealsPerDay || 4} meals</p>
+                          </div>
+                        </div>
+                        <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
+                          <div className="bg-gray-50 p-2 rounded">
+                            <span className="text-gray-600">Today's Fed:</span>
+                            <span className="ml-1 font-medium">{batch.feedingPlan?.todayFed ?? 0} kg</span>
+                          </div>
+                          <div className="bg-gray-50 p-2 rounded">
+                            <span className="text-gray-600">This Week:</span>
+                            <span className="ml-1 font-medium">{batch.feedingPlan?.thisWeekFed ?? 0} kg</span>
+                          </div>
+                          <div className="bg-gray-50 p-2 rounded">
+                            <span className="text-gray-600">Last FCR:</span>
+                            <span className="ml-1 font-medium">{batch.feedingPlan?.lastFCR || '1.52'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex gap-2">
+                        <Button variant="outline" className="flex-1">
+                          <Scale className="w-4 h-4 mr-2" />
+                          View Growth History
+                        </Button>
+                        <Button className="flex-1 bg-[#088395] hover:bg-[#0A4D68]">
+                          Update Batch Data
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
           </TabsContent>
 
@@ -925,79 +1025,86 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
               <h3 className="font-semibold text-gray-900">Measurement History</h3>
 
               <div className="space-y-3">
-                {waterQualityRecords.map((record) => {
-                  const getStatusColor = (status: string) => {
-                    switch (status) {
-                      case 'optimal': return 'bg-[#10B981] text-white';
-                      case 'acceptable': return 'bg-[#3B82F6] text-white';
-                      case 'warning': return 'bg-[#F59E0B] text-white';
-                      case 'critical': return 'bg-[#EF4444] text-white';
-                      default: return 'bg-gray-500 text-white';
-                    }
-                  };
+                {waterQualityRecords.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-8">No water quality records found.</p>
+                ) : (
+                  waterQualityRecords.map((record) => {
+                    const status = record.overallStatus || record.status || 'unknown';
+                    const getStatusColor = (s: string) => {
+                      switch (s.toLowerCase()) {
+                        case 'optimal': return 'bg-[#10B981] text-white';
+                        case 'acceptable': return 'bg-[#3B82F6] text-white';
+                        case 'warning': return 'bg-[#F59E0B] text-white';
+                        case 'critical': return 'bg-[#EF4444] text-white';
+                        default: return 'bg-gray-500 text-white';
+                      }
+                    };
 
-                  return (
-                    <Card key={record.id} className="bg-white shadow-sm border-l-4 border-l-[#088395]">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-3">
-                              <Droplet className="w-5 h-5 text-[#088395]" />
-                              <span className="font-semibold text-gray-900">
-                                {record.measuredAt}
-                              </span>
-                              <Badge className={getStatusColor(record.status)}>
-                                {record.status === 'optimal' && '🟢'}
-                                {record.status === 'acceptable' && '🔵'}
-                                {record.status === 'warning' && '🟡'}
-                                {record.status === 'critical' && '🔴'}
-                                {' '}{record.status.toUpperCase()}
-                              </Badge>
+                    return (
+                      <Card key={record.id} className="bg-white shadow-sm border-l-4 border-l-[#088395]">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-3">
+                                <Droplet className="w-5 h-5 text-[#088395]" />
+                                <span className="font-semibold text-gray-900">
+                                  {new Date(record.measuredAt || record.createdAt).toLocaleString()}
+                                </span>
+                                <Badge className={getStatusColor(status)}>
+                                  {status.toLowerCase() === 'optimal' && '🟢'}
+                                  {status.toLowerCase() === 'acceptable' && '🔵'}
+                                  {status.toLowerCase() === 'warning' && '🟡'}
+                                  {status.toLowerCase() === 'critical' && '🔴'}
+                                  {' '}{status.toUpperCase()}
+                                </Badge>
+                              </div>
+
+                              <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-3">
+                                <div>
+                                  <p className="text-xs text-gray-600">Temperature</p>
+                                  <p className="font-semibold">{record.temperature ?? record.temp ?? '–'}°C</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-600">DO</p>
+                                  <p className="font-semibold">{record.dissolvedOxygen ?? record.do ?? '–'} mg/L</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-600">pH</p>
+                                  <p className="font-semibold">{record.ph ?? '–'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-600">NH₃</p>
+                                  <p className="font-semibold">{record.ammonia ?? record.nh3 ?? '–'} mg/L</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-600">NO₂</p>
+                                  <p className="font-semibold">{record.nitrite ?? record.no2 ?? '–'} mg/L</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-600">NO₃</p>
+                                  <p className="font-semibold">{record.nitrate ?? record.no3 ?? '–'} mg/L</p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-4 text-xs text-gray-600">
+                                {record.measuredBy && (
+                                  <span>Measured by: <span className="font-medium text-gray-900">{record.measuredBy}</span></span>
+                                )}
+                                {record.notes && (
+                                  <span className="text-[#088395]">Note: {record.notes}</span>
+                                )}
+                              </div>
                             </div>
 
-                            <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-3">
-                              <div>
-                                <p className="text-xs text-gray-600">Temperature</p>
-                                <p className="font-semibold">{record.temp}°C</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-600">DO</p>
-                                <p className="font-semibold">{record.do} mg/L</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-600">pH</p>
-                                <p className="font-semibold">{record.ph}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-600">NH₃</p>
-                                <p className="font-semibold">{record.nh3} mg/L</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-600">NO₂</p>
-                                <p className="font-semibold">{record.no2} mg/L</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-600">NO₃</p>
-                                <p className="font-semibold">{record.no3} mg/L</p>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-4 text-xs text-gray-600">
-                              <span>Measured by: <span className="font-medium text-gray-900">{record.measuredBy}</span></span>
-                              {record.notes && (
-                                <span className="text-[#088395]">Note: {record.notes}</span>
-                              )}
-                            </div>
+                            <Button size="sm" variant="outline">
+                              View Details
+                            </Button>
                           </div>
-
-                          <Button size="sm" variant="outline">
-                            View Details
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                        </CardContent>
+                      </Card>
+                    );
+                  })
+                )}
               </div>
             </div>
           </TabsContent>
@@ -1046,82 +1153,89 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
               <h3 className="font-semibold text-gray-900">Feeding History Records</h3>
 
               <div className="space-y-3">
-                {feedingRecords.map((record) => {
-                  const getStatusColor = (status: string) => {
-                    switch (status) {
-                      case 'on-target': return 'bg-[#10B981] text-white';
-                      case 'below': return 'bg-[#F59E0B] text-white';
-                      case 'above': return 'bg-[#3B82F6] text-white';
-                      default: return 'bg-gray-500 text-white';
-                    }
-                  };
+                {feedingRecords.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-8">No feeding records found.</p>
+                ) : (
+                  feedingRecords.map((record) => {
+                    const status = record.status || ((record.weightFed ?? 0) >= (record.targetWeight ?? 0) ? 'on-target' : 'below');
+                    const getStatusColor = (s: string) => {
+                      switch (s.toLowerCase()) {
+                        case 'on-target': return 'bg-[#10B981] text-white';
+                        case 'below': return 'bg-[#F59E0B] text-white';
+                        case 'above': return 'bg-[#3B82F6] text-white';
+                        default: return 'bg-gray-500 text-white';
+                      }
+                    };
 
-                  const percentage = Math.round((record.fed / record.recommended) * 100);
+                    const percentage = record.targetWeight > 0 ? Math.round((record.weightFed / record.targetWeight) * 100) : 0;
 
-                  return (
-                    <Card key={record.id} className="bg-white shadow-sm border-l-4 border-l-[#10B981]">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-3">
-                              <Fish className="w-5 h-5 text-[#10B981]" />
-                              <span className="font-semibold text-gray-900">
-                                {record.date} at {record.time}
-                              </span>
-                              <Badge variant="outline">
-                                Meal #{record.meal}
-                              </Badge>
-                              <Badge className={getStatusColor(record.status)}>
-                                {record.status === 'on-target' && '✅'}
-                                {record.status === 'below' && '⚠️'}
-                                {' '}{record.status === 'on-target' ? 'ON TARGET' : record.status.toUpperCase()}
-                              </Badge>
+                    return (
+                      <Card key={record.id} className="bg-white shadow-sm border-l-4 border-l-[#10B981]">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-3">
+                                <Fish className="w-5 h-5 text-[#10B981]" />
+                                <span className="font-semibold text-gray-900">
+                                  {new Date(record.date || record.createdAt).toLocaleDateString()} at {record.time || (record.createdAt ? new Date(record.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '–')}
+                                </span>
+                                <Badge variant="outline">
+                                  Meal #{record.mealNumber || record.meal}
+                                </Badge>
+                                <Badge className={getStatusColor(status)}>
+                                  {status.toLowerCase() === 'on-target' && '✅'}
+                                  {status.toLowerCase() === 'below' && '⚠️'}
+                                  {' '}{status.toUpperCase()}
+                                </Badge>
+                              </div>
+
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
+                                <div>
+                                  <p className="text-xs text-gray-600">Amount Fed</p>
+                                  <p className="font-semibold">{record.weightFed ?? record.fed ?? 0} kg</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-600">Recommended</p>
+                                  <p className="font-semibold">{record.targetWeight ?? record.recommended ?? 0} kg</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-600">Achievement</p>
+                                  <p className={`font-semibold ${percentage >= 90 && percentage <= 110 ? 'text-green-600' : 'text-yellow-600'}`}>
+                                    {percentage}%
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-600">Difference</p>
+                                  <p className={`font-semibold ${(record.weightFed ?? 0) >= (record.targetWeight ?? 0) ? 'text-blue-600' : 'text-orange-600'}`}>
+                                    {(record.weightFed ?? 0) >= (record.targetWeight ?? 0) ? '+' : ''}{((record.weightFed ?? 0) - (record.targetWeight ?? 0)).toFixed(1)} kg
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="bg-gray-50 p-2 rounded text-xs mb-2">
+                                <span className="text-gray-600">Food Type:</span>{' '}
+                                <span className="font-medium text-gray-900">{record.foodType || record.feedType || 'N/A'}</span>
+                              </div>
+
+                              <div className="flex items-center gap-4 text-xs text-gray-600">
+                                {record.fedBy && (
+                                  <span>Fed by: <span className="font-medium text-gray-900">{record.fedBy}</span></span>
+                                )}
+                                {record.notes && (
+                                  <span className="text-yellow-700 font-medium">Note: {record.notes}</span>
+                                )}
+                              </div>
                             </div>
 
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
-                              <div>
-                                <p className="text-xs text-gray-600">Amount Fed</p>
-                                <p className="font-semibold">{record.fed} kg</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-600">Recommended</p>
-                                <p className="font-semibold">{record.recommended} kg</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-600">Achievement</p>
-                                <p className={`font-semibold ${percentage >= 90 && percentage <= 110 ? 'text-green-600' : 'text-yellow-600'}`}>
-                                  {percentage}%
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-600">Difference</p>
-                                <p className={`font-semibold ${record.fed >= record.recommended ? 'text-blue-600' : 'text-orange-600'}`}>
-                                  {record.fed >= record.recommended ? '+' : ''}{(record.fed - record.recommended).toFixed(1)} kg
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="bg-gray-50 p-2 rounded text-xs mb-2">
-                              <span className="text-gray-600">Food Type:</span>{' '}
-                              <span className="font-medium text-gray-900">{record.foodType}</span>
-                            </div>
-
-                            <div className="flex items-center gap-4 text-xs text-gray-600">
-                              <span>Fed by: <span className="font-medium text-gray-900">{record.fedBy}</span></span>
-                              {record.notes && (
-                                <span className="text-yellow-700 font-medium">Note: {record.notes}</span>
-                              )}
-                            </div>
+                            <Button size="sm" variant="outline">
+                              View Details
+                            </Button>
                           </div>
-
-                          <Button size="sm" variant="outline">
-                            View Details
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                        </CardContent>
+                      </Card>
+                    );
+                  })
+                )}
               </div>
             </div>
           </TabsContent>
@@ -1134,14 +1248,14 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
                 <div className="flex items-center gap-4">
                   <Label className="font-semibold">Select Batch to View Growth:</Label>
                   <div className="flex gap-2">
-                    {tank.batches.map((batch: any) => (
+                    {tankBatches.map((batch: any) => (
                       <Button
                         key={batch.id}
                         variant="outline"
                         className="bg-white"
                       >
-                        Batch {batch.id}
-                        <Badge className="ml-2 bg-[#0A4D68] text-white">{batch.count} fish</Badge>
+                        Batch {batch.batchNumber || batch.id}
+                        <Badge className="ml-2 bg-[#0A4D68] text-white">{(batch.counts?.current ?? batch.currentCount ?? batch.count ?? 0).toLocaleString()} fish</Badge>
                       </Button>
                     ))}
                   </div>
@@ -1153,23 +1267,30 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
             </Card>
 
             {/* Growth History for Selected Batch */}
-            <GrowthHistory
-              batch={{
-                id: 'batch-001',
-                batchNumber: tank.batches[0]?.id || '#123',
-                tankName: tank.name,
-                fishType: tank.species,
-                stockedDate: new Date('2025-12-28'),
-                initialCount: 1000,
-                currentCount: tank.batches[0]?.count || 920,
-                initialWeight: 100
-              }}
-              measurements={mockGrowthMeasurements.filter(m => m.tankId === tank.id)}
-              language="en"
-              onMeasurementAdded={() => {
-                console.log('New growth measurement added');
-              }}
-            />
+            {tankBatches.length > 0 && (
+              <GrowthHistory
+                batch={{
+                   id: tankBatches[0].id,
+                   batchNumber: tankBatches[0].batchNumber || tankBatches[0].id.substring(0, 8),
+                   tankName: tank.name,
+                   fishType: tankBatches[0].fishType || tankBatches[0].species || tank.species,
+                   stockedDate: new Date(tankBatches[0].dates?.stockedDate || tankBatches[0].stockedDate || tankBatches[0].createdAt || Date.now()),
+                   initialCount: tankBatches[0].counts?.initial || tankBatches[0].initialCount || 0,
+                   currentCount: tankBatches[0].counts?.current || tankBatches[0].currentCount || tankBatches[0].count || 0,
+                   initialWeight: parseFloat(tankBatches[0].weights?.initial || tankBatches[0].initialAverageWeight || '0')
+                }}
+                measurements={growthMetrics}
+                language="en"
+                onMeasurementAdded={fetchTankDetails}
+              />
+            )}
+            {tankBatches.length === 0 && !loadingDetails && (
+              <Card>
+                <CardContent className="py-12 text-center text-gray-500">
+                  <p>No batches found to display growth history.</p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Health Management Tab */}
@@ -1183,10 +1304,14 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
                   <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm text-gray-600">Overall Health</span>
-                      <Badge className="bg-green-600 text-white">Healthy</Badge>
+                      <Badge className="bg-green-600 text-white">
+                        {dashboardData?.summary?.find((s: any) => s.label.toLowerCase().includes('health'))?.value || 'Healthy'}
+                      </Badge>
                     </div>
-                    <p className="text-2xl font-bold text-green-700">95%</p>
-                    <p className="text-xs text-gray-600 mt-1">No active issues</p>
+                    <p className="text-2xl font-bold text-green-700">
+                      {dashboardData?.summary?.find((s: any) => s.label.toLowerCase().includes('health'))?.subValue || '95%'}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">Status from dashboard</p>
                   </div>
 
                   <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
@@ -1194,7 +1319,9 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
                       <span className="text-sm text-gray-600">Mortality Rate</span>
                       <Badge className="bg-blue-600 text-white">Normal</Badge>
                     </div>
-                    <p className="text-2xl font-bold text-blue-700">2.1%</p>
+                    <p className="text-2xl font-bold text-blue-700">
+                      {dashboardData?.summary?.find((s: any) => s.label.toLowerCase().includes('mortality'))?.value || '2.1%'}
+                    </p>
                     <p className="text-xs text-gray-600 mt-1">Last 30 days</p>
                   </div>
 
@@ -1203,8 +1330,10 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
                       <span className="text-sm text-gray-600">Last Inspection</span>
                       <Badge className="bg-yellow-600 text-white">Recent</Badge>
                     </div>
-                    <p className="text-lg font-bold text-yellow-700">2 days ago</p>
-                    <p className="text-xs text-gray-600 mt-1">Feb 11, 2026</p>
+                    <p className="text-lg font-bold text-yellow-700">
+                      {dashboardData?.summary?.find((s: any) => s.label.toLowerCase().includes('inspected'))?.value || '2 days ago'}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">Data from dashboard</p>
                   </div>
                 </div>
 
@@ -1327,70 +1456,63 @@ function TankDetailView({ tank, onBack }: { tank: any; onBack: () => void }) {
                 <CardTitle>Harvest Prediction</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="bg-[#E0F4F5] p-4 rounded-lg space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">🎯 Target Weight:</span>
-                    <span className="font-bold">500g</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">📅 Predicted Harvest:</span>
-                    <span className="font-bold">March 15, 2026 (28 days)</span>
-                  </div>
-                </div>
+                {!predictionData && !loadingDetails && (
+                  <p className="text-sm text-gray-500 text-center py-8">No prediction data available for current batches.</p>
+                )}
+                {predictionData && (
+                  <>
+                    <div className="bg-[#E0F4F5] p-4 rounded-lg space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">🎯 Predicted Revenue:</span>
+                        <span className="font-bold">{(predictionData.predictedRevenue || 0).toLocaleString()} EGP</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">📅 Days to Harvest:</span>
+                        <span className="font-bold">{predictionData.daysToHarvest || 0} days</span>
+                      </div>
+                    </div>
 
-                <div className="space-y-2">
-                  <h4 className="font-medium">Predictions:</h4>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Final Weight:</span>
-                      <span className="font-medium">485g ±10%</span>
+                    <div className="space-y-2">
+                      <h4 className="font-medium">Predictions:</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Final Projected Weight:</span>
+                          <span className="font-medium">{predictionData.predictedWeightKg || predictionData.predictedFinalWeight || 0} kg</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Production:</span>
-                      <span className="font-medium">460 kg (920 fish)</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Survival Rate:</span>
-                      <span className="font-medium">92%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Feed Needed:</span>
-                      <span className="font-medium">224 kg</span>
-                    </div>
-                  </div>
-                </div>
 
-                <div className="space-y-2">
-                  <h4 className="font-medium">Economics:</h4>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Revenue:</span>
-                      <span className="font-medium">20,700 EGP</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Remaining Cost:</span>
-                      <span className="font-medium">3,188 EGP</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Predicted Profit:</span>
-                      <span className="font-medium text-green-600">2,512 EGP</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Margin:</span>
-                      <span className="font-medium">12.1%</span>
-                    </div>
-                  </div>
-                </div>
+                    {predictionData.revenueByGrade && (
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">Revenue Breakdown by Grade:</h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          {Object.entries(predictionData.revenueByGrade).map(([grade, val]: [string, any]) => (
+                            <div key={grade} className="bg-gray-50 p-2 rounded text-xs flex justify-between">
+                              <span className="text-gray-600 capitalize">{grade.replace('_', ' ')}:</span>
+                              <span className="font-semibold">{val.toLocaleString()} EGP</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                <div className="bg-green-50 border border-green-200 p-3 rounded-lg">
-                  <p className="text-sm font-medium text-green-800">✅ MODERATE_PROFIT</p>
-                  <p className="text-xs text-green-700 mt-1">"Continue current practices. Monitor SGR weekly."</p>
-                </div>
+                    <div className="bg-green-50 border border-green-200 p-3 rounded-lg">
+                      <p className="text-sm font-medium text-green-800">✅ {predictionData.recommendation || 'MONITOR'}</p>
+                      {predictionData.actions && predictionData.actions.length > 0 && (
+                        <ul className="text-xs text-green-700 mt-2 list-disc ml-4">
+                          {predictionData.actions.map((action: string, i: number) => (
+                            <li key={i}>{action}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </>
+                )}
 
                 <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg mt-4">
-                  <p className="text-sm font-medium text-blue-900 mb-2">ℹ️ Feed Stock Information</p>
+                  <p className="text-sm font-medium text-blue-900 mb-2">ℹ️ Prediction Information</p>
                   <p className="text-sm text-blue-800">
-                    Farm-wide feed consumption forecast has been moved to the main Tank Management page for better visibility across all tanks.
+                    Predictions are based on current biomass, growth rates (SGR), and market prices for each grade.
                   </p>
                 </div>
               </CardContent>
