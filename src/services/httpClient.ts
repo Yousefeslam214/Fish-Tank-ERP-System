@@ -90,7 +90,6 @@ const buildHeaders = (authenticated: boolean, extraHeaders?: HeadersInit): Heade
   const envToken = getEnvValue('FISH_API_TOKEN') || getEnvValue('VITE_FISH_API_TOKEN');
   const token = authenticated ? getAccessToken() || envToken || null : null;
   return {
-    'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(extraHeaders ?? {}),
   };
@@ -103,7 +102,10 @@ export const requestJson = async <T = unknown>(
   const endpoint = `${resolveApiBaseUrl(options.baseUrl)}${path}`;
   const response = await fetch(endpoint, {
     method: options.method ?? 'GET',
-    headers: buildHeaders(options.authenticated ?? true, options.headers),
+    headers: {
+      ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...buildHeaders(options.authenticated ?? true, options.headers) as any,
+    },
     ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
     signal: options.signal,
   });

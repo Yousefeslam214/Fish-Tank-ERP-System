@@ -21,7 +21,6 @@ export const API_BASE = (getEnvValue('VITE_FISH_API_BASE_URL') || getEnvValue('F
 const buildHeaders = (): HeadersInit => {
   const token = getAccessToken();
   return {
-    'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 };
@@ -29,7 +28,10 @@ const buildHeaders = (): HeadersInit => {
 const request = async <T>(path: string, method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', body?: unknown): Promise<T> => {
   const response = await fetch(`${API_BASE}${path}`, {
     method,
-    headers: buildHeaders(),
+    headers: {
+      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...buildHeaders(),
+    },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
 
