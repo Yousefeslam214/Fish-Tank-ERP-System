@@ -113,7 +113,8 @@ Base API prefix for backend routes: `/api/v1`
   - `GET /api/v1/aquaculture/food-types/species?name=Tilapia`
  
 ## 6. Inventory
-> **Assigned to:** Andrew Ashraf
+> **Iteration** 2 
+> **Assigned to:** Hazem Yasser
 - Page id: `inventory`
 - Component: `src/components/Inventory.tsx`
 - Backend route group:
@@ -127,7 +128,8 @@ Base API prefix for backend routes: `/api/v1`
   - `PATCH /api/v1/inventory/batches/:id/allocate`
 
 ## 7. Procurement
-> **Assigned to:** Later ....
+> **Iteration** 2
+> **Assigned to:** Youssef Eslam
 - Page id: `procurement`
 - Component: `src/components/Procurement.tsx`
 - Backend route group:
@@ -143,34 +145,9 @@ Base API prefix for backend routes: `/api/v1`
   - `GET /api/v1/procurement/suppliers`
   - `POST /api/v1/procurement/suppliers`
 
-## 8. Notifications
-> **Assigned to:** Later ....
-- Page id: `notifications`
-- Component: `src/components/NotificationCenter.tsx`
-- Backend route group:
-  - `GET /api/v1/notifications`
-  - `GET /api/v1/notifications/unread-count`
-  - `PATCH /api/v1/notifications/:id/read`
-  - `GET /api/v1/notifications/stream`
-  - `GET /api/v1/notification-templates`
-  - `PATCH /api/v1/notification-templates/:id`
-
-## 9. Health Library
-> **Assigned to:** Later ....
-- Page id: `health`
-- Component: `src/components/HealthLibrary.tsx`
-- Backend route group:
-  - currently available system endpoint: `GET /api/v1/health`
-
-## 10. AI Assistant
-> **Assigned to:** Later ....
-- Page id: `ai-assistant`
-- Component: `src/components/AIAssistant.tsx`
-- Backend route group:
-  - no dedicated AI endpoints yet (to be defined)
-
-## 11. Sales
-> **Assigned to:** Later ....
+## 8. Sales
+> **Iteration** 2
+> **Assigned to:** Youssef Eslam
 - Page id: `sales`
 - Component: `src/components/SalesModule.tsx`
 - Backend route group:
@@ -188,24 +165,22 @@ Base API prefix for backend routes: `/api/v1`
   - `GET /api/v1/harvested-inventory/find`
   - `GET /api/v1/harvested-inventory/summary`
 
-## 12. Accounting
-> **Assigned to:** Later ....
+## 9. Accounting
+> **Iteration** 2 
+> **Assigned to:** Hazem Yasser
 - Page id: `accounting`
 - Component: `src/components/Accounting.tsx`
 - Backend route group:
-  - `GET /api/v1/accounting/dashboard`
+  - `GET /api/v1/accounting/metrics` (Dashboard)
   - `GET /api/v1/accounting/expenses`
   - `POST /api/v1/accounting/expenses`
   - `DELETE /api/v1/accounting/expenses/:id`
-  - `GET /api/v1/reports/profit-loss`
-  - `GET /api/v1/reports/inventory-valuation`
-
-## 13. Analytics
-> **Assigned to:** Later ....
-- Page id: `analytics`
-- Component: `src/components/Analytics.tsx`
-- Backend route group:
-  - `GET /api/v1/sales/analytics/dashboard`
-  - `GET /api/v1/sales/analytics/stock-dashboard`
-  - `GET /api/v1/harvest/events`
-  - `GET /api/v1/harvest/events/tank/:tankId`
+  - `GET /api/v1/accounting/journal-entries`
+  - `GET /api/v1/accounting/journal-entries/:id`
+  - `POST /api/v1/accounting/journal-entries`
+  - `GET /api/v1/accounting/accounts`
+  - `GET /api/v1/accounting/accounts/:id/ledger`
+  - `GET /api/v1/accounting/reports/profit-loss`
+  - `GET /api/v1/accounting/reports/balance-sheet`
+  - `GET /api/v1/accounting/reports/inventory-valuation`
+  - `GET /api/v1/accounting/reports/harvest-revenue`
