@@ -19,4 +19,4 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           git remote add hf https://yousseftallal:$HF_TOKEN@huggingface.co/spaces/yousseftallal/frontend
-          git push hf main --force
+          git push hf code --force
