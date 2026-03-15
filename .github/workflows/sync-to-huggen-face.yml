@@ -22,12 +22,25 @@ jobs:
 
       - name: Create clean orphan deploy branch
         run: |
-          # Orphan branch = no history, so HF never sees old binary commits
           git checkout --orphan deploy
 
           # Remove binary/build files HF rejects
           rm -f public/*.png public/*.jpg public/*.ico || true
           rm -rf build node_modules || true
+
+          # Generate HF Space README config
+          cat > README.md << 'EOF'
+          ---
+          title: Frontend
+          emoji: 🚀
+          colorFrom: blue
+          colorTo: indigo
+          sdk: static
+          pinned: false
+          ---
+
+          Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
+          EOF
 
           git add .
           git commit -m "deploy: clean snapshot"
