@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    environment:
+      - VITE_FISH_API_BASE_URL=https://yousseftallal-fishfarm-backend-api.hf.space/api/v1
+    restart: always
+
+networks:
+  default:
+    name: fish-farm-network
