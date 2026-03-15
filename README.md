@@ -3,7 +3,7 @@ title: Frontend
 emoji: 🚀
 colorFrom: blue
 colorTo: indigo
-sdk: static
+sdk: docker
 pinned: false
 ---
 
