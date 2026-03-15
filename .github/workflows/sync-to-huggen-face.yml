@@ -3,24 +3,16 @@ name: Sync to Hugging Face Space
 on:
   push:
     branches:
-<<<<<<< HEAD
       - code
-=======
-      - code  # or whichever branch you want to trigger from
->>>>>>> efe759a2b6ab3b1f5b4d377ddc03e06ccb04d11a
 
 jobs:
   sync-to-hub:
     runs-on: ubuntu-latest
-<<<<<<< HEAD
 
-=======
->>>>>>> efe759a2b6ab3b1f5b4d377ddc03e06ccb04d11a
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
         with:
-<<<<<<< HEAD
           fetch-depth: 0
 
       - name: Create deploy branch
@@ -35,17 +27,8 @@ jobs:
           git commit -m "prepare deploy branch" || true
 
       - name: Push to Hugging Face
-=======
-          fetch-depth: 0  # full history
-
-      - name: Push to Hugging Face Space
->>>>>>> efe759a2b6ab3b1f5b4d377ddc03e06ccb04d11a
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           git remote add hf https://yousseftallal:$HF_TOKEN@huggingface.co/spaces/yousseftallal/frontend
-<<<<<<< HEAD
           git push hf deploy:main --force
-=======
-          git push hf code --force
->>>>>>> efe759a2b6ab3b1f5b4d377ddc03e06ccb04d11a
