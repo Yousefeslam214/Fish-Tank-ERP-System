@@ -24,7 +24,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Badge } from './ui/badge';
 import { Switch } from './ui/switch';
-import { Wheat, Plus, Edit, Trash2 } from 'lucide-react';
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from './ui/alert-dialog'; // تأكد من وجود هذا المكون
+import { Wheat, Plus, Edit, Trash2, AlertCircle } from 'lucide-react';
 import { User, Farm, BuoyancyType, ManufacturingProcess, GrowthStage } from '../types';
 import { mockFarms } from '../mockData';
 
@@ -37,6 +47,11 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
   const currentFarm = selectedFarm || mockFarms[0];
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  
+  // States missing in original code
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Mock food types
   const foodTypes = [
@@ -100,30 +115,45 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
   };
 
   const handleSave = () => {
+    setSaving(true);
+    setSaveError(null);
     console.log('Saving food type:', formData);
-    setShowCreateModal(false);
-    setEditingId(null);
-    // Reset form
-    setFormData({
-      name: '',
-      arabicName: '',
-      proteinPercentage: 30,
-      fatPercentage: 6,
-      fiberPercentage: 4,
-      moisturePercentage: 10,
-      ashPercentage: 12,
-      pelletSizeMm: 3,
-      buoyancyType: 'FLOATING',
-      manufacturingProcess: 'EXTRUDED',
-      applicableStages: [],
-      minFishWeightGrams: 0,
-      maxFishWeightGrams: 0,
-      shelfLifeDays: 180,
-      storageInstructions: '',
-      waterStabilityMinutes: 30,
-      isActive: true,
-      notes: ''
-    });
+    
+    // Simulate API call
+    setTimeout(() => {
+      setSaving(false);
+      setShowCreateModal(false);
+      setEditingId(null);
+      // Reset form
+      setFormData({
+        name: '',
+        arabicName: '',
+        proteinPercentage: 30,
+        fatPercentage: 6,
+        fiberPercentage: 4,
+        moisturePercentage: 10,
+        ashPercentage: 12,
+        pelletSizeMm: 3,
+        buoyancyType: 'FLOATING',
+        manufacturingProcess: 'EXTRUDED',
+        applicableStages: [],
+        minFishWeightGrams: 0,
+        maxFishWeightGrams: 0,
+        shelfLifeDays: 180,
+        storageInstructions: '',
+        waterStabilityMinutes: 30,
+        isActive: true,
+        notes: ''
+      });
+    }, 500);
+  };
+
+  // Function missing in original code
+  const handleDelete = () => {
+    if (deleteConfirmId) {
+      console.log('Deleting food type with ID:', deleteConfirmId);
+      setDeleteConfirmId(null);
+    }
   };
 
   const toggleStage = (stage: GrowthStage) => {
@@ -263,7 +293,11 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
                     <Edit className="w-3 h-3 mr-1" />
                     Edit
                   </Button>
-                  <Button size="sm" variant="outline">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => setDeleteConfirmId(foodType.id)}
+                  >
                     <Trash2 className="w-3 h-3" />
                   </Button>
                 </div>
@@ -274,7 +308,7 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
       </div>
 
       {/* ── Create / Edit Modal ── */}
-      <Dialog open={showModal} onOpenChange={(open: boolean) => { if (!saving) setShowModal(open); }}>
+      <Dialog open={showCreateModal} onOpenChange={(open: boolean) => { if (!saving) setShowCreateModal(open); }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
@@ -533,7 +567,7 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
               <Button
                 variant="outline"
                 className="flex-1"
-                onClick={() => setShowModal(false)}
+                onClick={() => setShowCreateModal(false)}
                 disabled={saving}
               >
                 Cancel
@@ -541,8 +575,9 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
               <Button
                 className="flex-1 bg-[#088395] hover:bg-[#0A4D68]"
                 onClick={handleSave}
+                disabled={saving}
               >
-                {editingId ? 'Update Food Type' : 'Create Food Type'}
+                {saving ? 'Saving...' : (editingId ? 'Update Food Type' : 'Create Food Type')}
               </Button>
             </div>
           </div>
