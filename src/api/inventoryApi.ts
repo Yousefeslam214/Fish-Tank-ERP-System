@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch } from "../api";
+import { apiGet, apiPost, apiPatch, apiDelete } from "../api";
 
 export const getFeedInventory = () => apiGet<any>("/inventory/feed");
 
@@ -23,3 +23,6 @@ export const healthCheckBatch = (id: string, data: any) =>
 
 export const allocateBatch = (id: string, data: any) =>
   apiPatch<any>(`/inventory/batches/${id}/allocate`, data);
+
+export const deleteFeed = (id: string) =>
+  apiDelete<any>(`/inventory/feed/${id}`);

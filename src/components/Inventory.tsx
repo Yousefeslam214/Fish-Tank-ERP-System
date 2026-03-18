@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { toast } from "sonner";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
@@ -18,6 +19,8 @@ import {
   CheckCircle,
   Clock,
   XCircle,
+  Trash2,
+  RefreshCw,
 } from "lucide-react";
 import { User, Farm, FishInventoryBatch } from "../types";
 import { mockInventory } from "../mockData";
@@ -26,6 +29,7 @@ import { apiGet, apiPost } from "../api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { BatchHealthModal } from "./tanks/modals/BatchHealthModal";
 
 import {
   getFeedInventory,
@@ -36,6 +40,7 @@ import {
   quarantineBatch,
   healthCheckBatch,
   allocateBatch,
+  deleteFeed,
 } from "../api/inventoryApi";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -79,11 +84,18 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   const [isAddFeedOpen, setIsAddFeedOpen] = useState(false);
   const [newFeedData, setNewFeedData] = useState({
     foodTypeId: "",
-    quantity: "",
+    quantityKg: "",
     unit: "kg",
+    unitCost: "",
+    supplier: "",
     storageLocationId: "",
     receivedDate: new Date().toISOString().split("T")[0],
   });
+
+  // Health modal state
+  const [healthModalOpen, setHealthModalOpen] = useState(false);
+  const [healthModalMode, setHealthModalMode] = useState<'health' | 'quarantine'>('health');
+  const [batchForHealth, setBatchForHealth] = useState<any>(null);
 
   // ── Data loaders ─────────────────────────────────────────────────────────────
 
@@ -91,12 +103,16 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   const loadBatches = async () => {
     try {
       const res = await getBatches();
-      // Handle both { data: [...] } and plain [...] response shapes
-      const batches = Array.isArray(res)
-        ? res
-        : Array.isArray(res.data)
-          ? res.data
-          : [];
+      let batches = [];
+      if (Array.isArray(res)) {
+        batches = res;
+      } else if (res?.data && Array.isArray(res.data)) {
+        batches = res.data;
+      } else if (res?.batches && Array.isArray(res.batches)) {
+        batches = res.batches;
+      } else if (res?.fishBatches && Array.isArray(res.fishBatches)) {
+        batches = res.fishBatches;
+      }
       setFishBatches(batches);
     } catch (error) {
       console.error("Error loading batches", error);
@@ -184,50 +200,70 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     }
   };
 
-  // PATCH /api/v1/inventory/batches/:id/quarantine
-  const handleQuarantine = async (id: string) => {
-    try {
-      await quarantineBatch(id);
-      await loadBatches();
-    } catch (error) {
-      console.error("Quarantine failed", error);
-    }
+  // health modal handlers
+  const handleQuarantine = (batch: any) => {
+    setBatchForHealth(batch);
+    setHealthModalMode('quarantine');
+    setHealthModalOpen(true);
   };
 
-  // PATCH /api/v1/inventory/batches/:id/health-check
-  const handleHealthCheck = async (id: string) => {
-    try {
-      await healthCheckBatch(id, { status: "PASSED" });
-      await loadBatches();
-    } catch (error) {
-      console.error("Health check failed", error);
-    }
+  const handleHealthCheck = (batch: any) => {
+    setBatchForHealth(batch);
+    setHealthModalMode('health');
+    setHealthModalOpen(true);
   };
 
   // POST /api/v1/inventory/feed
   const handleAddFeed = async () => {
     try {
-      if (!newFeedData.foodTypeId || !newFeedData.quantity) {
-        alert("Please fill in required fields");
+      if (!newFeedData.foodTypeId || !newFeedData.quantityKg) {
+        toast.error("Please select a food type and enter quantity");
         return;
       }
-      await apiPost("/inventory/feed", {
-        ...newFeedData,
-        quantity: Number(newFeedData.quantity),
+
+      await createFeed({
+        foodTypeId: newFeedData.foodTypeId,
+        quantityKg: Number(newFeedData.quantityKg),
+        unitCost: Number(newFeedData.unitCost) || 0,
+        supplier: newFeedData.supplier,
+        receivedDate: new Date(newFeedData.receivedDate).toISOString(),
         farmId: selectedFarm?.id,
       });
-      setTimeout(loadFeed, 1000);
+
+      toast.success("Feed stock added successfully");
+      
+      // Reset and close
       setIsAddFeedOpen(false);
       setNewFeedData({
         foodTypeId: "",
-        quantity: "",
+        quantityKg: "",
         unit: "kg",
+        unitCost: "",
+        supplier: "",
         storageLocationId: "",
         receivedDate: new Date().toISOString().split("T")[0],
       });
+
+      // Refetch
+      await loadFeed();
     } catch (error) {
       console.error("Add feed failed", error);
-      alert("Failed to add feed. Please check inputs.");
+      toast.error("Failed to add feed. Please check your inputs.");
+    }
+  };
+
+  // DELETE /api/v1/inventory/feed/:id
+  const handleDeleteFeed = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this inventory record?")) {
+      return;
+    }
+    try {
+      await deleteFeed(id);
+      toast.success("Feed record deleted");
+      await loadFeed();
+    } catch (error) {
+      console.error("Delete feed failed", error);
+      toast.error("Failed to delete record.");
     }
   };
 
@@ -370,16 +406,28 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   const combinedInventory = [
     ...feedInventory.map((f: any) => {
       // Find food type object from foodTypes list
-      const ft = foodTypes.find(t => t.id === f.foodType);
-      const name = ft ? `${ft.name} ${ft.brand ? `(${ft.brand})` : ''}` : 'Unknown Feed';
+      // Handle various ID field names returned by different backend versions
+      const foodTypeId = f.foodTypeId || f.foodId || f.foodType_id || 
+                         (typeof f.foodType === 'string' ? f.foodType : f.foodType?.id || f.foodType?._id);
+      
+      const ft = foodTypes.find(t => (t.id || t._id) === foodTypeId);
+      
+      const name = f.name || (ft ? `${ft.name} ${ft.brand ? `(${ft.brand})` : ''}` : 'Unknown Product');
+      const arabicName = f.arabicName || ft?.arabicName;
+      const unit = f.unit || (ft?.unit || 'kg');
+      const quantity = typeof f.quantityKg === 'number' ? f.quantityKg : (typeof f.quantity === 'number' ? f.quantity : 0);
+      const costPerUnit = f.unitCost || f.costPerUnit || ft?.costPerUnit || 0;
+      
       return {
         ...f,
         type: 'feed',
         name,
-        quantity: f.quantityKg || f.quantity || 0,
-        unit: f.unit || 'kg',
-        reorderLevel: ft?.reorderLevel || 100,
-        supplier: f.manufacturer || 'Main Supplier'
+        arabicName,
+        quantity,
+        unit,
+        reorderLevel: f.reorderLevel || ft?.reorderLevel || 100,
+        costPerUnit: costPerUnit,
+        supplier: f.supplier || f.manufacturer || ft?.supplier || 'Main Supplier'
       };
     }),
     ...inventory.filter((i: any) => i.type !== 'feed')
@@ -401,7 +449,10 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     return daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0;
   });
 
-  const totalFeedStock = feedInventory.reduce((sum: number, item: any) => sum + (item.quantityKg || item.quantity || 0), 0);
+  const totalFeedStock = feedInventory.reduce((sum: number, f: any) => {
+    const qty = typeof f.quantityKg === 'number' ? f.quantityKg : (typeof f.quantity === 'number' ? f.quantity : 0);
+    return sum + qty;
+  }, 0);
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -554,11 +605,16 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         {/* Fish Stock Tab */}
         <TabsContent value="fish-stock" className="mt-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Fish Inventory Batches</CardTitle>
-              <p className="text-sm text-gray-600 mt-1">
-                Manage fish from purchase orders to tank stocking
-              </p>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Fish Inventory Batches</CardTitle>
+                <p className="text-sm text-gray-600 mt-1">
+                  Manage fish from purchase orders to tank stocking
+                </p>
+              </div>
+              <Button size="icon" variant="ghost" className="text-gray-400 hover:text-[#0A4D68]" onClick={loadBatches}>
+                <RefreshCw className="w-4 h-4" />
+              </Button>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -652,7 +708,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                             size="sm"
                             variant="outline"
                             className="flex-1 border-yellow-400 text-yellow-700 hover:bg-yellow-50"
-                            onClick={() => handleQuarantine(batch.id)}
+                            onClick={() => handleQuarantine(batch)}
                           >
                             <Clock className="w-4 h-4 mr-2" />
                             Quarantine
@@ -665,7 +721,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                           size="sm"
                           variant="outline"
                           className="flex-1 border-green-400 text-green-700 hover:bg-green-50"
-                          onClick={() => handleHealthCheck(batch.id)}
+                          onClick={() => handleHealthCheck(batch)}
                         >
                           <CheckCircle className="w-4 h-4 mr-2" />
                           Health Check
@@ -770,51 +826,65 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           {/* Search and Filter */}
           <Card>
             <CardHeader>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1 relative">
+              <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div className="flex-1 relative w-full md:w-auto">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input
-                    placeholder="Search inventory..."
+                    placeholder="Search supplies..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 h-9"
                   />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                  <div className="flex bg-gray-100 p-1 rounded-lg">
+                    <Button
+                      variant={filterType === "all" ? "default" : "ghost"}
+                      size="sm"
+                      className="h-7 text-xs px-3"
+                      onClick={() => setFilterType("all")}
+                    >
+                      All
+                    </Button>
+                    <Button
+                      variant={filterType === "feed" ? "default" : "ghost"}
+                      size="sm"
+                      className="h-7 text-xs px-3"
+                      onClick={() => setFilterType("feed")}
+                    >
+                      Feed
+                    </Button>
+                    <Button
+                      variant={filterType === "medicine" ? "default" : "ghost"}
+                      size="sm"
+                      className="h-7 text-xs px-3"
+                      onClick={() => setFilterType("medicine")}
+                    >
+                      Medicine
+                    </Button>
+                  </div>
+                  
+                  <div className="h-6 w-px bg-gray-200 hidden md:block" />
+                  
                   <Button
-                    variant={filterType === "all" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setFilterType("all")}
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 text-gray-400 hover:text-[#0A4D68]"
+                    onClick={() => {
+                      loadFeed();
+                      loadFoodTypes();
+                    }}
                   >
-                    All
+                    <RefreshCw className="w-4 h-4" />
                   </Button>
-                  <Button
-                    variant={filterType === "feed" ? "default" : "outline"}
+                  
+                  <Button 
                     size="sm"
-                    onClick={() => setFilterType("feed")}
+                    className="bg-[#0A4D68] hover:bg-[#083d52] h-9"
+                    onClick={() => setIsAddFeedOpen(true)}
                   >
-                    Feed
-                  </Button>
-                  <Button
-                    variant={filterType === "medicine" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setFilterType("medicine")}
-                  >
-                    Medicine
-                  </Button>
-                  <Button
-                    variant={filterType === "tool" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setFilterType("tool")}
-                  >
-                    Tools
-                  </Button>
-                  <Button
-                    variant={filterType === "fuel" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setFilterType("fuel")}
-                  >
-                    Fuel
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Stock
                   </Button>
                 </div>
               </div>
@@ -831,7 +901,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                   return (
                     <div
                       key={item.id}
-                      className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                      className="p-4 border rounded-lg hover:bg-gray-50 transition-all group"
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-start gap-3 flex-1">
@@ -841,6 +911,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <p className="font-semibold text-[#0A4D68]">{itemName}</p>
+                              {item.arabicName && (
+                                <p className="text-xs text-gray-400 font-medium">{item.arabicName}</p>
+                              )}
                               <Badge
                                 className={getTypeColor(item.type || 'feed')}
                                 variant="outline"
@@ -867,14 +940,28 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                             )}
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm">
-                            {item.quantity} {item.unit}
-                          </p>
-                          <p className="text-xs text-gray-600">
-                            $
-                            {(item.quantity * item.costPerUnit).toLocaleString()}
-                          </p>
+                        <div className="text-right flex flex-col items-end gap-2 text-right">
+                          <div>
+                            <p className="text-sm font-bold">
+                              {item.quantity.toLocaleString()} {item.unit}
+                            </p>
+                            <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">
+                              Current Stock
+                            </p>
+                          </div>
+                          {item.type === 'feed' && (
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="w-7 h-7 text-red-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e: React.MouseEvent) => {
+                                e.stopPropagation();
+                                handleDeleteFeed(item.id);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
                         </div>
                       </div>
 
@@ -991,31 +1078,34 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="quantity">Quantity</Label>
+                <Label htmlFor="quantity">Quantity (kg)</Label>
                 <Input
                   id="quantity"
                   type="number"
                   placeholder="0"
-                  value={newFeedData.quantity}
-                  onChange={(e) => setNewFeedData({ ...newFeedData, quantity: e.target.value })}
+                  value={newFeedData.quantityKg}
+                  onChange={(e) => setNewFeedData({ ...newFeedData, quantityKg: e.target.value })}
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="unit">Unit</Label>
-                <Select
-                  value={newFeedData.unit}
-                  onValueChange={(val: string) => setNewFeedData({ ...newFeedData, unit: val })}
-                >
-                  <SelectTrigger id="unit">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="kg">Kilograms (kg)</SelectItem>
-                    <SelectItem value="ton">Tons (t)</SelectItem>
-                    <SelectItem value="bag">Bags</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="unitCost">Unit Cost (EGP/kg)</Label>
+                <Input
+                  id="unitCost"
+                  type="number"
+                  placeholder="0.00"
+                  value={newFeedData.unitCost}
+                  onChange={(e) => setNewFeedData({ ...newFeedData, unitCost: e.target.value })}
+                />
               </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="supplier">Supplier / Brand</Label>
+              <Input
+                id="supplier"
+                placeholder="e.g. NewHope, Skretting..."
+                value={newFeedData.supplier}
+                onChange={(e) => setNewFeedData({ ...newFeedData, supplier: e.target.value })}
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="date">Received Date</Label>
@@ -1035,6 +1125,17 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Health Check & Quarantine Modal — Inventory Batch version */}
+      {batchForHealth && (
+        <BatchHealthModal
+          open={healthModalOpen}
+          onOpenChange={setHealthModalOpen}
+          batch={batchForHealth}
+          mode={healthModalMode}
+          onSuccess={loadBatches}
+        />
+      )}
     </div>
   );
 }

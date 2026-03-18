@@ -123,6 +123,10 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
       toast.error('Product name is required');
       return;
     }
+    if (!formData.arabicName) {
+      toast.error('Arabic product name is required');
+      return;
+    }
     if (!formData.proteinPercentage || formData.proteinPercentage <= 0) {
       toast.error('Invalid protein percentage');
       return;
@@ -411,7 +415,7 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
                   />
                 </div>
                 <div>
-                  <Label>Arabic Name</Label>
+                  <Label>Arabic Name *</Label>
                   <Input
                     placeholder="e.g., علف البلطي عالي البروتين"
                     value={formData.arabicName}
