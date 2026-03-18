@@ -20,10 +20,11 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Badge } from './ui/badge';
 import { Switch } from './ui/switch';
+import { Wheat, Plus, Edit, Trash2, AlertCircle, RefreshCw, Loader2 } from 'lucide-react';
 import { 
   AlertDialog, 
   AlertDialogAction, 
@@ -33,10 +34,11 @@ import {
   AlertDialogFooter, 
   AlertDialogHeader, 
   AlertDialogTitle 
-} from './ui/alert-dialog'; // تأكد من وجود هذا المكون
-import { Wheat, Plus, Edit, Trash2, AlertCircle } from 'lucide-react';
+} from './ui/alert-dialog';
 import { User, Farm, BuoyancyType, ManufacturingProcess, GrowthStage } from '../types';
 import { mockFarms } from '../mockData';
+import { apiGet, apiPost, apiPut, apiDelete } from '../api';
+import { toast } from 'sonner';
 
 interface FoodTypeManagementProps {
   user: User;
@@ -46,46 +48,17 @@ interface FoodTypeManagementProps {
 export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManagementProps) {
   const currentFarm = selectedFarm || mockFarms[0];
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const showModal = showCreateModal;
+  const setShowModal = setShowCreateModal;
   const [editingId, setEditingId] = useState<string | null>(null);
-  
-  // States missing in original code
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-  // Mock food types
-  const foodTypes = [
-    {
-      id: '1',
-      name: 'High Protein Tilapia Feed 32%',
-      arabicName: 'علف البلطي عالي البروتين 32%',
-      proteinPercentage: 32,
-      fatPercentage: 6,
-      fiberPercentage: 4,
-      pelletSizeMm: 3,
-      buoyancyType: 'FLOATING' as BuoyancyType,
-      manufacturingProcess: 'EXTRUDED' as ManufacturingProcess,
-      applicableStages: ['GROWER', 'FINISHER'] as GrowthStage[],
-      minFishWeightGrams: 50,
-      maxFishWeightGrams: 500,
-      isActive: true
-    },
-    {
-      id: '2',
-      name: 'Fingerling Starter 38%',
-      arabicName: 'علف الزريعة 38%',
-      proteinPercentage: 38,
-      fatPercentage: 8,
-      fiberPercentage: 3,
-      pelletSizeMm: 1.5,
-      buoyancyType: 'SLOW_SINKING' as BuoyancyType,
-      manufacturingProcess: 'CRUMBLED' as ManufacturingProcess,
-      applicableStages: ['FRY', 'FINGERLING'] as GrowthStage[],
-      minFishWeightGrams: 1,
-      maxFishWeightGrams: 50,
-      isActive: true
-    }
-  ];
+  // API State
+  const [foodTypes, setFoodTypes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -108,22 +81,74 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
     notes: ''
   });
 
+  const fetchFoodTypes = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await apiGet<any>('/aquaculture/food-types');
+      setFoodTypes(res.data || res || []);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFoodTypes();
+  }, [fetchFoodTypes]);
+
   const handleEdit = (foodType: any) => {
     setFormData(foodType);
     setEditingId(foodType.id);
     setShowCreateModal(true);
   };
 
-  const handleSave = () => {
+  const handleDelete = async () => {
+    if (!deleteConfirmId) return;
+    try {
+      await apiDelete(`/aquaculture/food-types/${deleteConfirmId}`);
+      toast.success('Food type deleted');
+      fetchFoodTypes();
+    } catch (err) {
+      toast.error('Failed to delete: ' + (err as Error).message);
+    } finally {
+      setDeleteConfirmId(null);
+    }
+  };
+
+  const handleSave = async () => {
+    // Basic validation
+    if (!formData.name) {
+      toast.error('Product name is required');
+      return;
+    }
+    if (!formData.proteinPercentage || formData.proteinPercentage <= 0) {
+      toast.error('Invalid protein percentage');
+      return;
+    }
+    if (!formData.pelletSizeMm || formData.pelletSizeMm <= 0) {
+      toast.error('Invalid pellet size');
+      return;
+    }
+    if (!formData.applicableStages || formData.applicableStages.length === 0) {
+      toast.error('Please select at least one applicable growth stage');
+      return;
+    }
+
     setSaving(true);
     setSaveError(null);
-    console.log('Saving food type:', formData);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setSaving(false);
+    try {
+      if (editingId) {
+        await apiPut(`/aquaculture/food-types/${editingId}`, formData);
+        toast.success('Food type updated');
+      } else {
+        await apiPost('/aquaculture/food-types', formData);
+        toast.success('Food type created');
+      }
       setShowCreateModal(false);
       setEditingId(null);
+      fetchFoodTypes();
       // Reset form
       setFormData({
         name: '',
@@ -145,14 +170,10 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
         isActive: true,
         notes: ''
       });
-    }, 500);
-  };
-
-  // Function missing in original code
-  const handleDelete = () => {
-    if (deleteConfirmId) {
-      console.log('Deleting food type with ID:', deleteConfirmId);
-      setDeleteConfirmId(null);
+    } catch (err) {
+      setSaveError((err as Error).message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -192,20 +213,74 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
               Manage feed types with nutritional composition and physical properties
             </p>
           </div>
-          <Button 
-            className="bg-[#088395] hover:bg-[#0A4D68]"
-            onClick={() => {
-              setEditingId(null);
-              setShowCreateModal(true);
-            }}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Food Type
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fetchFoodTypes()}
+              disabled={loading}
+            >
+              <RefreshCw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button 
+              className="bg-[#088395] hover:bg-[#0A4D68]"
+              onClick={() => {
+                setEditingId(null);
+                setFormData({
+                  name: '',
+                  arabicName: '',
+                  proteinPercentage: 30,
+                  fatPercentage: 6,
+                  fiberPercentage: 4,
+                  moisturePercentage: 10,
+                  ashPercentage: 12,
+                  pelletSizeMm: 3,
+                  buoyancyType: 'FLOATING' as BuoyancyType,
+                  manufacturingProcess: 'EXTRUDED' as ManufacturingProcess,
+                  applicableStages: [] as GrowthStage[],
+                  minFishWeightGrams: 0,
+                  maxFishWeightGrams: 0,
+                  shelfLifeDays: 180,
+                  storageInstructions: '',
+                  waterStabilityMinutes: 30,
+                  isActive: true,
+                  notes: ''
+                });
+                setShowCreateModal(true);
+              }}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Food Type
+            </Button>
+          </div>
         </div>
 
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3 text-red-800">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium">Failed to load feed types</p>
+              <p className="text-xs mt-0.5">{error}</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => fetchFoodTypes()}>Retry</Button>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {foodTypes.map((foodType) => (
+          {loading ? (
+            <div className="col-span-full py-20 flex flex-col items-center justify-center text-gray-400">
+              <Loader2 className="w-10 h-10 animate-spin mb-4" />
+              <p>Fetching feed catalogue...</p>
+            </div>
+          ) : foodTypes.length === 0 ? (
+            <div className="col-span-full py-20 bg-white border border-dashed rounded-xl flex flex-col items-center justify-center text-gray-400">
+              <Plus className="w-10 h-10 mb-4 opacity-20" />
+              <p>No feed types registered yet.</p>
+              <Button variant="link" onClick={() => setShowCreateModal(true)}>Add your first food type</Button>
+            </div>
+          ) : (
+            foodTypes.map((foodType) => (
             <Card key={foodType.id} className="bg-white shadow-sm">
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -265,7 +340,7 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
                 <div>
                   <h4 className="text-sm font-semibold text-gray-700 mb-2">Growth Stages</h4>
                   <div className="flex gap-1 flex-wrap">
-                    {foodType.applicableStages.map((stage) => (
+                    {foodType.applicableStages.map((stage: any) => (
                       <Badge key={stage} className="bg-[#05BFDB] text-white text-xs">
                         {stage}
                       </Badge>
@@ -296,6 +371,7 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
                   <Button 
                     size="sm" 
                     variant="outline"
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
                     onClick={() => setDeleteConfirmId(foodType.id)}
                   >
                     <Trash2 className="w-3 h-3" />
@@ -303,7 +379,7 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
                 </div>
               </CardContent>
             </Card>
-          ))}
+          )))}
         </div>
       </div>
 
@@ -314,6 +390,9 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
             <DialogTitle>
               {editingId ? 'Edit Food Type' : 'Create New Food Type'}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Form for specifying nutritional composition, physical properties, and growth stages of fish feed.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6">
@@ -355,7 +434,7 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
                     min="1"
                     max="100"
                     value={formData.proteinPercentage}
-                    onChange={(e) => setFormData({...formData, proteinPercentage: parseFloat(e.target.value)})}
+                    onChange={(e) => setFormData({...formData, proteinPercentage: parseFloat(e.target.value) || 0})}
                   />
                 </div>
                 <div>
@@ -365,7 +444,7 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
                     min="0"
                     max="100"
                     value={formData.fatPercentage}
-                    onChange={(e) => setFormData({...formData, fatPercentage: parseFloat(e.target.value)})}
+                    onChange={(e) => setFormData({...formData, fatPercentage: parseFloat(e.target.value) || 0})}
                   />
                 </div>
                 <div>
@@ -375,7 +454,7 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
                     min="0"
                     max="100"
                     value={formData.fiberPercentage}
-                    onChange={(e) => setFormData({...formData, fiberPercentage: parseFloat(e.target.value)})}
+                    onChange={(e) => setFormData({...formData, fiberPercentage: parseFloat(e.target.value) || 0})}
                   />
                 </div>
                 <div>
@@ -385,7 +464,7 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
                     min="0"
                     max="100"
                     value={formData.moisturePercentage}
-                    onChange={(e) => setFormData({...formData, moisturePercentage: parseFloat(e.target.value)})}
+                    onChange={(e) => setFormData({...formData, moisturePercentage: parseFloat(e.target.value) || 0})}
                   />
                 </div>
                 <div>
@@ -395,7 +474,7 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
                     min="0"
                     max="100"
                     value={formData.ashPercentage}
-                    onChange={(e) => setFormData({...formData, ashPercentage: parseFloat(e.target.value)})}
+                    onChange={(e) => setFormData({...formData, ashPercentage: parseFloat(e.target.value) || 0})}
                   />
                 </div>
               </div>
@@ -415,14 +494,14 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
                     min="0.5"
                     max="10"
                     value={formData.pelletSizeMm}
-                    onChange={(e) => setFormData({...formData, pelletSizeMm: parseFloat(e.target.value)})}
+                    onChange={(e) => setFormData({...formData, pelletSizeMm: parseFloat(e.target.value) || 0})}
                   />
                 </div>
                 <div>
                   <Label>Buoyancy Type *</Label>
                   <Select
                     value={formData.buoyancyType}
-                    onValueChange={(value) => setFormData({...formData, buoyancyType: value as BuoyancyType})}
+                    onValueChange={(value: any) => setFormData({...formData, buoyancyType: value as BuoyancyType})}
                   >
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -436,7 +515,7 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
                   <Label>Manufacturing Process *</Label>
                   <Select
                     value={formData.manufacturingProcess}
-                    onValueChange={(value) => setFormData({...formData, manufacturingProcess: value as ManufacturingProcess})}
+                    onValueChange={(value: any) => setFormData({...formData, manufacturingProcess: value as ManufacturingProcess})}
                   >
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -452,18 +531,25 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
             {/* Applicable Growth Stages */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Applicable Growth Stages *</h3>
-              <div className="grid grid-cols-3 gap-3">
-                {['FRY', 'FINGERLING', 'JUVENILE', 'GROWER', 'FINISHER'].map((stage) => (
-                  <div key={stage} className="flex items-center space-x-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {[
+                  'FRY_1', 'FRY_2', 
+                  'FINGERLING_1', 'FINGERLING_2', 
+                  'JUVENILE_1', 'JUVENILE_2', 'JUVENILE_3', 
+                  'ADULT_1', 'ADULT_2', 'ADULT_3', 
+                  'FINISHING_1', 'FINISHING_2', 'FINISHING_3', 
+                  'PRE_HARVEST'
+                ].map((stage) => (
+                  <div key={stage} className="flex items-center space-x-2 bg-gray-50 p-2 rounded-lg border border-transparent hover:border-[#088395]/30 transition-colors">
                     <input
                       type="checkbox"
                       id={stage}
-                      checked={formData.applicableStages.includes(stage as GrowthStage)}
-                      onChange={() => toggleStage(stage as GrowthStage)}
+                      checked={formData.applicableStages.includes(stage as any)}
+                      onChange={() => toggleStage(stage as any)}
                       className="w-4 h-4 text-[#088395] border-gray-300 rounded focus:ring-[#088395]"
                     />
-                    <label htmlFor={stage} className="text-sm font-medium text-gray-700">
-                      {stage}
+                    <label htmlFor={stage} className="text-[10px] font-bold text-gray-700 uppercase tracking-tight cursor-pointer">
+                      {stage.replace('_', ' ')}
                     </label>
                   </div>
                 ))}
@@ -508,7 +594,7 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
                   <Input
                     type="number"
                     value={formData.shelfLifeDays}
-                    onChange={(e) => setFormData({...formData, shelfLifeDays: parseInt(e.target.value)})}
+                    onChange={(e) => setFormData({...formData, shelfLifeDays: parseInt(e.target.value) || 0})}
                   />
                 </div>
                 <div>
@@ -516,7 +602,7 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
                   <Input
                     type="number"
                     value={formData.waterStabilityMinutes}
-                    onChange={(e) => setFormData({...formData, waterStabilityMinutes: parseInt(e.target.value)})}
+                    onChange={(e) => setFormData({...formData, waterStabilityMinutes: parseInt(e.target.value) || 0})}
                   />
                 </div>
               </div>
@@ -540,7 +626,7 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
                 </div>
                 <Switch
                   checked={formData.isActive}
-                  onCheckedChange={(checked) => setFormData({...formData, isActive: checked})}
+                  onCheckedChange={(checked: any) => setFormData({...formData, isActive: checked})}
                 />
               </div>
               <div>

@@ -28,14 +28,15 @@ interface AllocateFishToTankProps {
     notes?: string
   ) => void;
   farmId: string;
+  availableTanks?: any[];
 }
-
 export default function AllocateFishToTank({
   batch,
   isOpen,
   onClose,
   onAllocate,
   farmId,
+  availableTanks = [],
 }: AllocateFishToTankProps) {
   const [selectedTankId, setSelectedTankId] = useState<string>('');
   const [quantity, setQuantity] = useState<string>('');
@@ -48,17 +49,18 @@ export default function AllocateFishToTank({
     quantity?: string;
   }>({});
 
-  // Get available tanks for this farm (status ACTIVE)
-  const availableTanks = mockTanks.filter(
-    (tank) => tank.farmId === farmId && tank.status === 'ACTIVE'
+  // Get available tanks for this farm (status ACTIVE or READY)
+  const tanksToDisplay = availableTanks.length > 0 ? availableTanks : mockTanks;
+  const tanks = tanksToDisplay.filter(
+    (tank) => tank.farmId === farmId && (tank.status === 'ACTIVE' || tank.status === 'READY')
   );
 
   // Get selected tank details
   const selectedTank = availableTanks.find((t) => t.id === selectedTankId);
 
   // Calculate capacity percentage
-  const getCapacityPercentage = (tank: Tank) => {
-    return Math.round((tank.currentBiomass / tank.capacity) * 100);
+  const getCapacityPercentage = (tank: any) => {
+    return Math.round(((tank.biomass || 0) / (tank.capacity || 1)) * 100);
   };
 
   // Calculate estimated biomass after stocking
@@ -67,7 +69,7 @@ export default function AllocateFishToTank({
     const quantityNum = Number(quantity);
     const estimatedBiomass =
       (quantityNum * batch.averageWeight) / 1000; // Convert grams to kg
-    return selectedTank.currentBiomass + estimatedBiomass;
+    return (selectedTank.biomass || 0) + estimatedBiomass;
   };
 
   // Validate form
@@ -222,8 +224,8 @@ export default function AllocateFishToTank({
                         : 'text-green-600 font-medium'
                     }
                   >
-                    {selectedTank.currentBiomass.toLocaleString()}/
-                    {selectedTank.capacity.toLocaleString()} kg (
+                    {(selectedTank.biomass || 0).toLocaleString()}/
+                    {(selectedTank.capacity || 0).toLocaleString()} kg (
                     {getCapacityPercentage(selectedTank)}%)
                     {getCapacityPercentage(selectedTank) < 80 ? ' ✅' : ' ⚠️'}
                   </span>

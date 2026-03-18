@@ -10,12 +10,14 @@ import {
   TrendingUp, 
   Scale, 
   AlertCircle, 
+  AlertTriangle,
   CheckCircle,
   Activity,
   Ruler
 } from 'lucide-react';
 import { getTranslation, Language } from '../../i18n/translations';
-import { apiPut } from '../../api';
+import { apiPut, apiPost } from '../../api';
+import { toast } from 'sonner';
 
 interface RecordGrowthMeasurementProps {
   open: boolean;
@@ -34,6 +36,7 @@ interface RecordGrowthMeasurementProps {
   language?: Language;
   onSuccess?: (data: any) => void;
   measuredBy?: string;
+  measurement?: any; // To support editing
 }
 
 export default function RecordGrowthMeasurement({ 
@@ -42,7 +45,8 @@ export default function RecordGrowthMeasurement({
   batch,
   language = 'en',
   onSuccess,
-  measuredBy = 'Caretaker'
+  measuredBy = 'Caretaker',
+  measurement
 }: RecordGrowthMeasurementProps) {
   const t = (key: string) => getTranslation(language, key);
   const isRTL = language === 'ar';
@@ -63,6 +67,42 @@ export default function RecordGrowthMeasurement({
     measuredBy: measuredBy,
     individualWeights: [] as number[]
   });
+  
+  const [showNegativeGrowthWarning, setShowNegativeGrowthWarning] = useState(false);
+
+  // Load measurement data if editing
+  useEffect(() => {
+    if (open && measurement) {
+      setFormData({
+        measuredAt: new Date(measurement.measuredAt || measurement.date || measurement.timestamp).toISOString().split('T')[0],
+        sampleSize: measurement.sampleSize || 30,
+        totalSampleWeight: measurement.totalSampleWeightGrams || (measurement.averageWeightGrams * measurement.sampleSize) || 0,
+        minWeight: measurement.minWeightGrams || measurement.minWeight || 0,
+        maxWeight: measurement.maxWeightGrams || measurement.maxWeight || 0,
+        averageLength: measurement.averageLengthCm || measurement.length || 0,
+        notes: measurement.notes || '',
+        measuredBy: measurement.measuredBy || measuredBy,
+        individualWeights: measurement.individualWeights || []
+      });
+      if (measurement.individualWeights?.length > 0) {
+        setDetailedEntry(true);
+      }
+    } else if (open && !measurement) {
+      // Reset for new entry
+      setFormData({
+        measuredAt: new Date().toISOString().split('T')[0],
+        sampleSize: 30,
+        totalSampleWeight: 0,
+        minWeight: 0,
+        maxWeight: 0,
+        averageLength: 0,
+        notes: '',
+        measuredBy: measuredBy,
+        individualWeights: [] as number[]
+      });
+      setDetailedEntry(false);
+    }
+  }, [open, measurement]);
 
   // Pre-fill form when batch data is available
   useEffect(() => {
@@ -172,34 +212,51 @@ export default function RecordGrowthMeasurement({
       return;
     }
 
+    // Check for significant weight decrease to warn user
+    const isNegativeGrowth = batch.lastWeight && averageWeight < batch.lastWeight;
+    
+    if (isNegativeGrowth && !showNegativeGrowthWarning) {
+      setShowNegativeGrowthWarning(true);
+      return;
+    }
+
     const payload: any = {
-      measuredAt: formData.measuredAt,
-      daysInCulture: batch.daysInCulture,
-      sampleSize: formData.sampleSize,
-      totalSampleWeightGrams: formData.totalSampleWeight,
-      averageWeightGrams: averageWeight,
-      minWeightGrams: detailedEntry ? stats?.min : formData.minWeight,
-      maxWeightGrams: detailedEntry ? stats?.max : formData.maxWeight,
-      stdDeviationGrams: stats?.stdDev,
-      coefficientOfVariation: stats?.cv,
-      averageLengthCm: formData.averageLength > 0 ? formData.averageLength : undefined,
-      estimatedFishCount: batch.currentCount,
-      estimatedBiomassKg: estimatedBiomass,
-      individualWeights: detailedEntry ? formData.individualWeights : undefined,
-      notes: formData.notes,
-      measuredBy: formData.measuredBy
+      measuredAt: new Date(formData.measuredAt + 'T12:00:00').toISOString(),
+      daysInCulture: Math.max(1, Number(batch.daysInCulture) || 1),
+      sampleSize: Number(formData.sampleSize) || 0,
+      totalSampleWeightGrams: Number(formData.totalSampleWeight) || 0,
+      averageWeightGrams: parseFloat(averageWeight.toFixed(2)),
+      minWeightGrams: Number(detailedEntry ? stats?.min : formData.minWeight) || 0,
+      maxWeightGrams: Number(detailedEntry ? stats?.max : formData.maxWeight) || 0,
+      estimatedFishCount: Math.max(1, Number(batch.currentCount) || 1),
+      measuredBy: formData.measuredBy,
+      isEstimate: false,
+      notes: formData.notes
     };
 
+    // Only add optional fields if they have values
+    const stdDev = Number(detailedEntry ? stats?.stdDev : 0);
+    if (stdDev > 0) payload.stdDeviationGrams = parseFloat(stdDev.toFixed(2));
+    
+    const cv = Number(detailedEntry ? stats?.cv : 0);
+    if (cv > 0) payload.coefficientOfVariation = parseFloat(cv.toFixed(2));
+    
+    if (formData.averageLength > 0) payload.averageLengthCm = Number(formData.averageLength);
+
+    console.log('Saving growth measurement:', payload);
+
     try {
-      // Corrected API endpoint based on Route Guide line 73: PUT /api/v1/tanks/growth/:id
-      // We use the batch ID as the identifier to update the growth metrics for that batch
-      await apiPut(`/tanks/growth/${batch.id}`, {
-        ...payload,
-        tankId: batch.tankId
-      });
+      if (measurement?.id) {
+        // Use PUT to update existing measurement
+        await apiPut(`/tanks/growth/${measurement.id}`, payload);
+        toast.success('Growth record updated');
+      } else {
+        // Use POST to create a new growth measurement for this batch
+        await apiPost(`/tanks/growth/${batch.id}`, payload);
+      }
       
       const res = {
-        id: 'growth-' + Date.now(),
+        id: measurement?.id || 'growth-' + Date.now(),
         ...payload,
         sgr: parseFloat(sgr.toFixed(2)),
         adg: parseFloat((weightGain / daysSinceLastMeasurement).toFixed(2)),
@@ -225,8 +282,8 @@ export default function RecordGrowthMeasurement({
         onSuccess(res);
       }
     } catch (err) {
-      console.error('Failed to record growth:', err);
-      alert('Failed to record growth: ' + (err as Error).message);
+      console.error('Failed to save growth:', err);
+      toast.error('Failed to save growth: ' + (err as Error).message);
     }
   };
 
@@ -500,6 +557,23 @@ export default function RecordGrowthMeasurement({
                 />
               </div>
             </div>
+
+            {/* Negative Growth Warning */}
+            {showNegativeGrowthWarning && (
+              <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-start gap-3 animate-in fade-in zoom-in duration-300">
+                <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
+                <div className="text-sm">
+                  <p className="font-bold text-amber-900 mb-1">Significant Weight Decrease Detected</p>
+                  <p className="text-amber-800">
+                    The calculated average weight (<strong>{averageWeight.toFixed(1)}g</strong>) is lower than the last recorded weight (<strong>{batch.lastWeight}g</strong>).
+                  </p>
+                  <p className="text-amber-700 mt-2 text-xs">
+                    Please verify that <strong>Total Sample Weight</strong> is entered in <strong>grams</strong> (not kg) and <strong>Sample Size</strong> is correct. 
+                    If you are sure, click "Save Measurement" again to proceed.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="flex gap-3 pt-4 border-t">

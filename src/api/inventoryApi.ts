@@ -1,30 +1,25 @@
-import axios from "axios";
+import { apiGet, apiPost, apiPatch } from "../api";
 
-const API = axios.create({
-  baseURL: "/api/v1",
-});
-
-
-export const getFeedInventory = () => API.get("/inventory/feed");
+export const getFeedInventory = () => apiGet<any>("/inventory/feed");
 
 export const createFeed = (data: any) =>
-  API.post("/inventory/feed", data);
+  apiPost<any>("/inventory/feed", data);
 
 export const getFeedByFoodType = (foodId: string) =>
-  API.get(`/inventory/feed/food-type/${foodId}`);
+  apiGet<any>(`/inventory/feed/food-type/${foodId}`);
 
 
 export const getBatches = () =>
-  API.get("/inventory/batches");
+  apiGet<any>("/inventory/batches");
 
 export const getBatchById = (id: string) =>
-  API.get(`/inventory/batches/${id}`);
+  apiGet<any>(`/inventory/batches/${id}`);
 
 export const quarantineBatch = (id: string) =>
-  API.patch(`/inventory/batches/${id}/quarantine`);
+  apiPatch<any>(`/inventory/batches/${id}/quarantine`, {});
 
 export const healthCheckBatch = (id: string, data: any) =>
-  API.patch(`/inventory/batches/${id}/health-check`, data);
+  apiPatch<any>(`/inventory/batches/${id}/health-check`, data);
 
 export const allocateBatch = (id: string, data: any) =>
-  API.patch(`/inventory/batches/${id}/allocate`, data);
+  apiPatch<any>(`/inventory/batches/${id}/allocate`, data);
