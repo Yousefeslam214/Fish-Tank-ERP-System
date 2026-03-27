@@ -38,7 +38,6 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
   const [co2, setCo2] = useState('');
   const [notes, setNotes] = useState('');
   const [actionTaken, setActionTaken] = useState(false);
-  const [measuredBy, setMeasuredBy] = useState(user?.name || '');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -57,7 +56,6 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
         setCo2(initialRecord.co2?.toString() ?? '');
         setNotes(initialRecord.actionNotes ?? initialRecord.notes ?? '');
         setActionTaken(initialRecord.actionTaken ?? (initialRecord.actionNotes ? true : false));
-        setMeasuredBy(initialRecord.measuredBy ?? (user?.name || ''));
       } else {
         setTemp('');
         setDoValue('');
@@ -72,7 +70,6 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
         setCo2('');
         setNotes('');
         setActionTaken(false);
-        setMeasuredBy(user?.name || '');
       }
 
       // Initialize selected batch
@@ -319,16 +316,6 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
                 <p className="text-xs text-gray-600">mg/L</p>
               </div>
             </div>
-          </div>
-
-          <div>
-            <Label>Measured By</Label>
-            <Input
-              value={measuredBy}
-              onChange={(e) => setMeasuredBy(e.target.value)}
-              placeholder="e.g. Ahmed Mohamed"
-              className="mt-1"
-            />
           </div>
 
           <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-100">
