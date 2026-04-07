@@ -80,3 +80,10 @@
 - **Task**: **Identification & Display Rules**
     - [ ] **ID Rule**: For all entities displayed (Users, Farms, Modules), always show both `name` and `id`.
     - [ ] **ID Formatting**: Truncate UUIDs to show only the first segment: `id.split('-')[0]`.
+
+## 5. Development Utilities
+- **Task**: **Quick Login Presets**
+    - [ ] Add 6 quick-login buttons to the Login page for faster testing.
+    - [ ] Roles to include: Admin, Manager, Technican, Sales, Worker, Delivery.
+    - [ ] **Credentials Format**: `[role].test@fishfarm360.local`.
+    - [ ] **Shared Password**: `FishFarm360!2026`.
