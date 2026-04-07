@@ -1,6 +1,6 @@
 import { getAccessToken } from './services/authSession';
 
-export const DEFAULT_API_BASE = 'https://yousseftallal-fishfarm-backend-api.hf.space/api/v1';
+export const DEFAULT_API_BASE = 'https://fouadkhaild-asd.hf.space/api/v1';
 
 const getEnvValue = (key: string): string | undefined => {
   const importMetaEnv = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env;
