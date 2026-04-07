@@ -27,6 +27,16 @@ const normalizeErrorMessage = (error: unknown): string => {
   return 'Unable to sign in right now. Please try again.';
 };
 
+const QUICK_LOGINS = [
+  { label: 'Admin', role: 'admin' },
+  { label: 'Manager', role: 'manager' },
+  { label: 'Technican', role: 'technican' },
+  { label: 'Sales', role: 'sales' },
+  { label: 'Worker', role: 'worker' },
+  { label: 'Delivery', role: 'delivery' },
+];
+const QUICK_LOGIN_PASSWORD = 'FishFarm360!2026';
+
 export default function Login({ onLogin }: LoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -133,6 +143,13 @@ export default function Login({ onLogin }: LoginProps) {
     setStep('credentials');
     setErrorMessage(null);
     setOtpMessage(DEFAULT_OTP_MESSAGE);
+  };
+
+  const handleQuickLogin = (role: string) => {
+    const loginEmail = `${role}.test@fishfarm360.local`;
+    setEmail(loginEmail);
+    setPassword(QUICK_LOGIN_PASSWORD);
+    setErrorMessage(null);
   };
 
   return (
@@ -243,6 +260,34 @@ export default function Login({ onLogin }: LoginProps) {
               <Button type="button" className="w-full bg-[#088395] hover:bg-[#0A4D68]" onClick={resetToCredentials}>
                 Back to Sign In
               </Button>
+            </div>
+          )}
+
+          {step === 'credentials' && (
+            <div className="mt-6">
+              <div className="relative mb-4">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-2 text-muted-foreground">Quick Access</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {QUICK_LOGINS.map((login) => (
+                  <Button
+                    key={login.role}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs border-[#088395]/30 hover:bg-[#088395]/10 text-[#088395]"
+                    onClick={() => handleQuickLogin(login.role)}
+                    disabled={isSubmitting}
+                  >
+                    {login.label}
+                  </Button>
+                ))}
+              </div>
             </div>
           )}
         </CardContent>
