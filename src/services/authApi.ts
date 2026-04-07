@@ -8,7 +8,7 @@ import {
   PreLoginResponse,
 } from './authTypes';
 
-const DEFAULT_API_BASE_URL = 'https://yousseftallal-fishfarm-backend-api.hf.space/api/v1';
+const DEFAULT_API_BASE_URL = 'https://fouadkhaild-asd.hf.space/api/v1';
 
 type JsonRecord = Record<string, unknown>;
 
