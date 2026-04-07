@@ -20,7 +20,7 @@ This list breaks down the frontend requirements into actionable tasks and subtas
 - **Task**: **Procurement Overview Page**
     - [ ] Implement paginated lists for Fish and Feed POs.
     - [ ] Add status badges for `Pending`, `Approved`, `Delivered`, and `Canceled`.
-    - [ ] Filter orders by status or supplier.
+    - [ ] Filter orders by status.
 - **Task**: **PO Creation Wizard**
     - [ ] Supplier selection dropdown (filtered by farm).
     - [ ] Dynamic line item addition (addRow/removeRow).
