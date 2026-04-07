@@ -44,3 +44,6 @@ This list breaks down the frontend requirements into actionable tasks and subtas
 - **Task**: **Procurement Helpers**
     - [ ] Status color mapping (e.g., Green for [Received](file:///d:/projects/fishFarmSystem/src/modules/inventory/application/handlers/LineItemReceiptHandler.ts#16-27), Yellow for `Pending`).
     - [ ] Unit formatters (e.g., formatter for `Kg` in feed POs).
+- **Task**: **Identification & Display Rules**
+    - [ ] **ID Rule**: For all entities displayed (Suppliers, POs, Receipts), always show both `name` and `id`.
+    - [ ] **ID Formatting**: Truncate UUIDs to show only the first segment: `id.split('-')[0]`.

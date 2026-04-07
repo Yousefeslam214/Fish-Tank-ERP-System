@@ -36,3 +36,6 @@ Following the backend analysis, here are the core frontend tasks for implementin
 - **Task**: **State Management & UI Patterns**
     - [ ] Implement global status colors for consistency with the Procurement module.
     - [ ] Create shared components for "Quantity Progress Bars" (showing current vs. initial stock).
+- **Task**: **Identification & Display Rules**
+    - [ ] **ID Rule**: For all entities displayed (Batches, Tanks, etc.), always show both `name` and `id`.
+    - [ ] **ID Formatting**: Truncate UUIDs to show only the first segment: `id.split('-')[0]`.

@@ -77,3 +77,6 @@
     }
     ```
     - [ ] Provide enums and localized labels (ar/en) to all forms and tables.
+- **Task**: **Identification & Display Rules**
+    - [ ] **ID Rule**: For all entities displayed (Users, Farms, Modules), always show both `name` and `id`.
+    - [ ] **ID Formatting**: Truncate UUIDs to show only the first segment: `id.split('-')[0]`.

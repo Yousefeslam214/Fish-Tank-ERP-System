@@ -197,6 +197,8 @@ graph TD
 - [ ] **S.3** `MetricCard` — label + value + sub-value + trend indicator
 - [ ] **S.4** `DateRangeFilter` — shared filter for trends/history views
 - [ ] **S.5** API service layer (`tankApi.ts`) — typed functions for all 14 endpoints
+- [ ] **S.6** **ID Display Rule**: For all entities displayed, always show both `name` and `id`.
+- [ ] **S.7** **ID Formatting**: Truncate UUIDs to show only the first segment: `id.split('-')[0]`.
 
 ---
 
