@@ -84,6 +84,6 @@
 ## 5. Development Utilities
 - **Task**: **Quick Login Presets**
     - [ ] Add 6 quick-login buttons to the Login page for faster testing.
-    - [ ] Roles to include: Admin, Manager, Technican, Sales, Worker, Delivery.
+    - [ ] Roles to include: admin, manager, technican, sales, worker, delivery.
     - [ ] **Credentials Format**: `[role].test@fishfarm360.local`.
     - [ ] **Shared Password**: `FishFarm360!2026`.
