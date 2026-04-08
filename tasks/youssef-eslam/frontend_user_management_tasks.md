@@ -87,3 +87,59 @@
     - [ ] Roles to include: admin, manager, technican, sales, worker, delivery.
     - [ ] **Credentials Format**: `[role].test@fishfarm360.local`.
     - [ ] **Shared Password**: `FishFarm360!2026`.
+
+## 6. Fish Type Management
+**Goal**: Manage global fish species configurations, including water quality and harvest targets.
+> **Note**: Added 2 new fields: `targetWeightForHarvest` (kg) and `defaultMarketPrice` (currency/unit).
+- **Task**: **Fish Type CRUD UI**
+    - [ ] **List**: Display table of all fish types (`GET /farm/fish-types`).
+    - [ ] **Create**: Form for adding new species (`POST /farm/fish-types`).
+        - [ ] Include all required fields: Name, Scientific Name, Harvest Target Weight, Default Market Price.
+        - [ ] Implement complex inputs for Feeding Rate Matrix, Meal Frequency, and Protein Requirements.
+    - [ ] **Edit**: Update existing fish type (`PUT /farm/fish-types/:id`).
+    - [ ] **Delete**: Archive/Delete species (`DELETE /farm/fish-types/:id`).
+- **Task**: **Schema Reference**
+    - **Request Example (Create)**:
+    ```json
+    {
+      "name": "Nile Tilapia",
+      "scientificName": "Oreochromis niloticus",
+      "targetWeightForHarvest": 0.5,
+      "defaultMarketPrice": 50,
+      "tempMin": 20,
+      "tempOptimal": 28,
+      "tempMax": 34,
+      "doMin": 3,
+      "doSafe": 5,
+      "phMin": 6.5,
+      "phMax": 8.5,
+      "nh3Safe": 0.02,
+      "nh3Critical": 0.1,
+      "no2Max": 0.5,
+      "fcrMin": 1.1,
+      "fcrMax": 1.5,
+      "survivalRate": 90,
+      "feedingRateMatrix": {
+        "weight_ranges": [{"min": 10, "max": 15}],
+        "temperatures": [23, 26, 28],
+        "rates": [[2.0, 3.0, 3.5]]
+      },
+      "mealFrequencyRules": [{"maxWeight": 10, "mealsPerDay": 5}],
+      "proteinRequirements": [{"minWeight": 0, "maxWeight": 10, "proteinPercentage": 35}]
+    }
+    ```
+    - **Response Example**:
+    ```json
+    {
+      "success": true,
+      "data": {
+        "id": "uuid-segment",
+        "name": "Nile Tilapia",
+        "scientificName": "Oreochromis niloticus",
+        "targetWeightForHarvest": 0.5,
+        "defaultMarketPrice": 50,
+        "isActive": true
+      },
+      "message": "Fish type created successfully"
+    }
+    ```
