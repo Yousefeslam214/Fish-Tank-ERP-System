@@ -143,3 +143,18 @@
       "message": "Fish type created successfully"
     }
     ```
+## 7. Harvest Management
+**Goal**: Manage the end-to-end harvest process from prediction to completion.
+- **Task**: **Harvest Prediction UI**
+    - [ ] **Batch Prediction**: Allow managers to simulate harvest outcomes (`GET /harvest/events/prediction/batch/:batchId`).
+    - [ ] **Simulation Inputs**: Sliders/fields for Target Weight, Market Price, Feed Price, and Survival Rate.
+    - [ ] **Dynamic Charts**: Visualize revenue by grade distribution based on prediction response.
+- **Task**: **Harvest Event Workflow**
+    - [ ] **Start Harvest**: Button to initiate harvest for a tank (`POST /harvest/events/start`).
+    - [ ] **Live Grading Interface**:
+        - [ ] Add rows for fish grades and weights as they are processed (`POST /harvest/events/:id/grading`).
+        - [ ] Link grading to specific batches within the tank.
+    - [ ] **Complete & Finalize**: Final form for labor/transport costs and status update (`POST /harvest/events/:id/complete`).
+- **Task**: **Harvest Monitoring**
+    - [ ] **Active Drafts**: Display a list of ongoing (uncompleted) harvest events (`GET /harvest/events/active-tanks`).
+    - [ ] **History List**: View historical harvest performance and financials (`GET /harvest/events`).
