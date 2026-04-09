@@ -47,3 +47,18 @@ This list breaks down the frontend requirements into actionable tasks and subtas
 - **Task**: **Identification & Display Rules**
     - [ ] **ID Rule**: For all entities displayed (Suppliers, POs, Receipts), always show both `name` and `id`.
     - [ ] **ID Formatting**: Truncate UUIDs to show only the first segment: `id.split('-')[0]`.
+## 5. UI Polish
+**Goal**: Ensure all components are visually consistent, readable, and professionally refined across the procurement module.
+ 
+- **Task**: **Spacing & Layout Consistency**
+    - [ ] Apply consistent padding and margins between all fields (e.g., between ID and Name columns in tables).
+    - [ ] Ensure uniform spacing inside form inputs, table cells, cards, and modals.
+    - [ ] Add proper whitespace between sections and component groups.
+- **Task**: **Typography Standardization**
+    - [ ] Define and apply a consistent font scale (e.g., heading, subheading, body, caption sizes).
+    - [ ] Standardize font weights across labels, values, and headings.
+    - [ ] Ensure proper line height and letter spacing for readability.
+- **Task**: **Visual Consistency Audit**
+    - [ ] Review all procurement components for uniform border radius, shadow, and color usage.
+    - [ ] Align all table columns and form labels to a common grid.
+    - [ ] Ensure buttons, badges, and inputs follow the same size and style rules throughout the module.

@@ -187,7 +187,21 @@ graph TD
 - [ ] **6.1** Batch summary stats bar (total fish, total biomass, avg FCR, avg SGR)
 - [ ] **6.2** Batch detail cards — status, fish count, avg weight, age, stocking date
 - [ ] **6.3** Batch feeding calculation — per-batch view using `GET /api/v1/tanks/feeding-records/batch/:batchId/calculate`
-
+## 7. UI Polish
+**Goal**: Ensure all components are visually consistent, readable, and professionally refined across the procurement module.
+ 
+- **Task**: **Spacing & Layout Consistency**
+    - [ ] Apply consistent padding and margins between all fields (e.g., between ID and Name columns in tables).
+    - [ ] Ensure uniform spacing inside form inputs, table cells, cards, and modals.
+    - [ ] Add proper whitespace between sections and component groups.
+- **Task**: **Typography Standardization**
+    - [ ] Define and apply a consistent font scale (e.g., heading, subheading, body, caption sizes).
+    - [ ] Standardize font weights across labels, values, and headings.
+    - [ ] Ensure proper line height and letter spacing for readability.
+- **Task**: **Visual Consistency Audit**
+    - [ ] Review all procurement components for uniform border radius, shadow, and color usage.
+    - [ ] Align all table columns and form labels to a common grid.
+    - [ ] Ensure buttons, badges, and inputs follow the same size and style rules throughout the module.
 ---
 
 ## Shared Components
