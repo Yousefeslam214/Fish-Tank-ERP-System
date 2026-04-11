@@ -9,17 +9,35 @@ interface AddTankModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (data: { name: string; capacity: number; volume: number; location: string }) => Promise<void>;
+  initialData?: { name: string; capacity: number; volume: number; location: string };
+  mode?: 'add' | 'edit';
 }
 
 export function AddTankModal({
   open,
   onOpenChange,
-  onConfirm
+  onConfirm,
+  initialData,
+  mode = 'add'
 }: AddTankModalProps) {
-  const [name, setName] = useState('');
-  const [location, setLocation] = useState('');
-  const [capacity, setCapacity] = useState(5000);
-  const [volume, setVolume] = useState(50);
+  const [name, setName] = useState(initialData?.name || '');
+  const [location, setLocation] = useState(initialData?.location || '');
+  const [capacity, setCapacity] = useState(initialData?.capacity || 5000);
+  const [volume, setVolume] = useState(initialData?.volume || 50);
+
+  React.useEffect(() => {
+    if (open && initialData) {
+      setName(initialData.name);
+      setLocation(initialData.location);
+      setCapacity(initialData.capacity);
+      setVolume(initialData.volume);
+    } else if (open && mode === 'add') {
+      setName('');
+      setLocation('');
+      setCapacity(5000);
+      setVolume(50);
+    }
+  }, [open, initialData, mode]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,7 +62,7 @@ export function AddTankModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Add New Tank</DialogTitle>
+          <DialogTitle>{mode === 'edit' ? 'Edit Tank' : 'Add New Tank'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -95,8 +113,8 @@ export function AddTankModal({
               Cancel
             </Button>
             <Button type="submit" className="flex-1 bg-[#088395] hover:bg-[#0A4D68]" disabled={isSaving}>
-              {isSaving ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-              Create Tank
+              {isSaving ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : mode === 'edit' ? <RefreshCw className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+              {mode === 'edit' ? 'Update Tank' : 'Create Tank'}
             </Button>
           </div>
         </form>

@@ -22,9 +22,10 @@ import {
 } from 'lucide-react';
 import { Progress } from './ui/progress';
 import { User, Farm } from '../types';
-import { apiGet, apiPost, apiDelete } from '../api';
+import { apiGet, apiPost, apiDelete, apiPatch } from '../api';
 import TankDetailView from './tanks/TankDetailView';
 import { AddTankModal } from './tanks/modals/AddTankModal';
+import { Pencil } from 'lucide-react';
 
 interface TankManagementProps {
   user: User;
@@ -99,6 +100,9 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
   const [tanksError, setTanksError] = useState<string | null>(null);
   const [showAddTankModal, setShowAddTankModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE' | 'EMPTY'>('ALL');
+  const [editingTank, setEditingTank] = useState<any | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editTankId, setEditTankId] = useState<string | null>(null);
 
   const currentFarm = selectedFarm;
 
@@ -179,6 +183,28 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
     } catch (err) {
       console.error('Failed to create tank:', err);
       toast.error('Failed to create tank: ' + (err as Error).message);
+    }
+  };
+
+  const handleUpdateTank = async (data: { name: string; capacity: number; volume: number; location: string }) => {
+    if (!editTankId) return;
+    try {
+      const payload = {
+        name: data.name,
+        location: data.location,
+        volumeCubicMeters: data.volume,
+        biomassLimit: data.capacity
+      };
+
+      await apiPatch(`/tanks/${editTankId}`, payload);
+      setShowEditModal(false);
+      setEditTankId(null);
+      setEditingTank(null);
+      fetchTanks();
+      toast.success('Tank updated successfully');
+    } catch (err) {
+      console.error('Failed to update tank:', err);
+      toast.error('Failed to update tank: ' + (err as Error).message);
     }
   };
 
@@ -337,17 +363,37 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
                       <Badge className={`${getStatusColor(tank.status ?? '')} text-white text-[10px]`}>
                         {(tank.status ?? 'unknown').toUpperCase()}
                       </Badge>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                        onClick={(e: React.MouseEvent) => {
-                          e.stopPropagation();
-                          setDeleteConfirmId(tank.id);
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                          onClick={(e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            setEditingTank({
+                              name: tank.name,
+                              location: tank.location || 'General',
+                              capacity: tank.capacity || 25000,
+                              volume: tank.volume || 50
+                            });
+                            setEditTankId(tank.id);
+                            setShowEditModal(true);
+                          }}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          onClick={(e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            setDeleteConfirmId(tank.id);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                   <p className="text-sm text-gray-600">{tank.species}</p>
@@ -446,6 +492,21 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      <AddTankModal 
+        open={showAddTankModal}
+        onOpenChange={setShowAddTankModal}
+        onConfirm={handleAddTank}
+        mode="add"
+      />
+
+      <AddTankModal 
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        onConfirm={handleUpdateTank}
+        initialData={editingTank}
+        mode="edit"
+      />
     </div>
   );
 }
