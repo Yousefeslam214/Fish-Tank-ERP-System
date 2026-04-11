@@ -16,8 +16,8 @@ import { HarvestManagement } from './components/HarvestManagement';
 import Sidebar from './components/Sidebar';
 import { Toaster } from './components/ui/sonner';
 import { User, Farm } from './types';
-import { clearAuthSession, getStoredAppUser } from './services/authSession';
-import { apiGet } from './api';
+import { clearAuthSession, getStoredAppUser, getAccessToken } from './services/authSession';
+import { apiGet, API_BASE } from './api';
 import { mockFarms, mockNotifications } from './mockData';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 
@@ -54,10 +54,11 @@ export default function App() {
     const connectToSSE = async () => {
       console.log("📡 Attempting to connect to Notification Stream...");
       try {
-        await fetchEventSource('https://fouadkhaild-asd.hf.space/api/v1/notifications/stream', {
+        const token = getAccessToken();
+        await fetchEventSource(`${API_BASE}/notifications/stream`, {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Authorization': `Bearer ${token}`,
             'Accept': 'text/event-stream',
           },
           signal: controller.signal,
