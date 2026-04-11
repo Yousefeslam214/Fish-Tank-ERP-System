@@ -18,13 +18,23 @@ import { Toaster } from './components/ui/sonner';
 import { User, Farm } from './types';
 import { clearAuthSession, getStoredAppUser } from './services/authSession';
 import { apiGet } from './api';
-import { mockFarms } from './mockData';
+import { mockFarms, mockNotifications } from './mockData';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
+  const [notifications, setNotifications] = useState<any[]>((mockNotifications as any[]).map(n => ({
+    ...n,
+    // Ensure consistent naming for the UI
+    read: n.status === 'READ',
+    title: n.subject,
+    message: n.body,
+    type: 'alert', // Default for mocks
+    priority: 'medium', // Default for mocks
+    timestamp: n.createdAt.toISOString()
+  })));
 
   useEffect(() => {
     const user = getStoredAppUser();
@@ -34,14 +44,14 @@ export default function App() {
     }
   }, []);
 
-  
 
-useEffect(() => {
+
+  useEffect(() => {
     if (!currentUser) return;
 
     const controller = new AbortController();
 
-   const connectToSSE = async () => {
+    const connectToSSE = async () => {
       try {
         await fetchEventSource('https://fouadkhaild-asd.hf.space/api/v1/notifications/stream', {
           headers: {
@@ -56,6 +66,23 @@ useEffect(() => {
           },
           onmessage(ev) {
             console.log("📥 إشعار جديد:", ev.data);
+            try {
+              const data = JSON.parse(ev.data);
+              const newNotification = {
+                id: data.id || Math.random().toString(36).substr(2, 9),
+                title: data.subject || "New Notification",
+                message: data.body || "",
+                type: 'alert',
+                priority: data.data?.status?.toLowerCase() || 'medium',
+                timestamp: data.timestamp || new Date().toISOString(),
+                read: false,
+                data: data.data
+              };
+
+              setNotifications((prev: any[]) => [newNotification, ...prev]);
+            } catch (err) {
+              console.error("Failed to parse notification:", err);
+            }
           },
           onerror(err) {
             console.log("🔄 محاولة إعادة اتصال...");
@@ -70,7 +97,7 @@ useEffect(() => {
     connectToSSE();
 
     return () => {
-      
+
       controller.abort();
     };
   }, [currentUser]);
@@ -81,7 +108,7 @@ useEffect(() => {
     try {
       const res = await apiGet<any>('/farms');
       const apiFarms = res.data || (Array.isArray(res) ? res : []);
-      
+
       if (apiFarms.length > 0) {
         const farm = apiFarms.find((f: any) => f.id === user.farmId) || apiFarms[0];
         setSelectedFarm(farm);
@@ -123,6 +150,7 @@ useEffect(() => {
         onPageChange={setCurrentPage}
         onLogout={handleLogout}
         user={currentUser}
+        notifications={notifications}
       />
 
       <div className="flex-1 overflow-auto">
@@ -166,7 +194,11 @@ useEffect(() => {
           />
         )}
         {currentPage === 'notifications' && (
-          <NotificationCenter user={currentUser} />
+          <NotificationCenter
+            user={currentUser}
+            notifications={notifications}
+            onUpdateNotifications={setNotifications}
+          />
         )}
         {currentPage === 'procurement' && (
           <Procurement

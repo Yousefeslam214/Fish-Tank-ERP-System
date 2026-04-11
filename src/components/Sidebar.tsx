@@ -1,11 +1,11 @@
-import { 
-  LayoutDashboard, 
-  Droplet, 
-  DollarSign, 
-  Package, 
-  TrendingUp, 
-  Bot, 
-  Heart, 
+import {
+  LayoutDashboard,
+  Droplet,
+  DollarSign,
+  Package,
+  TrendingUp,
+  Bot,
+  Heart,
   Bell,
   LogOut,
   Fish,
@@ -23,9 +23,12 @@ interface SidebarProps {
   onPageChange: (page: string) => void;
   onLogout: () => void;
   user: User;
+  notifications: any[];
 }
 
-export default function Sidebar({ currentPage, onPageChange, onLogout, user }: SidebarProps) {
+export default function Sidebar({ currentPage, onPageChange, onLogout, user, notifications }: SidebarProps) {
+  const unreadCount = notifications.filter(n => !n.read).length;
+
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'tanks', label: 'Tank Management', icon: Droplet },
@@ -39,7 +42,7 @@ export default function Sidebar({ currentPage, onPageChange, onLogout, user }: S
     { id: 'food-types', label: 'Food Types', icon: Wheat },
     { id: 'ai-assistant', label: 'AI Assistant', icon: Bot },
     { id: 'health', label: 'Health Library', icon: Heart },
-    { id: 'notifications', label: 'Notifications', icon: Bell }
+    { id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadCount > 0 ? unreadCount : null }
   ];
 
   const getInitials = (name: string) => {
@@ -80,19 +83,25 @@ export default function Sidebar({ currentPage, onPageChange, onLogout, user }: S
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentPage === item.id;
-          
+
           return (
             <button
               key={item.id}
               onClick={() => onPageChange(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg mb-1 transition-colors ${
-                isActive 
-                  ? 'bg-[#088395] text-white' 
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg mb-1 transition-colors ${isActive
+                  ? 'bg-[#088395] text-white'
                   : 'text-gray-200 hover:bg-white/10'
-              }`}
+                }`}
             >
-              <Icon className="w-5 h-5" />
-              <span className="text-sm">{item.label}</span>
+              <div className="flex items-center gap-3">
+                <Icon className="w-5 h-5" />
+                <span className="text-sm">{item.label}</span>
+              </div>
+              {item.badge && (
+                <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                  {item.badge}
+                </span>
+              )}
             </button>
           );
         })}
@@ -100,8 +109,8 @@ export default function Sidebar({ currentPage, onPageChange, onLogout, user }: S
 
       {/* Logout */}
       <div className="p-4 border-t border-white/10">
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           className="w-full justify-start text-white hover:bg-white/10 hover:text-white"
           onClick={onLogout}
         >

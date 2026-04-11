@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Switch } from './ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { 
+import {
   Bell,
   AlertTriangle,
   Info,
@@ -19,12 +19,13 @@ import { mockNotifications } from '../mockData';
 
 interface NotificationCenterProps {
   user: User;
+  notifications: any[];
+  onUpdateNotifications: (notifications: any[]) => void;
 }
 
-export default function NotificationCenter({ user }: NotificationCenterProps) {
-  const [notifications, setNotifications] = useState(mockNotifications);
+export default function NotificationCenter({ user, notifications, onUpdateNotifications }: NotificationCenterProps) {
   const [filter, setFilter] = useState<'all' | 'unread' | 'critical'>('all');
-  
+
   // Notification preferences
   const [emailEnabled, setEmailEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(true);
@@ -43,17 +44,17 @@ export default function NotificationCenter({ user }: NotificationCenterProps) {
   const criticalCount = notifications.filter(n => n.priority === 'critical' && !n.read).length;
 
   const handleMarkAsRead = (id: string) => {
-    setNotifications(notifications.map(n => 
+    onUpdateNotifications(notifications.map(n =>
       n.id === id ? { ...n, read: true } : n
     ));
   };
 
   const handleMarkAllAsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, read: true })));
+    onUpdateNotifications(notifications.map(n => ({ ...n, read: true })));
   };
 
   const handleDelete = (id: string) => {
-    setNotifications(notifications.filter(n => n.id !== id));
+    onUpdateNotifications(notifications.filter(n => n.id !== id));
   };
 
   const getNotificationIcon = (type: string) => {
@@ -89,7 +90,7 @@ export default function NotificationCenter({ user }: NotificationCenterProps) {
     const now = new Date();
     const time = new Date(timestamp);
     const diffInHours = Math.floor((now.getTime() - time.getTime()) / (1000 * 60 * 60));
-    
+
     if (diffInHours < 1) return 'Just now';
     if (diffInHours < 24) return `${diffInHours}h ago`;
     const diffInDays = Math.floor(diffInHours / 24);
@@ -188,24 +189,22 @@ export default function NotificationCenter({ user }: NotificationCenterProps) {
               <div className="space-y-2">
                 {filteredNotifications.map(notification => {
                   const Icon = getNotificationIcon(notification.type);
-                  
+
                   return (
                     <div
                       key={notification.id}
-                      className={`p-4 border rounded-lg transition-all ${
-                        getNotificationColor(notification.priority)
-                      } ${!notification.read ? 'border-l-4' : ''}`}
+                      className={`p-4 border rounded-lg transition-all ${getNotificationColor(notification.priority)
+                        } ${!notification.read ? 'border-l-4' : ''}`}
                     >
                       <div className="flex items-start gap-3">
-                        <div className={`mt-0.5 ${
-                          notification.priority === 'critical' ? 'text-red-600' :
+                        <div className={`mt-0.5 ${notification.priority === 'critical' ? 'text-red-600' :
                           notification.priority === 'high' ? 'text-orange-600' :
-                          notification.priority === 'medium' ? 'text-yellow-600' :
-                          'text-blue-600'
-                        }`}>
+                            notification.priority === 'medium' ? 'text-yellow-600' :
+                              'text-blue-600'
+                          }`}>
                           <Icon className="w-5 h-5" />
                         </div>
-                        
+
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between mb-1">
                             <div className="flex items-center gap-2 flex-1">
@@ -223,11 +222,11 @@ export default function NotificationCenter({ user }: NotificationCenterProps) {
                               {getTimeAgo(notification.timestamp)}
                             </span>
                           </div>
-                          
+
                           <p className="text-sm text-gray-700 mb-2">
                             {notification.message}
                           </p>
-                          
+
                           <div className="flex items-center gap-2">
                             {!notification.read && (
                               <Button
@@ -259,11 +258,11 @@ export default function NotificationCenter({ user }: NotificationCenterProps) {
                     <Bell className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                     <p className="text-gray-600">No notifications</p>
                     <p className="text-sm text-gray-500 mt-1">
-                      {filter === 'unread' 
+                      {filter === 'unread'
                         ? "You're all caught up!"
                         : filter === 'critical'
-                        ? "No critical alerts at this time"
-                        : "You'll see notifications here"}
+                          ? "No critical alerts at this time"
+                          : "You'll see notifications here"}
                     </p>
                   </div>
                 )}
