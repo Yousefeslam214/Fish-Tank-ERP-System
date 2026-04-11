@@ -12,6 +12,7 @@ interface FeedingHistoryTabProps {
   setSelectedFeedingRecord: (record: any) => void;
   setShowFeedingDetailsModal: (show: boolean) => void;
   user: any;
+  tankBatches: any[];
 }
 
 export function FeedingHistoryTab({
@@ -21,7 +22,8 @@ export function FeedingHistoryTab({
   setShowFeedingModal,
   setSelectedFeedingRecord,
   setShowFeedingDetailsModal,
-  user
+  user,
+  tankBatches
 }: FeedingHistoryTabProps) {
   const getStatusColor = (s: string) => {
     switch (s.toLowerCase()) {
@@ -97,6 +99,63 @@ export function FeedingHistoryTab({
                 }
               </p>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Per-Batch Feeding Breakdown (Task 4.2) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Per-Batch Feeding Breakdown</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-gray-50 text-gray-600 font-bold uppercase text-[10px] tracking-widest">
+                <tr>
+                  <th className="px-4 py-3">Batch</th>
+                  <th className="px-4 py-3">Daily Feed (kg)</th>
+                  <th className="px-4 py-3">Per Meal (kg)</th>
+                  <th className="px-4 py-3">Fed Today</th>
+                  <th className="px-4 py-3">Remaining</th>
+                  <th className="px-4 py-3 text-right">Safety Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {tankBatches.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500 italic">No active batches to calculate feeding for.</td>
+                  </tr>
+                ) : (
+                  tankBatches.map((batch) => {
+                    const daily = parseVal(batch.feedingPlan?.dailyFeedingAmount || batch.dailyFeedKg || '0');
+                    const meals = batch.feedingPlan?.mealsPerDay || 4;
+                    const perMeal = daily / (meals || 1);
+                    const fed = batch.feedingPlan?.todayFed || 0;
+                    const remaining = Math.max(0, daily - fed);
+                    const status = fed >= daily ? 'OK' : fed > 0 ? 'WARNING' : 'STOPPED';
+
+                    return (
+                      <tr key={batch.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-4 py-4">
+                          <div className="font-bold text-gray-900">Batch {batch.batchNumber || 'N/A'}</div>
+                          <div className="text-[10px] text-gray-400 font-mono">ID: {batch.id.split('-')[0]}</div>
+                        </td>
+                        <td className="px-4 py-4 font-medium">{daily} kg</td>
+                        <td className="px-4 py-4 text-gray-600">{perMeal.toFixed(2)} kg <span className="text-[10px]">({meals} meals)</span></td>
+                        <td className="px-4 py-4 font-bold text-blue-600">{fed} kg</td>
+                        <td className="px-4 py-4 font-bold text-orange-600">{remaining.toFixed(1)} kg</td>
+                        <td className="px-4 py-4 text-right">
+                          <Badge className={`${status === 'OK' ? 'bg-green-100 text-green-700' : status === 'WARNING' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'} border-none font-black text-[9px] uppercase tracking-tighter`}>
+                             {status === 'OK' ? '● Optimal' : status === 'WARNING' ? '● Partial' : '● No Feed'}
+                          </Badge>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         </CardContent>
       </Card>

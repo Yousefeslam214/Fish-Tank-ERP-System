@@ -98,6 +98,7 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
   const [tanksLoading, setTanksLoading] = useState(true);
   const [tanksError, setTanksError] = useState<string | null>(null);
   const [showAddTankModal, setShowAddTankModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE' | 'EMPTY'>('ALL');
 
   const currentFarm = selectedFarm;
 
@@ -230,6 +231,11 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
     return <TankDetailView user={user} tank={selectedTank} onBack={() => setViewMode('list')} />;
   }
 
+  const filteredTanks = tanks.filter(tank => {
+    if (statusFilter === 'ALL') return true;
+    return (tank.status ?? '').toUpperCase() === statusFilter;
+  });
+
   return (
     <div className="min-h-screen bg-[#F9FAFB]">
       {/* Top Navigation Bar */}
@@ -255,6 +261,21 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
             <Plus className="w-4 h-4 mr-2" />
             Add New Tank
           </Button>
+        </div>
+
+        {/* Status Filter Bar */}
+        <div className="flex flex-wrap gap-2">
+          {['ALL', 'ACTIVE', 'INACTIVE', 'MAINTENANCE', 'EMPTY'].map((status) => (
+            <Button
+              key={status}
+              variant={statusFilter === status ? 'default' : 'outline'}
+              size="sm"
+              className={statusFilter === status ? 'bg-[#088395] hover:bg-[#0A4D68]' : ''}
+              onClick={() => setStatusFilter(status as any)}
+            >
+              {status}
+            </Button>
+          ))}
         </div>
 
         <AddTankModal
@@ -290,14 +311,14 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
               </Card>
             ))}
           </div>
-        ) : tanks.length === 0 && !tanksError ? (
+        ) : filteredTanks.length === 0 && !tanksError ? (
           <div className="text-center py-16">
             <Fish className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-600">No tanks found for this farm</p>
+            <p className="text-gray-600">No {statusFilter !== 'ALL' ? statusFilter.toLowerCase() : ''} tanks found</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {tanks.map((tank) => (
+            {filteredTanks.map((tank) => (
               <Card
                 key={tank.id}
                 className="bg-white shadow-sm cursor-pointer hover:shadow-md transition-shadow"
@@ -308,9 +329,12 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">{tank.name}</CardTitle>
+                    <div>
+                      <CardTitle className="text-lg">{tank.name}</CardTitle>
+                      <p className="text-[10px] text-gray-400 font-mono">ID: {tank.id.split('-')[0]}</p>
+                    </div>
                     <div className="flex items-center gap-2">
-                      <Badge className={`${getStatusColor(tank.status ?? '')} text-white`}>
+                      <Badge className={`${getStatusColor(tank.status ?? '')} text-white text-[10px]`}>
                         {(tank.status ?? 'unknown').toUpperCase()}
                       </Badge>
                       <Button
