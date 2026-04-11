@@ -42,9 +42,20 @@ export default function App() {
 
     const controller = new AbortController();
 
+    const formatMessage = (template: string, data: any) => {
+      if (!template) return "";
+      let formatted = template;
+      Object.entries(data || {}).forEach(([key, value]) => {
+        formatted = formatted.replace(new RegExp(`{{${key}}}`, 'g'), String(value));
+      });
+      return formatted;
+    };
+
     const connectToSSE = async () => {
+      console.log("📡 Attempting to connect to Notification Stream...");
       try {
         await fetchEventSource('https://fouadkhaild-asd.hf.space/api/v1/notifications/stream', {
+          method: 'GET',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Accept': 'text/event-stream',
@@ -53,35 +64,47 @@ export default function App() {
           async onopen(response) {
             if (response.ok) {
               console.log("✅ متصل بنظام إشعارات FishFarm360");
+            } else {
+              console.error("❌ فشل الاتصال بنظام الإشعارات:", response.status, response.statusText);
             }
           },
           onmessage(ev) {
-            console.log("📥 إشعار جديد:", ev.data);
+            console.log("📥 إشعار جديد (RAW):", ev.data);
             try {
               const data = JSON.parse(ev.data);
+
+              // Map data status to front-end priority
+              const priorityMap: Record<string, string> = {
+                'CRITICAL': 'critical',
+                'HIGH': 'high',
+                'WARNING': 'medium',
+                'INFO': 'low'
+              };
+
               const newNotification = {
                 id: data.id || Math.random().toString(36).substr(2, 9),
-                title: data.subject || "New Notification",
-                message: data.body || "",
+                title: formatMessage(data.subject, data.data) || "New Notification",
+                message: formatMessage(data.body, data.data) || "",
                 type: 'alert',
-                priority: data.data?.status?.toLowerCase() || 'medium',
+                priority: priorityMap[data.data?.status] || 'medium',
                 timestamp: data.timestamp || new Date().toISOString(),
                 read: false,
                 data: data.data
               };
 
+              console.log("🔔 Notification Processed:", newNotification);
               setNotifications((prev: any[]) => [newNotification, ...prev]);
             } catch (err) {
-              console.error("Failed to parse notification:", err);
+              console.error("❌ Failed to parse notification:", err);
             }
           },
           onerror(err) {
-            console.log("🔄 محاولة إعادة اتصال...");
+            console.warn("🔄 SSE Connection Error, retrying...", err);
             throw err;
           }
         });
       } catch (err) {
-        console.log("SSE Connection Error");
+        console.error("💥 SSE Fatal Error:", err);
       }
     };
 
