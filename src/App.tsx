@@ -19,6 +19,7 @@ import { User, Farm } from './types';
 import { clearAuthSession, getStoredAppUser } from './services/authSession';
 import { apiGet } from './api';
 import { mockFarms } from './mockData';
+import { fetchEventSource } from '@microsoft/fetch-event-source';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -32,6 +33,49 @@ export default function App() {
       fetchFarms(user);
     }
   }, []);
+
+  
+
+useEffect(() => {
+    if (!currentUser) return;
+
+    const controller = new AbortController();
+
+   const connectToSSE = async () => {
+      try {
+        await fetchEventSource('https://fouadkhaild-asd.hf.space/api/v1/notifications/stream', {
+          headers: {
+            'Authorization': Bearer ${localStorage.getItem('token')},
+            'Accept': 'text/event-stream',
+          },
+          signal: controller.signal,
+          async onopen(response) {
+            if (response.ok) {
+              console.log("✅ متصل بنظام إشعارات FishFarm360");
+            }
+          },
+          onmessage(ev) {
+            console.log("📥 إشعار جديد:", ev.data);
+          },
+          onerror(err) {
+            console.log("🔄 محاولة إعادة اتصال...");
+            throw err;
+          }
+        });
+      } catch (err) {
+        console.log("SSE Connection Error");
+      }
+    };
+
+    connectToSSE();
+
+    return () => {
+      
+      controller.abort();
+    };
+  }, [currentUser]);
+
+
 
   const fetchFarms = async (user: User) => {
     try {
