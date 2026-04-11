@@ -25,16 +25,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
-  const [notifications, setNotifications] = useState<any[]>((mockNotifications as any[]).map(n => ({
-    ...n,
-    // Ensure consistent naming for the UI
-    read: n.status === 'READ',
-    title: n.subject,
-    message: n.body,
-    type: 'alert', // Default for mocks
-    priority: 'medium', // Default for mocks
-    timestamp: n.createdAt.toISOString()
-  })));
+  const [notifications, setNotifications] = useState<any[]>([]);
 
   useEffect(() => {
     const user = getStoredAppUser();
