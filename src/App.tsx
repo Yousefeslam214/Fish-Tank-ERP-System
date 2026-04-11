@@ -45,7 +45,7 @@ useEffect(() => {
       try {
         await fetchEventSource('https://fouadkhaild-asd.hf.space/api/v1/notifications/stream', {
           headers: {
-            'Authorization': Bearer ${localStorage.getItem('token')},
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Accept': 'text/event-stream',
           },
           signal: controller.signal,
