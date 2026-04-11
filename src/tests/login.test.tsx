@@ -209,4 +209,14 @@ describe('Login component', () => {
       expect(onLogin).toHaveBeenCalledWith(mappedUser);
     });
   });
+
+  it('fills credentials from quick preset buttons', async () => {
+    const user = userEvent.setup();
+    render(<Login onLogin={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: /^admin$/i }));
+
+    expect(screen.getByLabelText(/email address/i)).toHaveValue('admin.test@fishfarm360.local');
+    expect(screen.getByLabelText(/password/i)).toHaveValue('FishFarm360!2026');
+  });
 });

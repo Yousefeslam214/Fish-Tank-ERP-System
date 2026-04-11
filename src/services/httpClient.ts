@@ -1,6 +1,6 @@
 import { getAccessToken } from './authSession';
 
-const DEFAULT_API_BASE_URL = 'https://yousseftallal-fishfarm-backend-api.hf.space/api/v1';
+const DEFAULT_API_BASE_URL = 'https://fouadkhaild-asd.hf.space/api/v1';
 
 export class ApiClientError extends Error {
   readonly status: number;

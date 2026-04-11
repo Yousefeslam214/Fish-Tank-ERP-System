@@ -244,7 +244,15 @@ export interface SalesOrder {
 // ============================================
 // USER & FARM
 // ============================================
-export type UserRole = 'admin' | 'manager' | 'worker';
+export type UserRole =
+  | 'admin'
+  | 'manager'
+  | 'worker'
+  | 'technician'
+  | 'technican'
+  | 'accountant'
+  | 'sales'
+  | 'delivery';
 
 export interface User {
   id: string;
@@ -253,6 +261,7 @@ export interface User {
   phone: string;
   role: UserRole;
   farmId?: string;
+  modules?: string[];
 }
 
 export interface Farm {

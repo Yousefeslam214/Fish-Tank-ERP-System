@@ -12,7 +12,8 @@ import {
   ShoppingCart,
   Wheat,
   ShoppingBag,
-  Scissors
+  Scissors,
+  ShieldUser,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Avatar, AvatarFallback } from './ui/avatar';
@@ -24,9 +25,19 @@ interface SidebarProps {
   onLogout: () => void;
   user: User;
   notifications: any[];
+  allowedPages: string[];
+  moduleLabelMap: Record<string, string>;
 }
 
-export default function Sidebar({ currentPage, onPageChange, onLogout, user, notifications }: SidebarProps) {
+export default function Sidebar({
+  currentPage,
+  onPageChange,
+  onLogout,
+  user,
+  notifications,
+  allowedPages,
+  moduleLabelMap,
+}: SidebarProps) {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const menuItems = [
@@ -40,10 +51,13 @@ export default function Sidebar({ currentPage, onPageChange, onLogout, user, not
     { id: 'analytics', label: 'Analytics', icon: TrendingUp },
     { id: 'fish-types', label: 'Fish Types', icon: Fish },
     { id: 'food-types', label: 'Food Types', icon: Wheat },
+    { id: 'users', label: 'User Management', icon: ShieldUser },
     { id: 'ai-assistant', label: 'AI Assistant', icon: Bot },
     { id: 'health', label: 'Health Library', icon: Heart },
     { id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadCount > 0 ? unreadCount : null }
   ];
+
+  const visibleMenuItems = menuItems.filter((item) => allowedPages.includes(item.id));
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -80,9 +94,11 @@ export default function Sidebar({ currentPage, onPageChange, onLogout, user, not
 
       {/* Navigation */}
       <nav className="flex-1 p-2 overflow-y-auto">
-        {menuItems.map((item) => {
+        {visibleMenuItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentPage === item.id;
+          const normalizedId = item.id.toLowerCase();
+          const label = moduleLabelMap[normalizedId] || item.label;
 
           return (
             <button
@@ -95,7 +111,7 @@ export default function Sidebar({ currentPage, onPageChange, onLogout, user, not
             >
               <div className="flex items-center gap-3">
                 <Icon className="w-5 h-5" />
-                <span className="text-sm">{item.label}</span>
+                <span className="text-sm">{label}</span>
               </div>
               {item.badge && (
                 <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">

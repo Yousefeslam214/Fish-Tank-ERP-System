@@ -392,10 +392,22 @@ export const updateFeedPurchaseOrderItemStatus = async (
   orderId: string,
   itemId: string,
   status?: string,
+  options?: {
+    actualQuantityKg?: number;
+    receiptLocation?: string;
+  },
 ): Promise<void> => {
+  const body: Record<string, unknown> = status ? { status: toBackendWordStatus(status) } : {};
+  if (options?.actualQuantityKg !== undefined && Number.isFinite(options.actualQuantityKg)) {
+    body.actualQuantityKg = options.actualQuantityKg;
+  }
+  if (options?.receiptLocation) {
+    body.receiptLocation = options.receiptLocation;
+  }
+
   await requestJson(`/procurement/feed-orders/${orderId}/items/${itemId}/status`, {
     method: 'PATCH',
-    body: status ? { status: toBackendWordStatus(status) } : {},
+    body,
   });
 };
 
@@ -433,10 +445,22 @@ export const updateFishPurchaseOrderItemStatus = async (
   orderId: string,
   itemId: string,
   status?: string,
+  options?: {
+    actualQuantity?: number;
+    receiptLocation?: string;
+  },
 ): Promise<void> => {
+  const body: Record<string, unknown> = status ? { status: toBackendWordStatus(status) } : {};
+  if (options?.actualQuantity !== undefined && Number.isFinite(options.actualQuantity)) {
+    body.actualQuantity = options.actualQuantity;
+  }
+  if (options?.receiptLocation) {
+    body.receiptLocation = options.receiptLocation;
+  }
+
   await requestJson(`/procurement/fish-orders/${orderId}/items/${itemId}/status`, {
     method: 'PATCH',
-    body: status ? { status: toBackendWordStatus(status) } : {},
+    body,
   });
 };
 

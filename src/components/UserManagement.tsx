@@ -1,0 +1,833 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Badge } from './ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { RefreshCw, ShieldUser, UserPlus, Users, Search, Loader2 } from 'lucide-react';
+import { User, Farm } from '../types';
+import { mockFarms } from '../mockData';
+import { getMetadata, MetadataEnumEntry, MetadataModule } from '../services/metaApi';
+import {
+  getManagementFarms,
+  getManagementUsers,
+  ManagedFarmRecord,
+  ManagedUserRecord,
+  signupStaffMember,
+  updateUserModules,
+  updateUserRoleAndFarms,
+  UserModuleAction,
+} from '../services/userManagementApi';
+
+interface UserManagementProps {
+  user: User;
+  selectedFarm: Farm | null;
+}
+
+interface StaffRegistrationForm {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  farmIds: string[];
+  gender: string;
+  dateOfBirth: string;
+  address: string;
+}
+
+interface EditUserAccessState {
+  open: boolean;
+  user: ManagedUserRecord | null;
+  role: string;
+  farmIds: string[];
+}
+
+interface EditUserModulesState {
+  open: boolean;
+  user: ManagedUserRecord | null;
+  action: UserModuleAction;
+  moduleNames: string[];
+}
+
+const DEFAULT_FORM: StaffRegistrationForm = {
+  email: '',
+  password: '',
+  firstName: '',
+  lastName: '',
+  role: 'TECNICAN',
+  farmIds: [],
+  gender: '',
+  dateOfBirth: '',
+  address: '',
+};
+
+const FALLBACK_ROLE_OPTIONS = ['ADMIN', 'MANAGER', 'ACCOUNTANT', 'TECNICAN', 'SALES', 'WORKER', 'DELIVERY'];
+const FALLBACK_GENDER_OPTIONS = ['MALE', 'FEMALE'];
+
+const toShortId = (id: string): string => id.split('-')[0] || id;
+const formatNameWithId = (name: string, id: string): string => `${name} (${toShortId(id)})`;
+const toStatusClassName = (status: string): string => {
+  const normalized = status.trim().toUpperCase();
+  if (normalized === 'ACTIVE') {
+    return 'bg-green-600 text-white';
+  }
+  if (normalized === 'DISABLED' || normalized === 'LOCKED') {
+    return 'bg-red-600 text-white';
+  }
+  return 'bg-gray-600 text-white';
+};
+
+const getEnumOptionValues = (entries: MetadataEnumEntry[] | undefined, fallback: string[]): string[] => {
+  if (!entries || entries.length === 0) {
+    return fallback;
+  }
+
+  const values = entries
+    .map((entry) => (entry.value || entry.key || '').trim())
+    .filter((value) => value.length > 0)
+    .map((value) => value.toUpperCase());
+
+  return values.length > 0 ? Array.from(new Set(values)) : fallback;
+};
+
+export default function UserManagement({ user, selectedFarm }: UserManagementProps) {
+  const currentFarm = selectedFarm || mockFarms[0];
+
+  const [users, setUsers] = useState<ManagedUserRecord[]>([]);
+  const [farms, setFarms] = useState<ManagedFarmRecord[]>([]);
+  const [modules, setModules] = useState<MetadataModule[]>([]);
+  const [metadataEnums, setMetadataEnums] = useState<Record<string, MetadataEnumEntry[]>>({});
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const [registrationForm, setRegistrationForm] = useState<StaffRegistrationForm>(DEFAULT_FORM);
+  const [editAccessState, setEditAccessState] = useState<EditUserAccessState>({
+    open: false,
+    user: null,
+    role: 'TECNICAN',
+    farmIds: [],
+  });
+  const [editModulesState, setEditModulesState] = useState<EditUserModulesState>({
+    open: false,
+    user: null,
+    action: 'ADD',
+    moduleNames: [],
+  });
+
+  const roleOptions = useMemo(
+    () => getEnumOptionValues(metadataEnums.userRoles, FALLBACK_ROLE_OPTIONS),
+    [metadataEnums],
+  );
+
+  const genderOptions = useMemo(
+    () => getEnumOptionValues(metadataEnums.gender, FALLBACK_GENDER_OPTIONS),
+    [metadataEnums],
+  );
+
+  const farmById = useMemo(() => {
+    const map: Record<string, ManagedFarmRecord> = {};
+    farms.forEach((farmEntry) => {
+      map[farmEntry.id] = farmEntry;
+    });
+    return map;
+  }, [farms]);
+
+  const filteredUsers = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) {
+      return users;
+    }
+
+    return users.filter((userEntry) => {
+      const haystack = [
+        userEntry.id,
+        userEntry.name,
+        userEntry.email,
+        userEntry.role,
+        userEntry.status,
+        ...userEntry.farmIds,
+        ...userEntry.modules,
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [searchTerm, users]);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const [metadata, usersPayload, farmsPayload] = await Promise.all([
+        getMetadata(),
+        getManagementUsers(),
+        getManagementFarms(),
+      ]);
+
+      setMetadataEnums(metadata.enums);
+      setModules(metadata.modules);
+      setUsers(usersPayload);
+      setFarms(farmsPayload);
+
+      const nextRoleOptions = getEnumOptionValues(metadata.enums.userRoles, FALLBACK_ROLE_OPTIONS);
+      setRegistrationForm((previous) => ({
+        ...previous,
+        role: previous.role || (nextRoleOptions[0] || 'TECNICAN'),
+      }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to load user management data.';
+      setErrorMessage(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  const resetRegistrationForm = () => {
+    setRegistrationForm({
+      ...DEFAULT_FORM,
+      role: roleOptions[0] || DEFAULT_FORM.role,
+      gender: genderOptions[0] || '',
+    });
+  };
+
+  const toggleRegistrationFarm = (farmId: string) => {
+    setRegistrationForm((previous) => ({
+      ...previous,
+      farmIds: previous.farmIds.includes(farmId)
+        ? previous.farmIds.filter((entry) => entry !== farmId)
+        : [...previous.farmIds, farmId],
+    }));
+  };
+
+  const toggleEditFarm = (farmId: string) => {
+    setEditAccessState((previous) => ({
+      ...previous,
+      farmIds: previous.farmIds.includes(farmId)
+        ? previous.farmIds.filter((entry) => entry !== farmId)
+        : [...previous.farmIds, farmId],
+    }));
+  };
+
+  const toggleModuleSelection = (moduleId: string) => {
+    setEditModulesState((previous) => ({
+      ...previous,
+      moduleNames: previous.moduleNames.includes(moduleId)
+        ? previous.moduleNames.filter((entry) => entry !== moduleId)
+        : [...previous.moduleNames, moduleId],
+    }));
+  };
+
+  const submitRegistration = async () => {
+    if (!registrationForm.email.trim() || !registrationForm.password.trim()) {
+      setErrorMessage('Email and password are required.');
+      return;
+    }
+
+    if (!registrationForm.firstName.trim() || !registrationForm.lastName.trim()) {
+      setErrorMessage('First and last name are required.');
+      return;
+    }
+
+    if (registrationForm.farmIds.length === 0) {
+      setErrorMessage('Select at least one farm assignment.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+
+      await signupStaffMember({
+        email: registrationForm.email.trim(),
+        password: registrationForm.password,
+        firstName: registrationForm.firstName.trim(),
+        lastName: registrationForm.lastName.trim(),
+        role: registrationForm.role,
+        farmIds: registrationForm.farmIds,
+        gender: registrationForm.gender || undefined,
+        dateOfBirth: registrationForm.dateOfBirth || undefined,
+        address: registrationForm.address.trim() || undefined,
+      });
+
+      resetRegistrationForm();
+      await loadData();
+      setSuccessMessage('Staff account created successfully.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create staff account.';
+      setErrorMessage(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openEditAccessDialog = (userEntry: ManagedUserRecord) => {
+    setEditAccessState({
+      open: true,
+      user: userEntry,
+      role: userEntry.role || roleOptions[0] || 'MANAGER',
+      farmIds: userEntry.farmIds,
+    });
+  };
+
+  const openEditModulesDialog = (userEntry: ManagedUserRecord) => {
+    setEditModulesState({
+      open: true,
+      user: userEntry,
+      action: 'ADD',
+      moduleNames: [],
+    });
+  };
+
+  const submitEditAccess = async () => {
+    if (!editAccessState.user) {
+      return;
+    }
+
+    if (editAccessState.farmIds.length === 0) {
+      setErrorMessage('A user must be assigned to at least one farm.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+
+      await updateUserRoleAndFarms(editAccessState.user.id, {
+        role: editAccessState.role,
+        farmIds: editAccessState.farmIds,
+      });
+
+      setEditAccessState({
+        open: false,
+        user: null,
+        role: 'MANAGER',
+        farmIds: [],
+      });
+      await loadData();
+      setSuccessMessage('User role and farm assignments updated.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update user access.';
+      setErrorMessage(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const submitEditModules = async () => {
+    if (!editModulesState.user) {
+      return;
+    }
+
+    if (editModulesState.moduleNames.length === 0) {
+      setErrorMessage('Select at least one module.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+
+      await updateUserModules(editModulesState.user.id, {
+        action: editModulesState.action,
+        moduleNames: editModulesState.moduleNames,
+      });
+
+      setEditModulesState({
+        open: false,
+        user: null,
+        action: 'ADD',
+        moduleNames: [],
+      });
+      await loadData();
+      setSuccessMessage(`Module access ${editModulesState.action === 'ADD' ? 'added' : 'removed'} successfully.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update module access.';
+      setErrorMessage(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center">
+        <div className="flex items-center gap-2 text-gray-700">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span>Loading user management data...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#F9FAFB]">
+      <div className="bg-[#0A4D68] text-white px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShieldUser className="w-6 h-6" />
+            <span className="text-xl font-semibold">User Management</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-sm">{currentFarm.name}</span>
+            <div className="w-10 h-10 rounded-full bg-[#088395] flex items-center justify-center font-semibold">
+              {user.name
+                .split(' ')
+                .map((namePart) => namePart[0])
+                .join('')
+                .toUpperCase()}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6 space-y-6">
+        {errorMessage && (
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="p-4 text-sm text-red-700 flex items-center justify-between gap-2">
+              <span>{errorMessage}</span>
+              <Button size="sm" variant="outline" onClick={() => setErrorMessage(null)}>
+                Dismiss
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {successMessage && (
+          <Card className="border-green-200 bg-green-50">
+            <CardContent className="p-4 text-sm text-green-700 flex items-center justify-between gap-2">
+              <span>{successMessage}</span>
+              <Button size="sm" variant="outline" onClick={() => setSuccessMessage(null)}>
+                Dismiss
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <Card className="xl:col-span-2 bg-white shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserPlus className="w-5 h-5" />
+                Staff Registration
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="register-email">Email</Label>
+                  <Input
+                    id="register-email"
+                    type="email"
+                    value={registrationForm.email}
+                    onChange={(event) =>
+                      setRegistrationForm((previous) => ({ ...previous, email: event.target.value }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="register-password">Password</Label>
+                  <Input
+                    id="register-password"
+                    type="password"
+                    value={registrationForm.password}
+                    onChange={(event) =>
+                      setRegistrationForm((previous) => ({ ...previous, password: event.target.value }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="register-first-name">First Name</Label>
+                  <Input
+                    id="register-first-name"
+                    value={registrationForm.firstName}
+                    onChange={(event) =>
+                      setRegistrationForm((previous) => ({ ...previous, firstName: event.target.value }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="register-last-name">Last Name</Label>
+                  <Input
+                    id="register-last-name"
+                    value={registrationForm.lastName}
+                    onChange={(event) =>
+                      setRegistrationForm((previous) => ({ ...previous, lastName: event.target.value }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="register-role">Role</Label>
+                  <select
+                    id="register-role"
+                    className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm"
+                    value={registrationForm.role}
+                    onChange={(event) =>
+                      setRegistrationForm((previous) => ({ ...previous, role: event.target.value }))
+                    }
+                  >
+                    {roleOptions.map((option) => (
+                      <option key={`register-role-${option}`} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="register-gender">Gender</Label>
+                  <select
+                    id="register-gender"
+                    className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm"
+                    value={registrationForm.gender}
+                    onChange={(event) =>
+                      setRegistrationForm((previous) => ({ ...previous, gender: event.target.value }))
+                    }
+                  >
+                    <option value="">Select gender</option>
+                    {genderOptions.map((option) => (
+                      <option key={`register-gender-${option}`} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="register-dob">Date of Birth</Label>
+                  <Input
+                    id="register-dob"
+                    type="date"
+                    value={registrationForm.dateOfBirth}
+                    onChange={(event) =>
+                      setRegistrationForm((previous) => ({ ...previous, dateOfBirth: event.target.value }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-1 md:col-span-2">
+                  <Label htmlFor="register-address">Address</Label>
+                  <Input
+                    id="register-address"
+                    value={registrationForm.address}
+                    onChange={(event) =>
+                      setRegistrationForm((previous) => ({ ...previous, address: event.target.value }))
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Farm Assignments</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 rounded-md border p-3">
+                  {farms.map((farmEntry) => (
+                    <label key={farmEntry.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={registrationForm.farmIds.includes(farmEntry.id)}
+                        onChange={() => toggleRegistrationFarm(farmEntry.id)}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <span>{formatNameWithId(farmEntry.name, farmEntry.id)}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={resetRegistrationForm} disabled={submitting}>
+                  Reset
+                </Button>
+                <Button onClick={() => void submitRegistration()} disabled={submitting}>
+                  {submitting ? 'Creating...' : 'Create Staff Account'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="rounded-md border p-3">
+                <p className="text-gray-500">Total Users</p>
+                <p className="text-2xl font-semibold">{users.length}</p>
+              </div>
+              <div className="rounded-md border p-3">
+                <p className="text-gray-500">Active Modules</p>
+                <p className="text-2xl font-semibold">{modules.length}</p>
+              </div>
+              <div className="rounded-md border p-3">
+                <p className="text-gray-500">Available Farms</p>
+                <p className="text-2xl font-semibold">{farms.length}</p>
+              </div>
+              <Button variant="outline" onClick={() => void loadData()} className="w-full" disabled={submitting}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Reload Data
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="bg-white shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-3">
+              <CardTitle>User Administration</CardTitle>
+              <div className="relative w-full sm:w-96">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  aria-label="Search users"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Search by user, role, module, farm id"
+                  className="pl-8"
+                />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Farms</TableHead>
+                  <TableHead>Modules</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredUsers.map((userEntry) => (
+                  <TableRow key={userEntry.id}>
+                    <TableCell>
+                      <div className="font-medium">{formatNameWithId(userEntry.name, userEntry.id)}</div>
+                      <div className="text-xs text-gray-500">{userEntry.email}</div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{userEntry.role}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={toStatusClassName(userEntry.status)}>{userEntry.status}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {userEntry.farmIds.length === 0 && <span className="text-xs text-gray-500">No farms</span>}
+                        {userEntry.farmIds.map((farmId, index) => {
+                          const fallbackName = userEntry.farmNames[index] || farmById[farmId]?.name || farmId;
+                          return (
+                            <Badge key={`${userEntry.id}-farm-${farmId}`} variant="outline" className="text-xs">
+                              {formatNameWithId(fallbackName, farmId)}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {userEntry.modules.length === 0 && <span className="text-xs text-gray-500">No module overrides</span>}
+                        {userEntry.modules.map((moduleName) => {
+                          const moduleLabel = modules.find((entry) => entry.id.toLowerCase() === moduleName)?.label?.en || moduleName;
+                          return (
+                            <Badge key={`${userEntry.id}-module-${moduleName}`} variant="secondary" className="text-xs">
+                              {moduleLabel}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => openEditAccessDialog(userEntry)}>
+                          Edit Role/Farms
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => openEditModulesDialog(userEntry)}>
+                          Module Overrides
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+
+                {filteredUsers.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center text-gray-600">
+                      No users found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Dialog
+        open={editAccessState.open}
+        onOpenChange={(open) =>
+          setEditAccessState((previous) => ({
+            ...previous,
+            open,
+            user: open ? previous.user : null,
+          }))
+        }
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Role & Farm Assignments</DialogTitle>
+            <DialogDescription>
+              {editAccessState.user ? `Update ${formatNameWithId(editAccessState.user.name, editAccessState.user.id)}` : ''}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label htmlFor="edit-user-role">Role</Label>
+              <select
+                id="edit-user-role"
+                className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm"
+                value={editAccessState.role}
+                onChange={(event) =>
+                  setEditAccessState((previous) => ({ ...previous, role: event.target.value }))
+                }
+              >
+                {roleOptions.map((option) => (
+                  <option key={`edit-role-${option}`} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Farm Assignments</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 rounded-md border p-3">
+                {farms.map((farmEntry) => (
+                  <label key={`edit-${farmEntry.id}`} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={editAccessState.farmIds.includes(farmEntry.id)}
+                      onChange={() => toggleEditFarm(farmEntry.id)}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    <span>{formatNameWithId(farmEntry.name, farmEntry.id)}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setEditAccessState({ open: false, user: null, role: 'MANAGER', farmIds: [] })
+                }
+              >
+                Cancel
+              </Button>
+              <Button onClick={() => void submitEditAccess()} disabled={submitting}>
+                {submitting ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={editModulesState.open}
+        onOpenChange={(open) =>
+          setEditModulesState((previous) => ({
+            ...previous,
+            open,
+            user: open ? previous.user : null,
+          }))
+        }
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Module Overrides</DialogTitle>
+            <DialogDescription>
+              {editModulesState.user
+                ? `Adjust module access for ${formatNameWithId(editModulesState.user.name, editModulesState.user.id)}`
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label htmlFor="module-action">Action</Label>
+              <select
+                id="module-action"
+                className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm"
+                value={editModulesState.action}
+                onChange={(event) =>
+                  setEditModulesState((previous) => ({
+                    ...previous,
+                    action: event.target.value === 'REMOVE' ? 'REMOVE' : 'ADD',
+                  }))
+                }
+              >
+                <option value="ADD">ADD</option>
+                <option value="REMOVE">REMOVE</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Modules</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 rounded-md border p-3">
+                {modules.map((moduleEntry) => (
+                  <label key={`module-${moduleEntry.id}`} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={editModulesState.moduleNames.includes(moduleEntry.id)}
+                      onChange={() => toggleModuleSelection(moduleEntry.id)}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    <span>{formatNameWithId(moduleEntry.label.en || moduleEntry.id, moduleEntry.id)}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setEditModulesState({ open: false, user: null, action: 'ADD', moduleNames: [] })
+                }
+              >
+                Cancel
+              </Button>
+              <Button onClick={() => void submitEditModules()} disabled={submitting}>
+                {submitting ? 'Applying...' : 'Apply Modules'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
