@@ -123,6 +123,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         : Array.isArray(res.data)
           ? res.data
           : [];
+      console.log('📦 Loaded Feed Inventory:', feed);
       setFeedInventory(feed);
     } catch (error) {
       console.error("Error loading feed inventory", error);
@@ -416,8 +417,8 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     ...feedInventory.map((f: any) => {
       // Find food type object from foodTypes list
       // Handle various ID field names returned by different backend versions
-      const foodTypeId = f.foodTypeId || f.foodId || f.foodType_id || f.foodType ||
-                         (typeof f.foodType === 'string' ? f.foodType : f.foodType?.id || f.foodType?._id);
+      const fid = f.foodTypeId || f.foodType || f.foodId || f.foodType_id;
+      const foodTypeId = typeof fid === 'object' ? fid?.id || fid?._id : fid;
       
       const ft = foodTypes.find(t => (t.id || t._id) === foodTypeId);
       
@@ -482,8 +483,13 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
         {(() => {
           const feedStockByType = foodTypes.map(ft => {
+            const ftId = (ft.id || ft._id);
             const total = feedInventory
-              .filter(f => (f.foodTypeId || f.foodId || f.foodType_id) === (ft.id || ft._id))
+              .filter(f => {
+                  const fid = f.foodTypeId || f.foodType || f.foodId || f.foodType_id;
+                  const extractedId = typeof fid === 'object' ? fid?.id || fid?._id : fid;
+                  return extractedId === ftId;
+              })
               .reduce((sum, f) => sum + (Number(f.quantityKg) || Number(f.quantity) || 0), 0);
             return { ...ft, total };
           });
