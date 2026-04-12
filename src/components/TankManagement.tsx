@@ -93,7 +93,7 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
   const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
   const [selectedTank, setSelectedTank] = useState<any>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  
+
   // -- API state --
   const [tanks, setTanks] = useState<ApiTank[]>([]);
   const [tanksLoading, setTanksLoading] = useState(true);
@@ -118,19 +118,26 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
         : ((res as { success: boolean; data: RawApiTank[] }).data ?? []);
 
       const normalised = list.map(t => {
-        const bioObj = t.biomass as unknown as ApiTankBiomass | undefined;
+        // Map biomass from backend structure (nested object)
+        const bioObj = t.biomass as any;
         const biomassKg = bioObj?.actual ?? 0;
         const capacityKg = bioObj?.capacity ?? 25000;
+        
+        // Map water quality summary
         const wq = t.waterQuality as ApiTankWaterQuality | undefined;
+        
+        // Map feeding summary
         const fd = t.feeding as ApiTankFeeding | undefined;
+
+        // Ensure we handle Arabic/other fish types correctly
+        const species = t.fishType && t.fishType !== 'None' ? t.fishType : 'Empty/No Fish';
 
         return {
           ...t,
-          species: t.fishType ?? 'Unknown',
+          species,
           biomass: biomassKg,
           capacity: capacityKg,
-          volume: 50,
-          batches: t.batches ?? [],
+          volume: t.volumeCubicMeters ?? (bioObj?.volumeM3 ?? 50), // Fallback to 50 if missing
           waterQuality: wq ? {
             overall: (wq?.overallStatus ?? 'unknown').toLowerCase(),
             temp: { value: parseFloat((wq?.temperature ?? 0).toFixed(1)), status: 'unknown' },
@@ -149,6 +156,7 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
 
       setTanks(normalised as any[]);
     } catch (err) {
+      console.error('Fetch Tanks Error:', err);
       setTanksError((err as Error).message);
     } finally {
       setTanksLoading(false);
@@ -196,12 +204,30 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
         biomassLimit: data.capacity
       };
 
-      await apiPatch(`/tanks/${editTankId}`, payload);
+      // NOTE: The current backend (v1) does not expose a PATCH/PUT endpoint for tanks.
+      // This has been verified via OpenAPI documentation check.
+      // Attempting anyway as a fallback, but handling failure specifically.
+      try {
+          await apiPatch(`/tanks/${editTankId}`, payload);
+          toast.success('Tank updated successfully');
+      } catch (patchErr: any) {
+          if (patchErr.message.includes('404')) {
+              // Try PUT as secondary alternative
+              try {
+                  await apiPut(`/tanks/${editTankId}`, payload);
+                  toast.success('Tank updated successfully');
+              } catch (putErr) {
+                  throw new Error('This feature is currently not supported by the backend API (404 Not Found). Please contact the system administrator.');
+              }
+          } else {
+              throw patchErr;
+          }
+      }
+
       setShowEditModal(false);
       setEditTankId(null);
       setEditingTank(null);
       fetchTanks();
-      toast.success('Tank updated successfully');
     } catch (err) {
       console.error('Failed to update tank:', err);
       toast.error('Failed to update tank: ' + (err as Error).message);
@@ -357,7 +383,7 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle className="text-lg">{tank.name}</CardTitle>
-                      <p className="text-[10px] text-gray-400 font-mono">ID: {tank.id.split('-')[0]}</p>
+                      <p className="text-[10px] text-gray-400 font-mono">ID: {tank.id}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge className={`${getStatusColor(tank.status ?? '')} text-white text-[10px]`}>
@@ -492,15 +518,15 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      
-      <AddTankModal 
+
+      <AddTankModal
         open={showAddTankModal}
         onOpenChange={setShowAddTankModal}
         onConfirm={handleAddTank}
         mode="add"
       />
 
-      <AddTankModal 
+      <AddTankModal
         open={showEditModal}
         onOpenChange={setShowEditModal}
         onConfirm={handleUpdateTank}

@@ -219,6 +219,7 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
             ...prev,
             status: dashData.tankInfo?.status || prev.status,
             biomass: dashData.capacity?.currentLoadKg || prev.biomass,
+            volume: dashData.tankInfo?.volumeCubicMeters || prev.volume,
             waterQuality: wq ? {
               overall: (wq.overallStatus || wq.overall || 'unknown').toLowerCase(),
               temp: { value: wq.temperature || wq.temp?.value || 0, status: 'unknown' },

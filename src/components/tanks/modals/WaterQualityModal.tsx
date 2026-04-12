@@ -155,7 +155,7 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
           co2: co2 ? parseFloat(co2.toString()) : 0,
           measuredAt: new Date().toISOString(),
           overallStatus: overallStatus,
-          measuredBy: measuredBy || user?.name || ''
+          measuredBy: user?.name || 'System'
         };
         if (!selectedBatchId) {
           throw new Error('Please select a batch to record water quality for.');

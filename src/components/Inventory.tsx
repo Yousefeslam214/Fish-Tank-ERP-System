@@ -103,16 +103,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   const loadBatches = async () => {
     try {
       const res = await getBatches();
-      let batches = [];
-      if (Array.isArray(res)) {
-        batches = res;
-      } else if (res?.data && Array.isArray(res.data)) {
-        batches = res.data;
-      } else if (res?.batches && Array.isArray(res.batches)) {
-        batches = res.batches;
-      } else if (res?.fishBatches && Array.isArray(res.fishBatches)) {
-        batches = res.fishBatches;
-      }
+      const batches = Array.isArray(res) 
+        ? res 
+        : (res?.data || res?.batches || res?.fishBatches || []);
       setFishBatches(batches);
     } catch (error) {
       console.error("Error loading batches", error);
@@ -224,10 +217,12 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       await createFeed({
         foodTypeId: newFeedData.foodTypeId,
         quantityKg: Number(newFeedData.quantityKg),
-        unitCost: Number(newFeedData.unitCost) || 0,
-        supplier: newFeedData.supplier,
+        costPerKg: Number(newFeedData.unitCost) || 0,
         receivedDate: new Date(newFeedData.receivedDate).toISOString(),
-        farmId: selectedFarm?.id,
+        storageLocation: newFeedData.storageLocationId || "Main Storage",
+        manufacturer: newFeedData.supplier,
+        packagingUnit: "Bag",
+        unitsReceived: 1
       });
 
       toast.success("Feed stock added successfully");
@@ -306,6 +301,20 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           <Badge className="bg-gray-100 text-gray-800" variant="outline">
             <XCircle className="w-3 h-3 mr-1" />
             Depleted
+          </Badge>
+        );
+      case "IN_STOCK":
+        return (
+          <Badge className="bg-blue-100 text-blue-800" variant="outline">
+            <Package className="w-3 h-3 mr-1" />
+            In Stock
+          </Badge>
+        );
+      case "AVAILABLE":
+        return (
+          <Badge className="bg-blue-100 text-blue-800" variant="outline">
+            <Package className="w-3 h-3 mr-1" />
+            Available
           </Badge>
         );
       default:
@@ -407,16 +416,16 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     ...feedInventory.map((f: any) => {
       // Find food type object from foodTypes list
       // Handle various ID field names returned by different backend versions
-      const foodTypeId = f.foodTypeId || f.foodId || f.foodType_id || 
+      const foodTypeId = f.foodTypeId || f.foodId || f.foodType_id || f.foodType ||
                          (typeof f.foodType === 'string' ? f.foodType : f.foodType?.id || f.foodType?._id);
       
       const ft = foodTypes.find(t => (t.id || t._id) === foodTypeId);
       
-      const name = f.name || (ft ? `${ft.name} ${ft.brand ? `(${ft.brand})` : ''}` : 'Unknown Product');
+      const name = f.name || (ft ? `${ft.name} ${f.manufacturer ? `(${f.manufacturer})` : ''}` : 'Unknown Feed');
       const arabicName = f.arabicName || ft?.arabicName;
       const unit = f.unit || (ft?.unit || 'kg');
       const quantity = typeof f.quantityKg === 'number' ? f.quantityKg : (typeof f.quantity === 'number' ? f.quantity : 0);
-      const costPerUnit = f.unitCost || f.costPerUnit || ft?.costPerUnit || 0;
+      const costPerUnit = f.costPerKg || f.unitCost || f.costPerUnit || ft?.costPerUnit || 0;
       
       return {
         ...f,
@@ -427,7 +436,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         unit,
         reorderLevel: f.reorderLevel || ft?.reorderLevel || 100,
         costPerUnit: costPerUnit,
-        supplier: f.supplier || f.manufacturer || ft?.supplier || 'Main Supplier'
+        supplier: f.manufacturer || f.supplier || ft?.supplier || 'Main Supplier'
       };
     }),
     ...inventory.filter((i: any) => i.type !== 'feed')
@@ -668,9 +677,11 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                               <Fish className="w-4 h-4 text-[#0A4D68]" />
                             </div>
                             <div>
-                              <div className="font-bold text-gray-900">{batch.species || 'Unknown Species'}</div>
-                              <div className="text-[10px] text-gray-400 font-mono">ID: {batch.id?.split('-')[0] || 'N/A'}</div>
-                              <div className="text-[10px] text-gray-500 mt-1">PO: {batch.purchaseOrderId || 'N/A'}</div>
+                              <div className="font-bold text-gray-900">{batch.fishTypeName || batch.species || 'Unknown Batch'}</div>
+                              <div className="text-[10px] text-gray-400 font-mono">ID: {batch.id}</div>
+                              {batch.purchaseOrderId && (
+                                <div className="text-[10px] text-gray-500 mt-1">PO: {batch.purchaseOrderId.substring(0, 8)}...</div>
+                              )}
                             </div>
                           </div>
                         </td>
