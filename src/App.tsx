@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import TankManagement from './components/TankManagement';
@@ -14,58 +14,26 @@ import FishTypeManagement from './components/FishTypeManagement';
 import FoodTypeManagement from './components/FoodTypeManagement';
 import { HarvestManagement } from './components/HarvestManagement';
 import Sidebar from './components/Sidebar';
-import UserManagement from './components/UserManagement';
 import { Toaster } from './components/ui/sonner';
 import { User, Farm } from './types';
 import { clearAuthSession, getStoredAppUser, getAccessToken } from './services/authSession';
 import { apiGet, API_BASE } from './api';
-import { mockFarms } from './mockData';
+import { mockFarms, mockNotifications } from './mockData';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
-import { getMetadata } from './services/metaApi';
-import { buildModuleLabelMap, isPageAllowed, resolveAllowedPages } from './services/moduleAccess';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
-  const [moduleLabelMap, setModuleLabelMap] = useState<Record<string, string>>({});
-
-  const allowedPages = useMemo(() => {
-    if (!currentUser) {
-      return ['dashboard'];
-    }
-    return resolveAllowedPages(currentUser);
-  }, [currentUser]);
 
   useEffect(() => {
     const user = getStoredAppUser();
     if (user) {
       setCurrentUser(user);
       fetchFarms(user);
-      fetchActionableNotifications();
     }
   }, []);
-
-  const fetchActionableNotifications = async () => {
-    try {
-      const actionable = await apiGet<any[]>('/notifications/action-required');
-      if (Array.isArray(actionable)) {
-        const mapped = actionable.map(n => ({
-          ...n,
-          read: n.status === 'READ',
-          title: n.subject,
-          message: n.body,
-          type: 'alert',
-          priority: 'high',
-          timestamp: n.createdAt
-        }));
-        setNotifications(prev => [...mapped, ...prev]);
-      }
-    } catch (err) {
-      console.error("Failed to fetch actionable notifications:", err);
-    }
-  };
 
 
 
@@ -81,6 +49,13 @@ export default function App() {
         formatted = formatted.replace(new RegExp(`{{${key}}}`, 'g'), String(value));
       });
       return formatted;
+    };
+
+    const priorityMap: Record<string, string> = {
+      'CRITICAL': 'critical',
+      'HIGH': 'high',
+      'WARNING': 'medium',
+      'INFO': 'low'
     };
 
     const connectToSSE = async () => {
@@ -102,17 +77,9 @@ export default function App() {
             }
           },
           onmessage(ev) {
-            //console.log("📥 إشعار جديد (RAW):", ev.data);
+            console.log("📥 إشعار جديد (RAW):", ev.data);
             try {
               const data = JSON.parse(ev.data);
-
-              // Map data status to front-end priority
-              const priorityMap: Record<string, string> = {
-                'CRITICAL': 'critical',
-                'HIGH': 'high',
-                'WARNING': 'medium',
-                'INFO': 'low'
-              };
 
               const newNotification = {
                 id: data.id || Math.random().toString(36).substr(2, 9),
@@ -123,6 +90,7 @@ export default function App() {
                 timestamp: data.timestamp || new Date().toISOString(),
                 read: false,
                 requiresAction: data.requiresAction,
+                actionType: data.actionType,
                 data: data.data
               };
 
@@ -144,47 +112,42 @@ export default function App() {
 
     connectToSSE();
 
+    // Fetch pending tasks
+    const fetchPendingTasks = async () => {
+      try {
+        const tasks = await apiGet<any[]>('/notifications/action-required');
+        if (tasks && Array.isArray(tasks)) {
+          const mappedTasks = tasks.map(task => ({
+            id: task.id,
+            title: formatMessage(task.subject, task.data) || "Pending Task",
+            message: formatMessage(task.body, task.data) || "",
+            type: 'alert',
+            priority: priorityMap[task.data?.status] || 'medium',
+            timestamp: task.timestamp || new Date().toISOString(),
+            read: task.isRead || false,
+            requiresAction: task.requiresAction,
+            actionType: task.actionType,
+            data: task.data
+          }));
+          setNotifications((prev: any[]) => {
+            // Merge avoids duplicates if SSE already sent some
+            const existingIds = new Set(prev.map(n => n.id));
+            const newTasks = mappedTasks.filter(t => !existingIds.has(t.id));
+            return [...newTasks, ...prev];
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch pending tasks:", err);
+      }
+    };
+
+    fetchPendingTasks();
+
     return () => {
 
       controller.abort();
     };
   }, [currentUser]);
-
-  useEffect(() => {
-    if (!currentUser) {
-      setModuleLabelMap({});
-      return;
-    }
-
-    let cancelled = false;
-
-    const loadMetadataModules = async () => {
-      try {
-        const metadata = await getMetadata();
-        if (!cancelled) {
-          setModuleLabelMap(buildModuleLabelMap(metadata.modules));
-        }
-      } catch {
-        if (!cancelled) {
-          setModuleLabelMap({});
-        }
-      }
-    };
-
-    void loadMetadataModules();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [currentUser]);
-
-  useEffect(() => {
-    if (!currentUser) return;
-
-    if (!isPageAllowed(currentPage, allowedPages)) {
-      setCurrentPage(allowedPages[0] || 'dashboard');
-    }
-  }, [allowedPages, currentPage, currentUser]);
 
 
 
@@ -216,13 +179,6 @@ export default function App() {
     fetchFarms(user);
   };
 
-  const handlePageChange = (page: string) => {
-    if (!isPageAllowed(page, allowedPages)) {
-      return;
-    }
-    setCurrentPage(page);
-  };
-
   const handleLogout = () => {
     setCurrentUser(null);
     clearAuthSession();
@@ -238,12 +194,10 @@ export default function App() {
     <div className="flex h-screen bg-[#F9FAFB]">
       <Sidebar
         currentPage={currentPage}
-        onPageChange={handlePageChange}
+        onPageChange={setCurrentPage}
         onLogout={handleLogout}
         user={currentUser}
         notifications={notifications}
-        allowedPages={allowedPages}
-        moduleLabelMap={moduleLabelMap}
       />
 
       <div className="flex-1 overflow-auto">
@@ -313,12 +267,6 @@ export default function App() {
         )}
         {currentPage === 'food-types' && (
           <FoodTypeManagement
-            user={currentUser}
-            selectedFarm={selectedFarm}
-          />
-        )}
-        {currentPage === 'users' && (
-          <UserManagement
             user={currentUser}
             selectedFarm={selectedFarm}
           />
