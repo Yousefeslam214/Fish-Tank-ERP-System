@@ -103,16 +103,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   const loadBatches = async () => {
     try {
       const res = await getBatches();
-      let batches = [];
-      if (Array.isArray(res)) {
-        batches = res;
-      } else if (res?.data && Array.isArray(res.data)) {
-        batches = res.data;
-      } else if (res?.batches && Array.isArray(res.batches)) {
-        batches = res.batches;
-      } else if (res?.fishBatches && Array.isArray(res.fishBatches)) {
-        batches = res.fishBatches;
-      }
+      const batches = Array.isArray(res) 
+        ? res 
+        : (res?.data || res?.batches || res?.fishBatches || []);
       setFishBatches(batches);
     } catch (error) {
       console.error("Error loading batches", error);
@@ -130,6 +123,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         : Array.isArray(res.data)
           ? res.data
           : [];
+      console.log('📦 Loaded Feed Inventory:', feed);
       setFeedInventory(feed);
     } catch (error) {
       console.error("Error loading feed inventory", error);
@@ -224,10 +218,12 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       await createFeed({
         foodTypeId: newFeedData.foodTypeId,
         quantityKg: Number(newFeedData.quantityKg),
-        unitCost: Number(newFeedData.unitCost) || 0,
-        supplier: newFeedData.supplier,
+        costPerKg: Number(newFeedData.unitCost) || 0,
         receivedDate: new Date(newFeedData.receivedDate).toISOString(),
-        farmId: selectedFarm?.id,
+        storageLocation: newFeedData.storageLocationId || "Main Storage",
+        manufacturer: newFeedData.supplier,
+        packagingUnit: "Bag",
+        unitsReceived: 1
       });
 
       toast.success("Feed stock added successfully");
@@ -306,6 +302,20 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           <Badge className="bg-gray-100 text-gray-800" variant="outline">
             <XCircle className="w-3 h-3 mr-1" />
             Depleted
+          </Badge>
+        );
+      case "IN_STOCK":
+        return (
+          <Badge className="bg-blue-100 text-blue-800" variant="outline">
+            <Package className="w-3 h-3 mr-1" />
+            In Stock
+          </Badge>
+        );
+      case "AVAILABLE":
+        return (
+          <Badge className="bg-blue-100 text-blue-800" variant="outline">
+            <Package className="w-3 h-3 mr-1" />
+            Available
           </Badge>
         );
       default:
@@ -407,16 +417,16 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     ...feedInventory.map((f: any) => {
       // Find food type object from foodTypes list
       // Handle various ID field names returned by different backend versions
-      const foodTypeId = f.foodTypeId || f.foodId || f.foodType_id || 
-                         (typeof f.foodType === 'string' ? f.foodType : f.foodType?.id || f.foodType?._id);
+      const fid = f.foodTypeId || f.foodType || f.foodId || f.foodType_id;
+      const foodTypeId = typeof fid === 'object' ? fid?.id || fid?._id : fid;
       
       const ft = foodTypes.find(t => (t.id || t._id) === foodTypeId);
       
-      const name = f.name || (ft ? `${ft.name} ${ft.brand ? `(${ft.brand})` : ''}` : 'Unknown Product');
+      const name = f.name || (ft ? `${ft.name} ${f.manufacturer ? `(${f.manufacturer})` : ''}` : 'Unknown Feed');
       const arabicName = f.arabicName || ft?.arabicName;
       const unit = f.unit || (ft?.unit || 'kg');
       const quantity = typeof f.quantityKg === 'number' ? f.quantityKg : (typeof f.quantity === 'number' ? f.quantity : 0);
-      const costPerUnit = f.unitCost || f.costPerUnit || ft?.costPerUnit || 0;
+      const costPerUnit = f.costPerKg || f.unitCost || f.costPerUnit || ft?.costPerUnit || 0;
       
       return {
         ...f,
@@ -427,7 +437,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         unit,
         reorderLevel: f.reorderLevel || ft?.reorderLevel || 100,
         costPerUnit: costPerUnit,
-        supplier: f.supplier || f.manufacturer || ft?.supplier || 'Main Supplier'
+        supplier: f.manufacturer || f.supplier || ft?.supplier || 'Main Supplier'
       };
     }),
     ...inventory.filter((i: any) => i.type !== 'feed')
@@ -467,6 +477,41 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           <Plus className="w-4 h-4 mr-2" />
           Add Feed Stock
         </Button>
+      </div>
+      
+      {/* Feed Stock Summary per Type (Task 3.2) */}
+      <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+        {(() => {
+          const feedStockByType = foodTypes.map(ft => {
+            const ftId = (ft.id || ft._id);
+            const total = feedInventory
+              .filter(f => {
+                  const fid = f.foodTypeId || f.foodType || f.foodId || f.foodType_id;
+                  const extractedId = typeof fid === 'object' ? fid?.id || fid?._id : fid;
+                  return extractedId === ftId;
+              })
+              .reduce((sum, f) => sum + (Number(f.quantityKg) || Number(f.quantity) || 0), 0);
+            return { ...ft, total };
+          });
+          
+          return feedStockByType.map(ft => (
+            <Card key={ft.id || ft._id} className="min-w-[200px] border-l-4 border-l-[#0A4D68]">
+              <CardContent className="p-4">
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">{ft.name || 'Unknown Type'}</p>
+                <div className="flex items-baseline gap-1">
+                  <h4 className="text-xl font-black text-gray-900">{ft.total.toLocaleString()}</h4>
+                  <span className="text-[10px] text-gray-500 font-medium">kg</span>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-[10px]">
+                  <span className="text-gray-500">Value: {(ft.total * (ft.costPerUnit || 0)).toLocaleString()} EGP</span>
+                  <Badge className={`${ft.total < 500 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'} border-none text-[8px]`}>
+                    {ft.total < 500 ? 'REORDER' : 'OK'}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          ));
+        })()}
       </div>
 
       {/* Feed Consumption Forecast - Farm-wide */}
@@ -617,135 +662,99 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
               </Button>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {filteredFishBatches.map((batch) => (
-                  <div
-                    key={batch.id}
-                    className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-start gap-3 flex-1">
-                        <div className="bg-blue-100 p-2 rounded-lg">
-                          <Fish className="w-5 h-5 text-[#0A4D68]" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <p className="text-sm font-medium">
-                              {batch.species}
-                            </p>
-                            {getStatusBadge(batch.status)}
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div>
-                              <span className="text-gray-600">PO:</span>{" "}
-                              <span className="font-medium">
-                                {batch.purchaseOrderId}
-                              </span>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left border-collapse">
+                  <thead className="bg-[#f8fafc] text-[#64748b] font-bold uppercase text-[10px] tracking-widest border-b border-[#e2e8f0]">
+                    <tr>
+                      <th className="px-4 py-4">Batch Identity</th>
+                      <th className="px-4 py-4">Status</th>
+                      <th className="px-4 py-4">Quantity</th>
+                      <th className="px-4 py-4">Average Weight</th>
+                      <th className="px-4 py-4">Health Status</th>
+                      <th className="px-4 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#f1f5f9]">
+                    {filteredFishBatches.map((batch) => (
+                      <tr key={batch.id} className="hover:bg-[#f8fafc] transition-colors group">
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="bg-blue-50 p-2 rounded-lg group-hover:bg-blue-100 transition-colors">
+                              <Fish className="w-4 h-4 text-[#0A4D68]" />
                             </div>
                             <div>
-                              <span className="text-gray-600">Delivered:</span>{" "}
-                              <span className="font-medium">
-                                {new Date(
-                                  batch.deliveryDate
-                                ).toLocaleDateString()}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Avg Weight:</span>{" "}
-                              <span className="font-medium">
-                                {batch.averageWeight}g
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">
-                                Health Check:
-                              </span>{" "}
-                              {getHealthCheckBadge(batch.healthCheckStatus)}
+                              <div className="font-bold text-gray-900">{batch.fishTypeName || batch.species || 'Unknown Batch'}</div>
+                              <div className="text-[10px] text-gray-400 font-mono">ID: {batch.id}</div>
+                              {batch.purchaseOrderId && (
+                                <div className="text-[10px] text-gray-500 mt-1">PO: {batch.purchaseOrderId.substring(0, 8)}...</div>
+                              )}
                             </div>
                           </div>
-                          {batch.notes && (
-                            <p className="text-xs text-gray-600 mt-2 italic">
-                              {batch.notes}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium">
-                          {batch.quantity.toLocaleString()} fish
-                        </p>
-                        <p className="text-xs text-gray-600">
-                          of {batch.initialQuantity.toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
-                    {batch.status !== "DEPLETED" && (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-gray-600">Available</span>
-                          <span className="text-gray-900 font-medium">
-                            {Math.round(
-                              (batch.quantity / batch.initialQuantity) * 100
+                        </td>
+                        <td className="px-4 py-4">
+                          {getStatusBadge(batch.status)}
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="space-y-1">
+                            <div className="font-bold text-gray-900">{(batch.quantity ?? 0).toLocaleString()} fish</div>
+                            <div className="text-[10px] text-gray-500">of {(batch.initialQuantity ?? 0).toLocaleString()} stocked</div>
+                            <Progress
+                              value={((batch.quantity ?? 0) / (batch.initialQuantity || 1)) * 100}
+                              className="h-1 w-24 [&>div]:bg-[#0A4D68]"
+                            />
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 font-medium text-gray-700">
+                          {batch.averageWeight || 0}g
+                        </td>
+                        <td className="px-4 py-4">
+                          {getHealthCheckBadge(batch.healthCheckStatus)}
+                        </td>
+                        <td className="px-4 py-4 text-right">
+                          <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {batch.status !== "QUARANTINE" && batch.status !== "DEPLETED" && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
+                                onClick={() => handleQuarantine(batch)}
+                                title="Quarantine"
+                              >
+                                <Clock className="w-4 h-4" />
+                              </Button>
                             )}
-                            %
-                          </span>
-                        </div>
-                        <Progress
-                          value={(batch.quantity / batch.initialQuantity) * 100}
-                          className="[&>div]:bg-[#0A4D68]"
-                        />
-                      </div>
-                    )}
-
-                    {/* Batch Action Buttons */}
-                    <div className="mt-3 pt-3 border-t flex gap-2">
-                      {/* Quarantine — PATCH /api/v1/inventory/batches/:id/quarantine */}
-                      {batch.status !== "QUARANTINE" &&
-                        batch.status !== "DEPLETED" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="flex-1 border-yellow-400 text-yellow-700 hover:bg-yellow-50"
-                            onClick={() => handleQuarantine(batch)}
-                          >
-                            <Clock className="w-4 h-4 mr-2" />
-                            Quarantine
-                          </Button>
-                        )}
-
-                      {/* Health Check — PATCH /api/v1/inventory/batches/:id/health-check */}
-                      {batch.healthCheckStatus === "PENDING" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1 border-green-400 text-green-700 hover:bg-green-50"
-                          onClick={() => handleHealthCheck(batch)}
-                        >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Health Check
-                        </Button>
-                      )}
-
-                      {/* Allocate — PATCH /api/v1/inventory/batches/:id/allocate */}
-                      {batch.status === "READY_TO_STOCK" &&
-                        batch.quantity > 0 && (
-                          <Button
-                            size="sm"
-                            className="flex-1 bg-[#0A4D68] hover:bg-[#083d52]"
-                            onClick={() => {
-                              setSelectedBatch(batch);
-                              setShowAllocateModal(true);
-                            }}
-                          >
-                            <Fish className="w-4 h-4 mr-2" />
-                            Allocate to Tank
-                          </Button>
-                        )}
-                    </div>
-                  </div>
-                ))}
+                            {batch.healthCheckStatus === "PENDING" && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                onClick={() => handleHealthCheck(batch)}
+                                title="Health Check"
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                              </Button>
+                            )}
+                            {batch.status === "READY_TO_STOCK" && batch.quantity > 0 && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0 text-[#0A4D68] hover:bg-blue-50"
+                                onClick={() => {
+                                  setSelectedBatch(batch);
+                                  setShowAllocateModal(true);
+                                }}
+                                title="Allocate to Tank"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
                 {filteredFishBatches.length === 0 && (
                   <div className="text-center py-12">
@@ -756,7 +765,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                     </p>
                   </div>
                 )}
-              </div>
             </CardContent>
           </Card>
         </TabsContent>

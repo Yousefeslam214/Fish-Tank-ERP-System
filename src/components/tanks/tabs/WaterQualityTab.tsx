@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Activity, Droplet, Search } from 'lucide-react';
-import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Line } from 'recharts';
+import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Line, ReferenceLine } from 'recharts';
 
 interface WaterQualityTabProps {
   batchAssessments: Record<string, any>;
@@ -48,7 +48,10 @@ export function WaterQualityTab({
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <Activity className={`w-4 h-4 ${assessment.overallStatus === 'CRITICAL' ? 'text-red-500' : assessment.overallStatus === 'WARNING' ? 'text-yellow-500' : 'text-green-500'}`} />
-                      <span className="font-bold text-gray-900">Batch {batch.batchNumber || batch.id.slice(-6)} Health</span>
+                      <div>
+                        <span className="font-bold text-gray-900 block">Batch {batch.batchNumber || 'N/A'}</span>
+                        <span className="text-[10px] text-gray-400 font-mono">ID: {batch.id.split('-')[0]}</span>
+                      </div>
                     </div>
                     <Badge className={assessment.overallStatus === 'CRITICAL' ? 'bg-red-500' : assessment.overallStatus === 'WARNING' ? 'bg-yellow-500' : 'bg-green-500'}>
                       {assessment.overallStatus}
@@ -93,6 +96,8 @@ export function WaterQualityTab({
               <YAxis yAxisId="left" style={{ fontSize: '12px' }} />
               <YAxis yAxisId="right" orientation="right" style={{ fontSize: '12px' }} />
               <Tooltip />
+              <ReferenceLine yAxisId="left" y={3} label={{ position: 'right', value: 'Danger (DO)', fill: '#EF4444', fontSize: 10 }} stroke="#EF4444" strokeDasharray="3 3" />
+              <ReferenceLine yAxisId="left" y={5} label={{ position: 'right', value: 'Warning (DO)', fill: '#F59E0B', fontSize: 10 }} stroke="#F59E0B" strokeDasharray="3 3" />
               <Line yAxisId="left" type="monotone" dataKey="temp" stroke="#F59E0B" strokeWidth={3} dot={{ r: 4, fill: '#F59E0B', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} name="Temp (°C)" />
               <Line yAxisId="left" type="monotone" dataKey="do" stroke="#088395" strokeWidth={3} dot={{ r: 4, fill: '#088395', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} name="DO (mg/L)" />
               <Line yAxisId="right" type="monotone" dataKey="ph" stroke="#10B981" strokeWidth={3} dot={{ r: 4, fill: '#10B981', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} name="pH" />

@@ -135,10 +135,13 @@ export function BatchesTab({
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-lg">Batch {batch.batchNumber || batch.id}</CardTitle>
+                    <div className="flex items-baseline gap-2">
+                      <CardTitle className="text-lg">Batch {batch.batchNumber || 'N/A'}</CardTitle>
+                      <span className="text-[10px] text-gray-400 font-mono">ID: {batch.id.split('-')[0]}</span>
+                    </div>
                     <p className="text-sm text-gray-600">{batch.species || batch.fishType || currentTank.species}</p>
                   </div>
-                  <Badge className="bg-[#10B981] text-white">{batch.status || 'ACTIVE'}</Badge>
+                  <Badge className="bg-[#10B981] text-white text-[10px]">{batch.status || 'ACTIVE'}</Badge>
                 </div>
               </CardHeader>
               <CardContent>
@@ -215,7 +218,7 @@ export function BatchesTab({
                 <div className="mt-4 border-t pt-4">
                   <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                     <Fish className="w-4 h-4" />
-                    Feeding Plan for Batch {batch.id}
+                    Feeding Plan for Batch {batch.batchNumber || batch.id.split('-')[0]}
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">

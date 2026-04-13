@@ -41,7 +41,6 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
       setWeightFed(0);
       setNotes('');
       setSkipReason(false);
-      setSkipReason(false);
       setSkipNotes('');
 
       // Initialize selected batch

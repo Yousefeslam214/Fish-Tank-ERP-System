@@ -219,6 +219,7 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
             ...prev,
             status: dashData.tankInfo?.status || prev.status,
             biomass: dashData.capacity?.currentLoadKg || prev.biomass,
+            volume: dashData.tankInfo?.volumeCubicMeters || prev.volume,
             waterQuality: wq ? {
               overall: (wq.overallStatus || wq.overall || 'unknown').toLowerCase(),
               temp: { value: wq.temperature || wq.temp?.value || 0, status: 'unknown' },
@@ -360,7 +361,10 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
           </Button>
           <div className="flex items-center justify-between flex-1">
             <div>
-              <h1 className="text-xl font-semibold">{currentTank.name || tank.name}</h1>
+              <div className="flex items-baseline gap-2">
+                <h1 className="text-xl font-semibold">{currentTank.name || tank.name}</h1>
+                <span className="text-xs text-blue-200 font-mono opacity-80">ID: {(currentTank.id || tank.id).split('-')[0]}</span>
+              </div>
               <p className="text-sm text-gray-300">
                 {currentTank.volume || tank.volume}m³ volume · Stocking density: {Math.round((currentTank.biomass / (currentTank.volume || 50)))} kg/m³
               </p>
@@ -459,6 +463,7 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
               setSelectedFeedingRecord={setSelectedFeedingRecord}
               setShowFeedingDetailsModal={setShowFeedingDetailsModal}
               user={user}
+              tankBatches={tankBatches}
             />
           </TabsContent>
 

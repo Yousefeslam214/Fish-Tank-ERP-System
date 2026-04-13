@@ -4,6 +4,15 @@ import { Badge } from '../../ui/badge';
 import { Progress } from '../../ui/progress';
 import { Fish, Scale, Droplet, Activity, AlertTriangle } from 'lucide-react';
 import { WaterParameter } from '../WaterParameter';
+import { 
+  PieChart, 
+  Pie, 
+  Cell, 
+  ResponsiveContainer, 
+  RadialBarChart, 
+  RadialBar,
+  PolarAngleAxis
+} from 'recharts';
 
 interface OverviewTabProps {
   dashboardData: any;
@@ -97,32 +106,75 @@ export function OverviewTab({ dashboardData, tankBatches, currentTank }: Overvie
           <CardHeader>
             <CardTitle className="text-lg">Tank Capacity</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-gray-600">Current Load</span>
-                <span className="font-medium">
-                  {dashboardData?.capacity?.currentLoadKg ?? currentTank.biomass} / {dashboardData?.capacity?.capacityKg ?? currentTank.capacity} kg
-                </span>
+          <CardContent>
+            <div className="flex flex-col md:flex-row items-center gap-6">
+              <div className="w-40 h-40 relative">
+                {(() => {
+                  const percentage = Math.min(Math.round(dashboardData?.capacity?.percentageUsed ?? (currentTank.biomass / currentTank.capacity) * 100), 100);
+                  const isOverstocked = (dashboardData?.capacity?.percentageUsed > 100 || currentTank.biomass > currentTank.capacity);
+                  const data = [{ value: percentage }];
+                  
+                  return (
+                    <>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RadialBarChart 
+                          innerRadius="70%" 
+                          outerRadius="100%" 
+                          barSize={10} 
+                          data={data} 
+                          startAngle={90} 
+                          endAngle={450}
+                        >
+                          <PolarAngleAxis
+                            type="number"
+                            domain={[0, 100]}
+                            angleAxisId={0}
+                            tick={false}
+                          />
+                          <RadialBar
+                            background
+                            dataKey="value"
+                            cornerRadius={5}
+                            fill={isOverstocked ? "#EF4444" : "#088395"}
+                          />
+                        </RadialBarChart>
+                      </ResponsiveContainer>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className={`text-2xl font-bold ${isOverstocked ? 'text-red-600' : 'text-gray-900'}`}>{percentage}%</span>
+                        <span className="text-[10px] text-gray-500 uppercase">Capacity</span>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
-              <Progress value={dashboardData?.capacity?.percentageUsed ?? (currentTank.biomass / currentTank.capacity) * 100} className="h-3" />
-              <p className="text-xs text-gray-600 mt-1">
-                {Math.round(dashboardData?.capacity?.percentageUsed ?? (currentTank.biomass / currentTank.capacity) * 100)}% capacity used
-              </p>
-            </div>
-            {(dashboardData?.capacity?.percentageUsed > 100 || currentTank.biomass > currentTank.capacity) && (
-              <div className="bg-red-50 border border-red-200 p-3 rounded-lg">
-                <div className="flex items-center gap-2 text-red-700">
-                  <AlertTriangle className="w-4 h-4" />
-                  <span className="text-sm font-medium">
-                    ⚠️ Overstocked by {Math.round(dashboardData?.capacity?.overstockPercentage?.value || ((currentTank.biomass - currentTank.capacity) / currentTank.capacity) * 100)}%
+              <div className="flex-1 space-y-3 w-full">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Current Load</span>
+                  <span className="font-bold text-gray-900">
+                    {dashboardData?.capacity?.currentLoadKg ?? currentTank.biomass} / {dashboardData?.capacity?.capacityKg ?? currentTank.capacity} kg
                   </span>
                 </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Stocking Density</span>
+                  <span className="font-semibold text-gray-900">
+                    {Math.round(dashboardData?.capacity?.stockingDensity ?? (currentTank.biomass / (currentTank.volume || 50)))} kg/m³
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Volume</span>
+                  <span className="font-semibold text-gray-900">{dashboardData?.tankInfo?.volume ?? currentTank.volume} m³</span>
+                </div>
+                {(dashboardData?.capacity?.percentageUsed > 100 || currentTank.biomass > currentTank.capacity) && (
+                  <div className="bg-red-50 border border-red-200 p-2 rounded-lg mt-2">
+                    <div className="flex items-center gap-2 text-red-700">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span className="text-xs font-bold uppercase tracking-tight">
+                        Overstocked: +{Math.round(dashboardData?.capacity?.overstockPercentage?.value || ((currentTank.biomass - currentTank.capacity) / currentTank.capacity) * 100)}%
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-            <div className="text-sm text-gray-600">
-              <p>Volume: {dashboardData?.tankInfo?.volume ?? currentTank.volume}m³</p>
-              <p>Stocking Density: {Math.round(dashboardData?.capacity?.stockingDensity ?? (currentTank.biomass / (currentTank.volume || 50)))} kg/m³</p>
             </div>
           </CardContent>
         </Card>
@@ -139,8 +191,11 @@ export function OverviewTab({ dashboardData, tankBatches, currentTank }: Overvie
                 tankBatches.map((batch: any) => (
                   <div key={batch.id} className="border-l-4 border-[#0A4D68] pl-3 py-2 bg-gray-50 rounded">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-sm">Batch {batch.batchNumber || batch.id}</span>
-                      <Badge className="bg-[#10B981] text-white">{batch.status || 'ACTIVE'}</Badge>
+                      <div>
+                        <span className="font-semibold text-sm">Batch {batch.batchNumber || 'N/A'}</span>
+                        <span className="block text-[10px] text-gray-400 font-mono">ID: {batch.id.split('-')[0]}</span>
+                      </div>
+                      <Badge className="bg-[#10B981] text-white text-[10px]">{batch.status || 'ACTIVE'}</Badge>
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-xs text-gray-600">
                       <div>

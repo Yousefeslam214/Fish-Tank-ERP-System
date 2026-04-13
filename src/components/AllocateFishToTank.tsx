@@ -139,9 +139,10 @@ export default function AllocateFishToTank({
                 <Fish className="w-5 h-5 text-[#0A4D68]" />
               </div>
               <div className="flex-1">
-                <p className="text-sm text-gray-600 mb-2">
-                  📦 Inventory Batch
-                </p>
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-sm font-bold text-gray-700">📦 Inventory Batch</p>
+                  <span className="text-[10px] text-gray-400 font-mono">ID: {batch.id.split('-')[0]}</span>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-xs text-gray-600">Species</p>

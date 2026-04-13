@@ -1,202 +1,172 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Package, Fish as FishIcon, Calendar, AlertTriangle, Plus } from 'lucide-react';
-import { User, Farm, HarvestedInventory, StorageType } from '../../types';
+import { Package, Fish as FishIcon, Calendar, AlertTriangle, Plus, Loader2 } from 'lucide-react';
+import { User, Farm } from '../../types';
+import {
+  findHarvestedInventory,
+  getHarvestedInventorySummary,
+  getSalesStockDashboard,
+  HarvestedStockDashboardRecord,
+  HarvestedStockItemRecord,
+} from '../../services/salesApi';
 
 interface HarvestedInventoryViewProps {
   user: User;
   selectedFarm: Farm;
+  refreshKey?: number;
 }
 
-export default function HarvestedInventoryView({ user, selectedFarm }: HarvestedInventoryViewProps) {
+const normalizeErrorMessage = (error: unknown): string => {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return 'Unable to load harvested inventory.';
+};
+
+const safeDate = (value?: string): Date | null => {
+  if (!value) {
+    return null;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+export default function HarvestedInventoryView({ refreshKey = 0 }: HarvestedInventoryViewProps) {
   const [filterStorage, setFilterStorage] = useState<string>('ALL');
   const [filterExpiry, setFilterExpiry] = useState<string>('ALL');
   const [filterTank, setFilterTank] = useState<string>('ALL');
 
-  // Mock harvested inventory with updated schema
-  const inventory: HarvestedInventory[] = [
-    {
-      id: 'harv-inv-001',
-      tankId: 'tank-a05',
-      farmId: selectedFarm.id,
-      harvestEventId: 'harvest-001',
-      fishType: {
-        id: 'tilapia-001',
-        name: 'Nile Tilapia',
-        scientificName: 'Oreochromis niloticus',
-        arabicName: 'البلطي النيلي',
-        tempMin: 20,
-        tempOptimal: 28,
-        tempMax: 32,
-        doMin: 3,
-        doSafe: 5,
-        phMin: 6.5,
-        phMax: 8.5,
-        nh3Safe: 0.02,
-        nh3Critical: 0.05,
-        no2Max: 0.2,
-        fcrMin: 1.2,
-        fcrMax: 1.8,
-        survivalRate: 85,
-        isActive: true
-      },
-      gradePricing: {
-        id: 'grade-super-001',
-        fishTypeId: 'tilapia-001',
-        gradeName: 'Super',
-        minWeight: 300,
-        maxWeight: 500,
-        numOfFishInKilo: 2.5,
-        pricePerKg: 50,
-        isWaste: false,
-        isActive: true
-      },
-      weight: 120,
-      storageType: 'FRESH',
-      expiryDate: new Date('2026-02-17'),
-      harvestedAt: new Date('2026-02-15'),
-      createdAt: new Date('2026-02-15'),
-      updatedAt: new Date('2026-02-15')
-    },
-    {
-      id: 'harv-inv-002',
-      tankId: 'tank-a05',
-      farmId: selectedFarm.id,
-      harvestEventId: 'harvest-001',
-      fishType: {
-        id: 'tilapia-001',
-        name: 'Nile Tilapia',
-        scientificName: 'Oreochromis niloticus',
-        arabicName: 'البلطي النيلي',
-        tempMin: 20,
-        tempOptimal: 28,
-        tempMax: 32,
-        doMin: 3,
-        doSafe: 5,
-        phMin: 6.5,
-        phMax: 8.5,
-        nh3Safe: 0.02,
-        nh3Critical: 0.05,
-        no2Max: 0.2,
-        fcrMin: 1.2,
-        fcrMax: 1.8,
-        survivalRate: 85,
-        isActive: true
-      },
-      gradePricing: {
-        id: 'grade-1-001',
-        fishTypeId: 'tilapia-001',
-        gradeName: 'Grade 1',
-        minWeight: 200,
-        maxWeight: 300,
-        numOfFishInKilo: 3.5,
-        pricePerKg: 45,
-        isWaste: false,
-        isActive: true
-      },
-      weight: 200,
-      storageType: 'FRESH',
-      expiryDate: new Date('2026-02-16'),
-      harvestedAt: new Date('2026-02-14'),
-      createdAt: new Date('2026-02-14'),
-      updatedAt: new Date('2026-02-14')
-    },
-    {
-      id: 'harv-inv-003',
-      tankId: 'tank-b03',
-      farmId: selectedFarm.id,
-      harvestEventId: 'harvest-002',
-      fishType: {
-        id: 'seabass-001',
-        name: 'European Seabass',
-        scientificName: 'Dicentrarchus labrax',
-        arabicName: 'القاروص الأوروبي',
-        tempMin: 15,
-        tempOptimal: 22,
-        tempMax: 28,
-        doMin: 5,
-        doSafe: 6,
-        phMin: 7.5,
-        phMax: 8.5,
-        nh3Safe: 0.01,
-        nh3Critical: 0.03,
-        no2Max: 0.1,
-        fcrMin: 1.0,
-        fcrMax: 1.5,
-        survivalRate: 90,
-        isActive: true
-      },
-      gradePricing: {
-        id: 'grade-premium-001',
-        fishTypeId: 'seabass-001',
-        gradeName: 'Premium',
-        minWeight: 400,
-        maxWeight: 600,
-        numOfFishInKilo: 2,
-        pricePerKg: 85,
-        isWaste: false,
-        isActive: true
-      },
-      weight: 85,
-      storageType: 'ICED',
-      expiryDate: new Date('2026-02-20'),
-      harvestedAt: new Date('2026-02-13'),
-      createdAt: new Date('2026-02-13'),
-      updatedAt: new Date('2026-02-13')
-    }
-  ];
+  const [inventory, setInventory] = useState<HarvestedStockItemRecord[]>([]);
+  const [summary, setSummary] = useState<HarvestedStockDashboardRecord>({
+    totalStock: 0,
+    totalValue: 0,
+    urgentItems: 0,
+    stockItems: [],
+  });
 
-  const getDaysUntilExpiry = (expiryDate: Date) => {
-    const now = new Date();
-    const diff = expiryDate.getTime() - now.getTime();
-    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const getDaysUntilExpiry = (item: HarvestedStockItemRecord) => {
+    if (typeof item.expiryCountdown === 'number') {
+      return item.expiryCountdown;
+    }
+
+    const expiry = safeDate(item.expiryDate);
+    if (!expiry) {
+      return 0;
+    }
+
+    return Math.ceil((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   };
 
-  const getExpiryBadge = (expiryDate: Date) => {
-    const days = getDaysUntilExpiry(expiryDate);
+  const loadInventoryData = useCallback(async () => {
+    setLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const [findResponse, summaryResponse, stockDashboard] = await Promise.all([
+        findHarvestedInventory({
+          storageType: filterStorage !== 'ALL' ? filterStorage : undefined,
+          tankId: filterTank !== 'ALL' ? filterTank : undefined,
+        }),
+        getHarvestedInventorySummary(),
+        getSalesStockDashboard(),
+      ]);
+
+      setInventory(findResponse);
+
+      const mergedStockItems =
+        summaryResponse.stockItems.length > 0
+          ? summaryResponse.stockItems
+          : stockDashboard.stockItems.length > 0
+          ? stockDashboard.stockItems
+          : findResponse;
+
+      setSummary({
+        totalStock:
+          summaryResponse.totalStock ||
+          stockDashboard.totalStock ||
+          mergedStockItems.reduce((sum, item) => sum + item.weight, 0),
+        totalValue:
+          summaryResponse.totalValue ||
+          stockDashboard.totalValue ||
+          mergedStockItems.reduce((sum, item) => sum + item.totalValue, 0),
+        urgentItems:
+          summaryResponse.urgentItems ||
+          stockDashboard.urgentItems ||
+          mergedStockItems.filter((item) => getDaysUntilExpiry(item) <= 2).length,
+        stockItems: mergedStockItems,
+      });
+    } catch (error) {
+      setErrorMessage(normalizeErrorMessage(error));
+    } finally {
+      setLoading(false);
+    }
+  }, [filterStorage, filterTank]);
+
+  useEffect(() => {
+    void loadInventoryData();
+  }, [loadInventoryData, refreshKey]);
+
+  const tankOptions = useMemo(() => {
+    const source = inventory.length > 0 ? inventory : summary.stockItems;
+    const unique = new Map<string, string>();
+
+    source.forEach((item) => {
+      if (item.tankId) {
+        unique.set(item.tankId, item.tankName || item.tankId);
+      }
+    });
+
+    return Array.from(unique.entries()).map(([id, name]) => ({ id, name }));
+  }, [inventory, summary.stockItems]);
+
+  const filteredInventory = useMemo(
+    () =>
+      inventory.filter((item) => {
+        const expiryDays = getDaysUntilExpiry(item);
+
+        if (filterExpiry === 'URGENT' && expiryDays > 2) {
+          return false;
+        }
+        if (filterExpiry === 'SOON' && (expiryDays <= 2 || expiryDays > 7)) {
+          return false;
+        }
+        if (filterExpiry === 'GOOD' && expiryDays <= 7) {
+          return false;
+        }
+        return true;
+      }),
+    [filterExpiry, inventory],
+  );
+
+  const getExpiryBadge = (item: HarvestedStockItemRecord) => {
+    const days = getDaysUntilExpiry(item);
+
     if (days < 0) {
       return <Badge className="bg-[#EF4444] text-white text-xs">Expired</Badge>;
-    } else if (days <= 2) {
-      return <Badge className="bg-[#EF4444] text-white text-xs">Urgent ({days}d)</Badge>;
-    } else if (days <= 7) {
-      return <Badge className="bg-[#F59E0B] text-white text-xs">Soon ({days}d)</Badge>;
-    } else {
-      return <Badge className="bg-[#10B981] text-white text-xs">Good ({days}d)</Badge>;
     }
+    if (days <= 2) {
+      return <Badge className="bg-[#EF4444] text-white text-xs">Urgent ({days}d)</Badge>;
+    }
+    if (days <= 7) {
+      return <Badge className="bg-[#F59E0B] text-white text-xs">Soon ({days}d)</Badge>;
+    }
+    return <Badge className="bg-[#10B981] text-white text-xs">Good ({days}d)</Badge>;
   };
 
-  const getStorageBadge = (storage: StorageType) => {
-    const colors = {
+  const getStorageBadge = (storage: string) => {
+    const colors: Record<string, string> = {
       FRESH: 'bg-[#10B981]',
       ICED: 'bg-[#3B82F6]',
-      FROZEN: 'bg-[#8B5CF6]'
+      FROZEN: 'bg-[#8B5CF6]',
     };
-    return <Badge className={`${colors[storage]} text-white text-xs`}>{storage}</Badge>;
+    return <Badge className={`${colors[storage] || 'bg-gray-500'} text-white text-xs`}>{storage}</Badge>;
   };
-
-  const getTankName = (tankId: string) => {
-    const tankNames: Record<string, string> = {
-      'tank-a05': 'Tank A05',
-      'tank-b03': 'Tank B03',
-      'tank-c01': 'Tank C01'
-    };
-    return tankNames[tankId] || tankId;
-  };
-
-  const filteredInventory = inventory.filter((item) => {
-    if (filterStorage !== 'ALL' && item.storageType !== filterStorage) return false;
-    if (filterExpiry !== 'ALL') {
-      const days = getDaysUntilExpiry(item.expiryDate);
-      if (filterExpiry === 'URGENT' && days > 2) return false;
-      if (filterExpiry === 'SOON' && (days <= 2 || days > 7)) return false;
-      if (filterExpiry === 'GOOD' && days <= 7) return false;
-    }
-    if (filterTank !== 'ALL' && item.tankId !== filterTank) return false;
-    return true;
-  });
 
   return (
     <div className="space-y-4">
@@ -221,33 +191,46 @@ export default function HarvestedInventoryView({ user, selectedFarm }: Harvested
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">All Expiry</SelectItem>
-              <SelectItem value="URGENT">Urgent (&lt; 2d)</SelectItem>
+              <SelectItem value="URGENT">Urgent (&lt;= 2d)</SelectItem>
               <SelectItem value="SOON">Soon (2-7d)</SelectItem>
               <SelectItem value="GOOD">Good (&gt; 7d)</SelectItem>
             </SelectContent>
           </Select>
 
           <Select value={filterTank} onValueChange={setFilterTank}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-44">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">All Tanks</SelectItem>
-              <SelectItem value="tank-a05">Tank A05</SelectItem>
-              <SelectItem value="tank-b03">Tank B03</SelectItem>
+              {tankOptions.map((tank) => (
+                <SelectItem key={tank.id} value={tank.id}>
+                  {tank.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
       </div>
 
-      {/* Summary Stats */}
+      {errorMessage && (
+        <Card className="bg-red-50 border-red-200">
+          <CardContent className="p-4 text-sm text-red-700 flex items-center justify-between">
+            <span>{errorMessage}</span>
+            <Button variant="outline" size="sm" onClick={() => void loadInventoryData()}>
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-white shadow-sm">
           <CardContent className="p-4">
             <div className="text-center">
               <p className="text-sm text-gray-600">Total Stock</p>
               <p className="text-2xl font-bold text-gray-900">
-                {inventory.reduce((sum, item) => sum + item.weight, 0)} kg
+                {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : `${summary.totalStock} kg`}
               </p>
             </div>
           </CardContent>
@@ -258,7 +241,7 @@ export default function HarvestedInventoryView({ user, selectedFarm }: Harvested
             <div className="text-center">
               <p className="text-sm text-gray-600">Total Value</p>
               <p className="text-2xl font-bold text-[#10B981]">
-                {inventory.reduce((sum, item) => sum + (item.weight * item.gradePricing.pricePerKg), 0).toLocaleString()} EGP
+                {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : `${summary.totalValue.toLocaleString()} EGP`}
               </p>
             </div>
           </CardContent>
@@ -269,7 +252,7 @@ export default function HarvestedInventoryView({ user, selectedFarm }: Harvested
             <div className="text-center">
               <p className="text-sm text-gray-600">Urgent Items</p>
               <p className="text-2xl font-bold text-[#EF4444]">
-                {inventory.filter(item => getDaysUntilExpiry(item.expiryDate) <= 2).length}
+                {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : summary.urgentItems}
               </p>
             </div>
           </CardContent>
@@ -279,93 +262,108 @@ export default function HarvestedInventoryView({ user, selectedFarm }: Harvested
           <CardContent className="p-4">
             <div className="text-center">
               <p className="text-sm text-gray-600">Stock Items</p>
-              <p className="text-2xl font-bold text-gray-900">{inventory.length}</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : inventory.length}
+              </p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Inventory Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredInventory.map((item) => (
-          <Card key={item.id} className="bg-white shadow-sm border-l-4 border-l-[#088395]">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold text-gray-900">{item.fishType.name}</h3>
-                    <Badge variant="outline" className="text-xs">{getTankName(item.tankId)}</Badge>
-                  </div>
-                  <p className="text-sm text-gray-600">{item.gradePricing.gradeName} ({item.gradePricing.minWeight}-{item.gradePricing.maxWeight}g)</p>
-                </div>
-                <div className="w-10 h-10 rounded-full bg-[#E0F4F5] flex items-center justify-center">
-                  <FishIcon className="w-5 h-5 text-[#088395]" />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Weight:</span>
-                  <span className="font-semibold text-lg">{item.weight} kg</span>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Price:</span>
-                  <span className="font-semibold text-[#10B981]">{item.gradePricing.pricePerKg} EGP/kg</span>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Total Value:</span>
-                  <span className="font-semibold text-[#10B981]">
-                    {(item.weight * item.gradePricing.pricePerKg).toLocaleString()} EGP
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex gap-2 flex-wrap">
-                {getStorageBadge(item.storageType)}
-                {getExpiryBadge(item.expiryDate)}
-              </div>
-
-              <div className="space-y-1 text-xs text-gray-600">
-                <div className="flex items-center gap-1">
-                  <Calendar className="w-3 h-3" />
-                  <span>Harvested: {item.harvestedAt.toLocaleDateString()}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Calendar className="w-3 h-3" />
-                  <span>Expires: {item.expiryDate.toLocaleDateString()}</span>
-                </div>
-              </div>
-
-              {getDaysUntilExpiry(item.expiryDate) <= 2 && (
-                <div className="bg-[#FEF3C7] border border-[#F59E0B] rounded-lg p-2 flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-[#F59E0B] mt-0.5" />
-                  <p className="text-xs text-[#92400E]">
-                    Urgent! Expires in {getDaysUntilExpiry(item.expiryDate)} day(s). Consider selling soon.
-                  </p>
-                </div>
-              )}
-
-              <Button 
-                className="w-full bg-[#088395] hover:bg-[#0A4D68]"
-                size="sm"
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                Add to Order
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {filteredInventory.length === 0 && (
+      {loading ? (
         <Card className="bg-white shadow-sm">
-          <CardContent className="p-8 text-center">
-            <Package className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-600">No harvested inventory found matching your filters.</p>
+          <CardContent className="p-8 text-center text-gray-600 flex items-center justify-center gap-2">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>Loading harvested inventory...</span>
           </CardContent>
         </Card>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredInventory.map((item) => (
+              <Card key={item.id} className="bg-white shadow-sm border-l-4 border-l-[#088395]">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-gray-900">{item.fishType}</h3>
+                        {item.tankName && (
+                          <Badge variant="outline" className="text-xs">
+                            {item.tankName}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600">{item.grade}</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-[#E0F4F5] flex items-center justify-center">
+                      <FishIcon className="w-5 h-5 text-[#088395]" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Weight:</span>
+                      <span className="font-semibold text-lg">{item.weight} kg</span>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Price:</span>
+                      <span className="font-semibold text-[#10B981]">{item.price} EGP/kg</span>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Total Value:</span>
+                      <span className="font-semibold text-[#10B981]">{item.totalValue.toLocaleString()} EGP</span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 flex-wrap">
+                    {getStorageBadge(item.storageType)}
+                    {getExpiryBadge(item)}
+                  </div>
+
+                  <div className="space-y-1 text-xs text-gray-600">
+                    {item.harvestedAt && (
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        <span>Harvested: {new Date(item.harvestedAt).toLocaleDateString()}</span>
+                      </div>
+                    )}
+                    {item.expiryDate && (
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        <span>Expires: {new Date(item.expiryDate).toLocaleDateString()}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {getDaysUntilExpiry(item) <= 2 && (
+                    <div className="bg-[#FEF3C7] border border-[#F59E0B] rounded-lg p-2 flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-[#F59E0B] mt-0.5" />
+                      <p className="text-xs text-[#92400E]">
+                        Urgent! Expires in {Math.max(getDaysUntilExpiry(item), 0)} day(s). Consider selling soon.
+                      </p>
+                    </div>
+                  )}
+
+                  <Button className="w-full bg-[#088395] hover:bg-[#0A4D68]" size="sm" disabled>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add to Order
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {filteredInventory.length === 0 && (
+            <Card className="bg-white shadow-sm">
+              <CardContent className="p-8 text-center">
+                <Package className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-600">No harvested inventory found matching your filters.</p>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
     </div>
   );

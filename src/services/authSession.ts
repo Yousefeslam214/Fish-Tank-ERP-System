@@ -45,10 +45,31 @@ const deriveNameFromEmail = (email: string): string => {
 
 const normalizeRole = (role?: string): UserRole => {
   const value = role?.toLowerCase();
-  if (value === 'admin' || value === 'manager' || value === 'worker') {
+  if (
+    value === 'admin' ||
+    value === 'manager' ||
+    value === 'worker' ||
+    value === 'technician' ||
+    value === 'technican' ||
+    value === 'accountant' ||
+    value === 'sales' ||
+    value === 'delivery'
+  ) {
     return value;
   }
   return 'manager';
+};
+
+const normalizeModules = (modules: unknown): string[] | undefined => {
+  if (!Array.isArray(modules)) {
+    return undefined;
+  }
+
+  const normalized = modules
+    .filter((moduleName): moduleName is string => typeof moduleName === 'string' && moduleName.trim().length > 0)
+    .map((moduleName) => moduleName.trim().toLowerCase());
+
+  return normalized.length > 0 ? normalized : undefined;
 };
 
 export const mapBackendUserToAppUser = (backendUser: BackendAuthUser): User => ({
@@ -58,6 +79,7 @@ export const mapBackendUserToAppUser = (backendUser: BackendAuthUser): User => (
   phone: backendUser.phone?.trim() || 'N/A',
   role: normalizeRole(backendUser.role),
   farmId: backendUser.farmId,
+  modules: normalizeModules(backendUser.modules),
 });
 
 const parseStoredSession = (raw: string | null): StoredAuthSession | null => {
@@ -158,6 +180,7 @@ export const getStoredAppUser = (): User | null => {
       phone: typeof parsed.phone === 'string' && parsed.phone.trim() ? parsed.phone : 'N/A',
       role: normalizeRole(typeof parsed.role === 'string' ? parsed.role : undefined),
       farmId: typeof parsed.farmId === 'string' ? parsed.farmId : undefined,
+      modules: normalizeModules(parsed.modules),
     };
   } catch {
     return getUserFromSession();

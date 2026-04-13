@@ -73,13 +73,16 @@ export function GrowthMeasurementsTab({
                 <Button
                   key={batch.id}
                   variant={activeBatchId === batch.id ? "default" : "outline"}
-                  className={`transition-all ${activeBatchId === batch.id ? 'bg-[#0A4D68] hover:bg-[#088395]' : 'bg-white hover:bg-blue-50 border-blue-100'}`}
+                  className={`transition-all h-auto py-2 flex flex-col items-start ${activeBatchId === batch.id ? 'bg-[#0A4D68] hover:bg-[#088395]' : 'bg-white hover:bg-blue-50 border-blue-100'}`}
                   onClick={() => setSelectedBatchId(batch.id)}
                 >
-                  Batch {batch.batchNumber || batch.id.substring(0, 8)}
-                  <Badge className={`ml-2 ${activeBatchId === batch.id ? 'bg-[#088395] text-white' : 'bg-blue-100 text-blue-700'}`}>
-                    {(batch.counts?.current ?? batch.currentCount ?? batch.count ?? 0).toLocaleString()} fish
-                  </Badge>
+                  <div className="flex items-center justify-between w-full gap-2">
+                    <span className="font-bold">Batch {batch.batchNumber || 'N/A'}</span>
+                    <Badge className={`${activeBatchId === batch.id ? 'bg-[#088395] text-white' : 'bg-blue-100 text-blue-700'} text-[10px]`}>
+                      {(batch.counts?.current ?? batch.currentCount ?? batch.count ?? 0).toLocaleString()} fish
+                    </Badge>
+                  </div>
+                  <span className="text-[10px] opacity-70 font-mono">ID: {batch.id.split('-')[0]}</span>
                 </Button>
               ))}
             </div>

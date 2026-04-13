@@ -2,3 +2,9 @@ build/
 dist/
 node_modules/
 public/
+.env
+.env.local
+.DS_Store
+scratch/
+*.log
+.gemini/

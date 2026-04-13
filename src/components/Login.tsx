@@ -16,6 +16,15 @@ interface LoginProps {
 type LoginStep = 'credentials' | 'farm-selection' | 'otp-required';
 
 const DEFAULT_OTP_MESSAGE = 'OTP verification is required for this account. Complete OTP on the backend-supported channel.';
+const QUICK_LOGIN_PASSWORD = 'FishFarm360!2026';
+const QUICK_LOGIN_PRESETS = [
+  { key: 'admin', email: 'admin.test@fishfarm360.local' },
+  { key: 'manager', email: 'manager.test@fishfarm360.local' },
+  { key: 'technican', email: 'technican.test@fishfarm360.local' },
+  { key: 'sales', email: 'sales.test@fishfarm360.local' },
+  { key: 'worker', email: 'worker.test@fishfarm360.local' },
+  { key: 'delivery', email: 'delivery.test@fishfarm360.local' },
+];
 
 const normalizeErrorMessage = (error: unknown): string => {
   if (error instanceof AuthApiError) {
@@ -193,6 +202,30 @@ export default function Login({ onLogin }: LoginProps) {
                 <Lock className="w-4 h-4 mr-2" />
                 {isSubmitting ? 'Signing in...' : 'Sign In'}
               </Button>
+
+              <div className="space-y-2 rounded-md border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs font-medium text-gray-700">Quick Login Presets</p>
+                <p className="text-xs text-gray-500">Password: {QUICK_LOGIN_PASSWORD}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {QUICK_LOGIN_PRESETS.map((preset) => (
+                    <Button
+                      key={preset.key}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="justify-start"
+                      onClick={() => {
+                        setEmail(preset.email);
+                        setPassword(QUICK_LOGIN_PASSWORD);
+                        setErrorMessage(null);
+                      }}
+                      disabled={isSubmitting}
+                    >
+                      {preset.key}
+                    </Button>
+                  ))}
+                </div>
+              </div>
             </form>
           )}
 
