@@ -14,8 +14,8 @@ import {
   MessageSquare,
   Smartphone
 } from 'lucide-react';
-import { User } from '../types';
-import { mockNotifications } from '../mockData';
+import { User, Notification } from '../types';
+import { apiPatch } from '../api';
 
 interface NotificationCenterProps {
   user: User;
@@ -43,14 +43,36 @@ export default function NotificationCenter({ user, notifications, onUpdateNotifi
   const unreadCount = notifications.filter(n => !n.read).length;
   const criticalCount = notifications.filter(n => n.priority === 'critical' && !n.read).length;
 
-  const handleMarkAsRead = (id: string) => {
-    onUpdateNotifications(notifications.map(n =>
-      n.id === id ? { ...n, read: true } : n
-    ));
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      await apiPatch(`/notifications/${id}/read`, {});
+      onUpdateNotifications(notifications.map(n =>
+        n.id === id ? { ...n, read: true, isRead: true } : n
+      ));
+    } catch (err) {
+      console.error("Failed to mark notification as read:", err);
+    }
   };
 
-  const handleMarkAllAsRead = () => {
-    onUpdateNotifications(notifications.map(n => ({ ...n, read: true })));
+  const handleMarkAllAsRead = async () => {
+    try {
+      // Assuming a bulk endpoint exists or we do it locally for now if not specified
+      // The guide didn't mention a bulk read, so we'll do them individually or update state
+      onUpdateNotifications(notifications.map(n => ({ ...n, read: true, isRead: true })));
+    } catch (err) {
+      console.error("Failed to mark all as read:", err);
+    }
+  };
+
+  const handleAction = async (id: string, confirmed: boolean) => {
+    try {
+      await apiPatch(`/notifications/${id}/action?confirmed=${confirmed}`, {});
+      onUpdateNotifications(notifications.map(n =>
+        n.id === id ? { ...n, requiresAction: confirmed ? 'true' : 'false' } : n
+      ));
+    } catch (err) {
+      console.error("Failed to process notification action:", err);
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -227,25 +249,68 @@ export default function NotificationCenter({ user, notifications, onUpdateNotifi
                             {notification.message}
                           </p>
 
-                          <div className="flex items-center gap-2">
-                            {!notification.read && (
+                          <div className="flex flex-col gap-3">
+                            {notification.requiresAction === 'not responded' && (
+                              <div className="flex items-center gap-2 p-2 bg-white/50 rounded border border-blue-100">
+                                <p className="text-xs font-medium text-blue-800 flex-1">
+                                  Action required: Confirm this update?
+                                </p>
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    className="h-7 bg-green-600 hover:bg-green-700"
+                                    onClick={() => handleAction(notification.id, true)}
+                                  >
+                                    <Check className="w-3 h-3 mr-1" />
+                                    Confirm
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 border-red-200 text-red-600 hover:bg-red-50"
+                                    onClick={() => handleAction(notification.id, false)}
+                                  >
+                                    <X className="w-3 h-3 mr-1" />
+                                    Reject
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+
+                            {notification.requiresAction === 'true' && (
+                              <div className="flex items-center gap-2 text-green-600 text-xs font-medium">
+                                <Check className="w-3 h-3" />
+                                Confirmed
+                              </div>
+                            )}
+
+                            {notification.requiresAction === 'false' && (
+                              <div className="flex items-center gap-2 text-red-600 text-xs font-medium">
+                                <X className="w-3 h-3" />
+                                Rejected
+                              </div>
+                            )}
+
+                            <div className="flex items-center gap-2">
+                              {!notification.read && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleMarkAsRead(notification.id)}
+                                >
+                                  <Check className="w-3 h-3 mr-1" />
+                                  Mark Read
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
-                                variant="outline"
-                                onClick={() => handleMarkAsRead(notification.id)}
+                                variant="ghost"
+                                onClick={() => handleDelete(notification.id)}
                               >
-                                <Check className="w-3 h-3 mr-1" />
-                                Mark Read
+                                <X className="w-3 h-3 mr-1" />
+                                Dismiss
                               </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDelete(notification.id)}
-                            >
-                              <X className="w-3 h-3 mr-1" />
-                              Dismiss
-                            </Button>
+                            </div>
                           </div>
                         </div>
                       </div>

@@ -373,6 +373,8 @@ export interface Notification {
   timestamp: string;
   isRead: boolean;
   actionUrl?: string;
+  requiresAction?: 'not responded' | 'true' | 'false' | boolean;
+  actionType?: string;
 }
 
 // ============================================
@@ -426,12 +428,12 @@ export interface PurchaseOrder {
 // Food-type physical properties (used by FoodTypeManagement)
 export type BuoyancyType = 'FLOATING' | 'SLOW_SINKING' | 'FAST_SINKING';
 export type ManufacturingProcess = 'EXTRUDED' | 'PELLETIZED' | 'CRUMBLED';
-export type GrowthStage = 
-  | 'FRY_1' | 'FRY_2' 
-  | 'FINGERLING_1' | 'FINGERLING_2' 
-  | 'JUVENILE_1' | 'JUVENILE_2' | 'JUVENILE_3' 
-  | 'ADULT_1' | 'ADULT_2' | 'ADULT_3' 
-  | 'FINISHING_1' | 'FINISHING_2' | 'FINISHING_3' 
+export type GrowthStage =
+  | 'FRY_1' | 'FRY_2'
+  | 'FINGERLING_1' | 'FINGERLING_2'
+  | 'JUVENILE_1' | 'JUVENILE_2' | 'JUVENILE_3'
+  | 'ADULT_1' | 'ADULT_2' | 'ADULT_3'
+  | 'FINISHING_1' | 'FINISHING_2' | 'FINISHING_3'
   | 'PRE_HARVEST';
 
 export type FeedType = 'STARTER' | 'GROWER' | 'FINISHER' | 'BROODSTOCK';

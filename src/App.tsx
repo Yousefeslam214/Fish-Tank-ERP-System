@@ -32,8 +32,29 @@ export default function App() {
     if (user) {
       setCurrentUser(user);
       fetchFarms(user);
+      fetchActionableNotifications();
     }
   }, []);
+
+  const fetchActionableNotifications = async () => {
+    try {
+      const actionable = await apiGet<any[]>('/notifications/action-required');
+      if (Array.isArray(actionable)) {
+        const mapped = actionable.map(n => ({
+          ...n,
+          read: n.status === 'READ',
+          title: n.subject,
+          message: n.body,
+          type: 'alert',
+          priority: 'high',
+          timestamp: n.createdAt
+        }));
+        setNotifications(prev => [...mapped, ...prev]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch actionable notifications:", err);
+    }
+  };
 
 
 
@@ -70,7 +91,7 @@ export default function App() {
             }
           },
           onmessage(ev) {
-            console.log("📥 إشعار جديد (RAW):", ev.data);
+            //console.log("📥 إشعار جديد (RAW):", ev.data);
             try {
               const data = JSON.parse(ev.data);
 
@@ -90,6 +111,7 @@ export default function App() {
                 priority: priorityMap[data.data?.status] || 'medium',
                 timestamp: data.timestamp || new Date().toISOString(),
                 read: false,
+                requiresAction: data.requiresAction,
                 data: data.data
               };
 
