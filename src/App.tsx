@@ -82,6 +82,12 @@ export default function App() {
             try {
               const data = JSON.parse(ev.data);
 
+              // Skip heartbeats or empty messages
+              if (!data || (!data.subject && !data.body && !data.id)) {
+                console.log("💓 Heartbeat received, skipping...");
+                return;
+              }
+
               const newNotification = {
                 id: data.id || Math.random().toString(36).substr(2, 9),
                 title: formatMessage(data.subject, data.data) || "New Notification",
