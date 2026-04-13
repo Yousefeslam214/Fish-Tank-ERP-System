@@ -57,7 +57,7 @@ export default function Sidebar({
     { id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadCount > 0 ? unreadCount : null }
   ];
 
-  const visibleMenuItems = menuItems.filter((item) => allowedPages.includes(item.id));
+  const visibleMenuItems = menuItems.filter((item) => (allowedPages || []).includes(item.id));
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -105,8 +105,8 @@ export default function Sidebar({
               key={item.id}
               onClick={() => onPageChange(item.id)}
               className={`w-full flex items-center justify-between px-3 py-2 rounded-lg mb-1 transition-colors ${isActive
-                  ? 'bg-[#088395] text-white'
-                  : 'text-gray-200 hover:bg-white/10'
+                ? 'bg-[#088395] text-white'
+                : 'text-gray-200 hover:bg-white/10'
                 }`}
             >
               <div className="flex items-center gap-3">

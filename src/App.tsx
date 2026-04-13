@@ -20,6 +20,7 @@ import { clearAuthSession, getStoredAppUser, getAccessToken } from './services/a
 import { apiGet, API_BASE } from './api';
 import { mockFarms, mockNotifications } from './mockData';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
+import { resolveAllowedPages, buildModuleLabelMap } from './services/moduleAccess';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -198,6 +199,8 @@ export default function App() {
         onLogout={handleLogout}
         user={currentUser}
         notifications={notifications}
+        allowedPages={resolveAllowedPages(currentUser)}
+        moduleLabelMap={buildModuleLabelMap([])}
       />
 
       <div className="flex-1 overflow-auto">
