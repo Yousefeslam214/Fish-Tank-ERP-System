@@ -96,7 +96,7 @@ export default function App() {
                 priority: priorityMap[data.data?.status] || 'medium',
                 timestamp: data.timestamp || new Date().toISOString(),
                 read: false,
-                requiresAction: data.requiresAction,
+                requiresAction: data.requiresAction ?? data.requiredAction,
                 actionType: data.actionType,
                 data: data.data
               };
@@ -132,7 +132,7 @@ export default function App() {
             priority: priorityMap[task.data?.status] || 'medium',
             timestamp: task.timestamp || new Date().toISOString(),
             read: task.isRead || false,
-            requiresAction: task.requiresAction,
+            requiresAction: task.requiresAction ?? task.requiredAction,
             actionType: task.actionType,
             data: task.data
           }));

@@ -34,16 +34,19 @@ export default function NotificationCenter({ user, notifications, onUpdateNotifi
   const [inventoryAlerts, setInventoryAlerts] = useState(true);
   const [healthAlerts, setHealthAlerts] = useState(true);
 
+  const isPendingTask = (status: any) =>
+    status === 'not responded' || status === true || status === 'true';
+
   const filteredNotifications = notifications.filter(notif => {
     if (filter === 'unread') return !notif.read;
     if (filter === 'critical') return notif.priority === 'critical';
-    if (filter === 'tasks') return notif.requiresAction === 'not responded';
+    if (filter === 'tasks') return isPendingTask(notif.requiresAction);
     return true;
   });
 
   const unreadCount = notifications.filter(n => !n.read).length;
   const criticalCount = notifications.filter(n => n.priority === 'critical' && !n.read).length;
-  const pendingTasksCount = notifications.filter(n => n.requiresAction === 'not responded').length;
+  const pendingTasksCount = notifications.filter(n => isPendingTask(n.requiresAction)).length;
 
   const handleMarkAsRead = async (id: string) => {
     try {
@@ -283,7 +286,7 @@ export default function NotificationCenter({ user, notifications, onUpdateNotifi
                             {notification.message}
                           </p>
 
-                          {notification.requiresAction === 'not responded' && (
+                          {isPendingTask(notification.requiresAction) && (
                             <div className="flex items-center gap-2 mb-3 bg-blue-50/50 p-2 rounded-md border border-blue-100">
                               <p className="text-xs font-medium text-blue-700 mr-2">Action Required:</p>
                               <Button
@@ -306,7 +309,7 @@ export default function NotificationCenter({ user, notifications, onUpdateNotifi
                             </div>
                           )}
 
-                          {notification.requiresAction === 'true' && (
+                          {(notification.requiresAction === 'true' || notification.requiresAction === true) && (
                             <div className="flex items-center gap-1 mb-2">
                               <Badge className="bg-green-100 text-green-800 hover:bg-green-100 border-green-200">
                                 <Check className="w-3 h-3 mr-1" />
@@ -315,7 +318,7 @@ export default function NotificationCenter({ user, notifications, onUpdateNotifi
                             </div>
                           )}
 
-                          {notification.requiresAction === 'false' && (
+                          {(notification.requiresAction === 'false' || notification.requiresAction === false) && (
                             <div className="flex items-center gap-1 mb-2">
                               <Badge className="bg-red-100 text-red-800 hover:bg-red-100 border-red-200">
                                 <X className="w-3 h-3 mr-1" />
