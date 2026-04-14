@@ -10,7 +10,7 @@ Create or update the API service to include the following methods:
 | **Assign User** | `POST` | `/api/v1/tanks/:tankId/assign/:userId` | Links a staff member to a tank. |
 | **Unassign User** | `DELETE` | `/api/v1/tanks/:tankId/unassign/:userId` | Removes staff from a tank. |
 | **Get Assigned Users** | `GET` | `/api/v1/tanks/:tankId/users` | Fetches a list of IDs for currently assigned staff. |
-| **Get Farm Users** | `GET` | `/api/users/farm/:farmId` | Fetches all users and their roles in a specific farm. |
+| **Get Farm Users** | `GET` | `/api/v1/users/farm/:farmId` | Fetches all users and their roles in a specific farm. |
 
 ## 2. UI Components & Logic
 
