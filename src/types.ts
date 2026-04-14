@@ -435,8 +435,8 @@ export interface PurchaseOrder {
 // ============================================
 
 // Food-type physical properties (used by FoodTypeManagement)
-export type BuoyancyType = 'FLOATING' | 'SLOW_SINKING' | 'FAST_SINKING';
-export type ManufacturingProcess = 'EXTRUDED' | 'PELLETIZED' | 'CRUMBLED';
+export type BuoyancyType = 'FLOATING' | 'SINKING' | 'SLOW_SINKING' | 'SEMI_FLOATING';
+export type ManufacturingProcess = 'EXTRUDED' | 'PELLETED' | 'MILLED' | 'CRUMBLED';
 export type GrowthStage =
   | 'FRY_1' | 'FRY_2'
   | 'FINGERLING_1' | 'FINGERLING_2'
