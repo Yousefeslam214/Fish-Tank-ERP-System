@@ -61,14 +61,11 @@
     "vitest": "^2.1.8"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "npx vite",
     "build": "vite build",
     "test": "vitest run --config vitest.config.ts",
     "test:unit": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts",
-    "test:live": "vitest run --config vitest.live.config.ts",
-    "@types/node": "^20.10.0",
-    "@vitejs/plugin-react-swc": "^3.10.2",
-    "vite": "6.3.5"
+    "test:live": "vitest run --config vitest.live.config.ts"
   }
 }

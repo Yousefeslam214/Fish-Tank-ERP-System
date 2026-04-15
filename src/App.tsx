@@ -79,9 +79,18 @@ export default function App() {
             }
           },
           onmessage(ev) {
-            console.log("📥 إشعار جديد (RAW):", ev.data);
+            const raw =
+              typeof ev.data === 'string' ? ev.data.trim() : String(ev.data ?? '').trim();
+            if (!raw || raw === '[DONE]') {
+              return;
+            }
+            const looksLikeJson = raw.startsWith('{') || raw.startsWith('[');
+            if (!looksLikeJson) {
+              return;
+            }
+            console.log("📥 إشعار جديد (RAW):", raw);
             try {
-              const data = JSON.parse(ev.data);
+              const data = JSON.parse(raw);
 
               // Skip heartbeats or empty messages
               if (!data || (!data.subject && !data.body && !data.id)) {
