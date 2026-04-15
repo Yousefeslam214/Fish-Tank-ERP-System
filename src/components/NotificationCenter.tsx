@@ -35,7 +35,7 @@ export default function NotificationCenter({ user, notifications, onUpdateNotifi
   const [healthAlerts, setHealthAlerts] = useState(true);
 
   const isPendingTask = (status: any) =>
-    status === 'not responded' || status === true || status === 'true';
+    status === 'not responded';
 
   const filteredNotifications = notifications.filter(notif => {
     if (filter === 'unread') return !notif.read;
@@ -309,7 +309,7 @@ export default function NotificationCenter({ user, notifications, onUpdateNotifi
                             </div>
                           )}
 
-                          {(notification.requiresAction === 'true' || notification.requiresAction === true) && (
+                          {notification.requiresAction === 'true' && (
                             <div className="flex items-center gap-1 mb-2">
                               <Badge className="bg-green-100 text-green-800 hover:bg-green-100 border-green-200">
                                 <Check className="w-3 h-3 mr-1" />
@@ -318,7 +318,7 @@ export default function NotificationCenter({ user, notifications, onUpdateNotifi
                             </div>
                           )}
 
-                          {(notification.requiresAction === 'false' || notification.requiresAction === false) && (
+                          {notification.requiresAction === 'false' && (
                             <div className="flex items-center gap-1 mb-2">
                               <Badge className="bg-red-100 text-red-800 hover:bg-red-100 border-red-200">
                                 <X className="w-3 h-3 mr-1" />
