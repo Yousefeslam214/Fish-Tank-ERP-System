@@ -11,21 +11,29 @@ const toArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : [
 const readPayload = (payload: unknown): unknown => {
   if (!payload || typeof payload !== 'object') return payload;
   const rec = payload as Record<string, unknown>;
-  return rec.data ?? rec.users ?? rec.items ?? payload;
+  return rec.data ?? rec.users ?? rec.items ?? rec.assignedUsers ?? rec.userIds ?? rec.results ?? payload;
 };
 
 const normalizeUser = (entry: unknown): TankAssignableUser | null => {
   if (!entry || typeof entry !== 'object') return null;
   const rec = entry as Record<string, unknown>;
-  const id = String(rec.id ?? rec.userId ?? '').trim();
+  const nestedUser = rec.user && typeof rec.user === 'object' ? (rec.user as Record<string, unknown>) : null;
+  const id = String(
+    rec.id ??
+      rec._id ??
+      rec.userId ??
+      nestedUser?.id ??
+      nestedUser?._id ??
+      '',
+  ).trim();
   if (!id) return null;
   const firstName = typeof rec.firstName === 'string' ? rec.firstName : '';
   const lastName = typeof rec.lastName === 'string' ? rec.lastName : '';
   const fallbackName = `${firstName} ${lastName}`.trim();
   return {
     id,
-    name: String(rec.name ?? fallbackName ?? rec.email ?? id),
-    role: String(rec.role ?? rec.userRole ?? 'staff').toUpperCase(),
+    name: String(rec.name ?? nestedUser?.name ?? fallbackName ?? rec.email ?? nestedUser?.email ?? id),
+    role: String(rec.role ?? rec.userRole ?? nestedUser?.role ?? 'staff').toUpperCase(),
   };
 };
 
@@ -39,7 +47,19 @@ const normalizeAssignedIds = (payload: unknown): string[] => {
       }
       if (entry && typeof entry === 'object') {
         const rec = entry as Record<string, unknown>;
-        return String(rec.id ?? rec.userId ?? '');
+        const nestedUser = rec.user && typeof rec.user === 'object' ? (rec.user as Record<string, unknown>) : null;
+        const nestedStaff = rec.staff && typeof rec.staff === 'object' ? (rec.staff as Record<string, unknown>) : null;
+        return String(
+          rec.id ??
+            rec._id ??
+            rec.userId ??
+            rec.assignedUserId ??
+            nestedUser?.id ??
+            nestedUser?._id ??
+            nestedStaff?.id ??
+            nestedStaff?._id ??
+            '',
+        );
       }
       return '';
     })
