@@ -54,89 +54,175 @@ export default function App() {
 
     const controller = new AbortController();
 
-    const formatMessage = (template: string, data: any) => {
-      if (!template) return "";
+    const asRecord = (value: unknown): Record<string, unknown> =>
+      value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+
+    const toText = (value: unknown): string => {
+      if (typeof value === 'string') return value.trim();
+      if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+      return '';
+    };
+
+    const formatMessage = (template: string, data: Record<string, unknown>) => {
+      if (!template) return '';
       let formatted = template;
-      Object.entries(data || {}).forEach(([key, value]) => {
+      Object.entries(data).forEach(([key, value]) => {
         formatted = formatted.replace(new RegExp(`{{${key}}}`, 'g'), String(value));
       });
       return formatted;
     };
 
+    const pickTimestamp = (...values: unknown[]): string => {
+      for (const value of values) {
+        if (value instanceof Date) {
+          return Number.isNaN(value.getTime()) ? new Date().toISOString() : value.toISOString();
+        }
+        if (typeof value === 'number') {
+          const date = new Date(value);
+          if (!Number.isNaN(date.getTime())) return date.toISOString();
+        }
+        if (typeof value === 'string' && value.trim()) {
+          const date = new Date(value);
+          if (!Number.isNaN(date.getTime())) return date.toISOString();
+        }
+      }
+      return new Date().toISOString();
+    };
+
+    const mapIncomingNotification = (payload: unknown) => {
+      const root = asRecord(payload);
+      const nested = asRecord(root.notification);
+      const notification = Object.keys(nested).length > 0 ? nested : root;
+
+      const eventType = toText(root.type).toLowerCase();
+      if (eventType === 'connected' || eventType === 'heartbeat') {
+        return null;
+      }
+
+      const data = asRecord(notification.data);
+
+      const subjectTemplate =
+        toText(notification.subject) ||
+        toText(root.subject) ||
+        toText(data.subject) ||
+        toText(notification.title);
+
+      const bodyTemplate =
+        toText(notification.body) ||
+        toText(root.body) ||
+        toText(notification.message) ||
+        toText(root.message) ||
+        toText(data.body);
+
+      const subject = formatMessage(subjectTemplate, data).trim();
+      const message = formatMessage(bodyTemplate, data).trim();
+      const title =
+        toText(notification.title) ||
+        toText(root.title) ||
+        subject ||
+        toText(notification.templateName) ||
+        toText(root.templateName) ||
+        'Notification';
+
+      if (!subject && !message && !toText(notification.id) && !toText(root.id)) {
+        return null;
+      }
+
+      const statusKey = toText(data.status).toUpperCase();
+      const priorityKey = toText(notification.priority).toLowerCase();
+      const priorityMap: Record<string, string> = {
+        CRITICAL: 'critical',
+        HIGH: 'high',
+        WARNING: 'medium',
+        INFO: 'low',
+      };
+
+      const normalizedPriority =
+        priorityKey === 'critical' || priorityKey === 'high' || priorityKey === 'medium' || priorityKey === 'low'
+          ? priorityKey
+          : (priorityMap[statusKey] || 'medium');
+
+      return {
+        id: toText(notification.id) || toText(root.id) || Math.random().toString(36).slice(2, 11),
+        title,
+        subject: subject || title,
+        message,
+        type: 'alert',
+        priority: normalizedPriority,
+        timestamp: pickTimestamp(
+          notification.timestamp,
+          root.timestamp,
+          notification.createdAt,
+          root.createdAt,
+          notification.created_at,
+          root.created_at,
+          notification.sentAt,
+          root.sentAt,
+        ),
+        read: false,
+        data,
+      };
+    };
+
     const connectToSSE = async () => {
-      console.log("📡 Attempting to connect to Notification Stream...");
+      console.log('Attempting to connect to Notification Stream...');
       try {
         const token = getAccessToken();
         await fetchEventSource(`${API_BASE}/notifications/stream`, {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'text/event-stream',
+            Authorization: `Bearer ${token}`,
+            Accept: 'text/event-stream',
           },
           signal: controller.signal,
           async onopen(response) {
-            if (response.ok) {
-              console.log("✅ متصل بنظام إشعارات FishFarm360");
-            } else {
-              console.error("❌ فشل الاتصال بنظام الإشعارات:", response.status, response.statusText);
+            if (!response.ok) {
+              console.error('Failed to connect to notifications stream:', response.status, response.statusText);
             }
           },
           onmessage(ev) {
-            const raw =
-              typeof ev.data === 'string' ? ev.data.trim() : String(ev.data ?? '').trim();
-            if (!raw) {
-              return;
-            }
-            if (raw === '[DONE]') {
+            const raw = typeof ev.data === 'string' ? ev.data.trim() : String(ev.data ?? '').trim();
+            if (!raw || raw === '[DONE]') {
               return;
             }
             const looksLikeJson = raw.startsWith('{') || raw.startsWith('[');
             if (!looksLikeJson) {
               return;
             }
-            console.log("📥 إشعار جديد (RAW):", raw);
+
             try {
-              const data = JSON.parse(raw);
+              const payload = JSON.parse(raw);
+              const newNotification = mapIncomingNotification(payload);
+              if (!newNotification) {
+                return;
+              }
 
-              // Map data status to front-end priority
-              const priorityMap: Record<string, string> = {
-                'CRITICAL': 'critical',
-                'HIGH': 'high',
-                'WARNING': 'medium',
-                'INFO': 'low'
-              };
-
-              const newNotification = {
-                id: data.id || Math.random().toString(36).substr(2, 9),
-                title: formatMessage(data.subject, data.data) || "New Notification",
-                message: formatMessage(data.body, data.data) || "",
-                type: 'alert',
-                priority: priorityMap[data.data?.status] || 'medium',
-                timestamp: data.timestamp || data.createdAt || data.created_at || data.sentAt || new Date().toISOString(),
-                read: false,
-                data: data.data
-              };
-
-              console.log("🔔 Notification Processed:", newNotification);
-              setNotifications((prev: any[]) => [newNotification, ...prev]);
+              setNotifications((prev: any[]) => {
+                const existingIndex = prev.findIndex((item) => item.id === newNotification.id);
+                if (existingIndex === -1) {
+                  return [newNotification, ...prev];
+                }
+                const next = [...prev];
+                next[existingIndex] = { ...next[existingIndex], ...newNotification };
+                return next;
+              });
             } catch (err) {
-              console.error("❌ Failed to parse notification:", err);
+              console.error('Failed to parse notification event:', err);
             }
           },
           onerror(err) {
-            console.warn("🔄 SSE Connection Error, retrying...", err);
+            console.warn('SSE connection error, retrying...', err);
             throw err;
-          }
+          },
         });
       } catch (err) {
-        console.error("💥 SSE Fatal Error:", err);
+        console.error('SSE fatal error:', err);
       }
     };
 
-    connectToSSE();
+    void connectToSSE();
 
     return () => {
-
       controller.abort();
     };
   }, [currentUser]);

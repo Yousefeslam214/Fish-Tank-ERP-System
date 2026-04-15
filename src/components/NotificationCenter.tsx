@@ -85,27 +85,17 @@ export default function NotificationCenter({ user, notifications, onUpdateNotifi
     }
   };
 
-  const getTimeAgo = (timestamp: string) => {
+  const getTimeAgo = (timestamp?: string) => {
+    if (!timestamp) return 'Just now';
     const now = new Date();
     const time = new Date(timestamp);
-    const diffMs = now.getTime() - time.getTime();
+    if (Number.isNaN(time.getTime())) return 'Just now';
+    const diffInHours = Math.floor((now.getTime() - time.getTime()) / (1000 * 60 * 60));
 
-    if (diffMs < 0) return 'Just now'; // future timestamp guard
-
-    const diffSec = Math.floor(diffMs / 1000);
-    if (diffSec < 60) return 'Just now';
-
-    const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin}m ago`;
-
-    const diffHours = Math.floor(diffMin / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-
-    const diffDays = Math.floor(diffHours / 24);
-    if (diffDays < 30) return `${diffDays}d ago`;
-
-    const diffMonths = Math.floor(diffDays / 30);
-    return `${diffMonths}mo ago`;
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays}d ago`;
   };
 
   return (
@@ -200,6 +190,8 @@ export default function NotificationCenter({ user, notifications, onUpdateNotifi
               <div className="space-y-2">
                 {filteredNotifications.map(notification => {
                   const Icon = getNotificationIcon(notification.type);
+                  const subjectText = notification.subject || notification.title || 'Notification';
+                  const bodyText = notification.message || notification.body || '';
 
                   return (
                     <div
@@ -220,7 +212,7 @@ export default function NotificationCenter({ user, notifications, onUpdateNotifi
                           <div className="flex items-start justify-between mb-1">
                             <div className="flex items-center gap-2 flex-1">
                               <p className={`text-sm ${!notification.read ? 'font-medium' : ''}`}>
-                                {notification.title}
+                                {subjectText}
                               </p>
                               <Badge className={getPriorityBadgeColor(notification.priority)} variant="outline">
                                 {notification.priority}
@@ -235,7 +227,7 @@ export default function NotificationCenter({ user, notifications, onUpdateNotifi
                           </div>
 
                           <p className="text-sm text-gray-700 mb-2">
-                            {notification.message}
+                            {bodyText}
                           </p>
 
                           <div className="flex items-center gap-2">
