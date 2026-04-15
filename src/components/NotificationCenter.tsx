@@ -15,7 +15,6 @@ import {
   Smartphone
 } from 'lucide-react';
 import { User } from '../types';
-import { apiPatch } from '../api';
 
 interface NotificationCenterProps {
   user: User;
@@ -24,7 +23,7 @@ interface NotificationCenterProps {
 }
 
 export default function NotificationCenter({ user, notifications, onUpdateNotifications }: NotificationCenterProps) {
-  const [filter, setFilter] = useState<'all' | 'unread' | 'critical' | 'tasks'>('all');
+  const [filter, setFilter] = useState<'all' | 'unread' | 'critical'>('all');
 
   // Notification preferences
   const [emailEnabled, setEmailEnabled] = useState(true);
@@ -34,48 +33,19 @@ export default function NotificationCenter({ user, notifications, onUpdateNotifi
   const [inventoryAlerts, setInventoryAlerts] = useState(true);
   const [healthAlerts, setHealthAlerts] = useState(true);
 
-  const isPendingTask = (status: any) =>
-    status === 'not responded';
-
   const filteredNotifications = notifications.filter(notif => {
     if (filter === 'unread') return !notif.read;
     if (filter === 'critical') return notif.priority === 'critical';
-    if (filter === 'tasks') return isPendingTask(notif.requiresAction);
     return true;
   });
 
   const unreadCount = notifications.filter(n => !n.read).length;
   const criticalCount = notifications.filter(n => n.priority === 'critical' && !n.read).length;
-  const pendingTasksCount = notifications.filter(n => isPendingTask(n.requiresAction)).length;
 
-  const handleMarkAsRead = async (id: string) => {
-    try {
-      await apiPatch(`/notifications/${id}/read`, {});
-      onUpdateNotifications(notifications.map(n =>
-        n.id === id ? { ...n, read: true } : n
-      ));
-    } catch (err) {
-      console.error("Failed to mark as read:", err);
-    }
-  };
-
-  const handleAction = async (id: string, confirmed: boolean) => {
-    console.log(`🎯 Sending action for ${id}: confirmed = ${confirmed}`);
-    try {
-      const resp = await apiPatch(`/notifications/${id}/action?confirmed=${confirmed}`, {});
-      console.log("✅ Action Response:", resp);
-      onUpdateNotifications(notifications.map(n =>
-        n.id === id ? { ...n, requiresAction: String(confirmed) } : n
-      ));
-    } catch (err) {
-      console.error("❌ Failed to handle action:", err);
-      // Fallback for demo if API fails
-      if (id.startsWith('debug-')) {
-        onUpdateNotifications(notifications.map(n =>
-          n.id === id ? { ...n, requiresAction: String(confirmed) } : n
-        ));
-      }
-    }
+  const handleMarkAsRead = (id: string) => {
+    onUpdateNotifications(notifications.map(n =>
+      n.id === id ? { ...n, read: true } : n
+    ));
   };
 
   const handleMarkAllAsRead = () => {
@@ -145,32 +115,10 @@ export default function NotificationCenter({ user, notifications, onUpdateNotifi
           <h1 className="text-2xl">Notification Center</h1>
           <p className="text-gray-600">Manage alerts and communication preferences</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            className="border-dashed border-blue-400 text-blue-600 hover:bg-blue-50"
-            onClick={() => {
-              const debugNotif = {
-                id: 'debug-' + Date.now(),
-                title: 'التنبيه التفاعلي - تجربة',
-                message: 'هذا إشعار تجريبي لاختبار أزرار "تأكيد" و "رفض".',
-                type: 'alert',
-                priority: 'high',
-                timestamp: new Date().toISOString(),
-                read: false,
-                requiresAction: 'not responded'
-              };
-              onUpdateNotifications([debugNotif, ...notifications]);
-            }}
-          >
-            <Bell className="w-4 h-4 mr-2" />
-            إشعار تجريبي
-          </Button>
-          <Button onClick={handleMarkAllAsRead} variant="outline">
-            <Check className="w-4 h-4 mr-2" />
-            Mark All Read
-          </Button>
-        </div>
+        <Button onClick={handleMarkAllAsRead} variant="outline">
+          <Check className="w-4 h-4 mr-2" />
+          Mark All Read
+        </Button>
       </div>
 
       {/* Summary Cards */}
@@ -193,18 +141,18 @@ export default function NotificationCenter({ user, notifications, onUpdateNotifi
           </CardHeader>
           <CardContent>
             <div className="text-2xl text-red-600">{criticalCount}</div>
-            <p className="text-xs text-gray-600 mt-1">Require attention</p>
+            <p className="text-xs text-gray-600 mt-1">Unread critical</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm">Pending Tasks</CardTitle>
-            <Check className="w-4 h-4 text-orange-600" />
+            <CardTitle className="text-sm">Active Channels</CardTitle>
+            <Mail className="w-4 h-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl text-orange-600">{pendingTasksCount}</div>
-            <p className="text-xs text-gray-600 mt-1">Actions required</p>
+            <div className="text-2xl">{[emailEnabled, smsEnabled, whatsappEnabled].filter(Boolean).length}</div>
+            <p className="text-xs text-gray-600 mt-1">Communication methods</p>
           </CardContent>
         </Card>
       </div>
@@ -245,14 +193,6 @@ export default function NotificationCenter({ user, notifications, onUpdateNotifi
                   onClick={() => setFilter('critical')}
                 >
                   Critical ({criticalCount})
-                </Button>
-                <Button
-                  variant={filter === 'tasks' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setFilter('tasks')}
-                  className={pendingTasksCount > 0 ? "border-orange-500 text-orange-700 bg-orange-50" : ""}
-                >
-                  Tasks ({pendingTasksCount})
                 </Button>
               </div>
             </CardHeader>
@@ -297,47 +237,6 @@ export default function NotificationCenter({ user, notifications, onUpdateNotifi
                           <p className="text-sm text-gray-700 mb-2">
                             {notification.message}
                           </p>
-
-                          {isPendingTask(notification.requiresAction) && (
-                            <div className="flex items-center gap-2 mb-3 bg-blue-50/50 p-2 rounded-md border border-blue-100">
-                              <p className="text-xs font-medium text-blue-700 mr-2">Action Required:</p>
-                              <Button
-                                size="sm"
-                                className="bg-green-600 hover:bg-green-700 h-8"
-                                onClick={() => handleAction(notification.id, true)}
-                              >
-                                <Check className="w-3 h-3 mr-1" />
-                                Confirm
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="border-red-200 text-red-600 hover:bg-red-50 h-8"
-                                onClick={() => handleAction(notification.id, false)}
-                              >
-                                <X className="w-3 h-3 mr-1" />
-                                Reject
-                              </Button>
-                            </div>
-                          )}
-
-                          {notification.requiresAction === 'true' && (
-                            <div className="flex items-center gap-1 mb-2">
-                              <Badge className="bg-green-100 text-green-800 hover:bg-green-100 border-green-200">
-                                <Check className="w-3 h-3 mr-1" />
-                                Action Confirmed
-                              </Badge>
-                            </div>
-                          )}
-
-                          {notification.requiresAction === 'false' && (
-                            <div className="flex items-center gap-1 mb-2">
-                              <Badge className="bg-red-100 text-red-800 hover:bg-red-100 border-red-200">
-                                <X className="w-3 h-3 mr-1" />
-                                Action Rejected
-                              </Badge>
-                            </div>
-                          )}
 
                           <div className="flex items-center gap-2">
                             {!notification.read && (

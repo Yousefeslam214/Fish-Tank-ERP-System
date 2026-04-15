@@ -14,6 +14,7 @@ export const MODULE_BACKED_PAGE_ORDER = [
   'ai-assistant',
   'health',
   'notifications',
+  'tasks',
 ] as const;
 
 export type ModuleBackedPageId = (typeof MODULE_BACKED_PAGE_ORDER)[number];
@@ -32,9 +33,17 @@ export const resolveAllowedPages = (user: User): string[] => {
   const fallbackPages = [...MODULE_BACKED_PAGE_ORDER];
 
   const userModules = user.modules?.map(normalizeModuleId).filter(Boolean);
+  const effectiveModules = userModules ? [...userModules] : [];
+  if (effectiveModules.includes('notifications') && !effectiveModules.includes('tasks')) {
+    effectiveModules.push('tasks');
+  }
+  if (effectiveModules.includes('task') && !effectiveModules.includes('tasks')) {
+    effectiveModules.push('tasks');
+  }
+
   const allowedModulePages =
-    userModules && userModules.length > 0
-      ? MODULE_BACKED_PAGE_ORDER.filter((pageId) => userModules.includes(pageId))
+    effectiveModules.length > 0
+      ? MODULE_BACKED_PAGE_ORDER.filter((pageId) => effectiveModules.includes(pageId))
       : fallbackPages;
 
   const role = user.role.toLowerCase();
@@ -60,6 +69,9 @@ export const buildModuleLabelMap = (modules: NavigationModule[]): Record<string,
     const label = moduleEntry.label?.en || moduleEntry.label?.ar;
     if (label && label.trim()) {
       mapping[id] = label.trim();
+      if (id === 'task') {
+        mapping.tasks = label.trim();
+      }
     }
   });
 

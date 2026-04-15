@@ -27,6 +27,16 @@ describe('moduleAccess helpers', () => {
     expect(allowed).toEqual(['dashboard', 'inventory', 'sales', 'users']);
   });
 
+  it('unlocks tasks when notifications module is granted', () => {
+    const allowed = resolveAllowedPages({
+      ...baseUser,
+      role: 'worker',
+      modules: ['dashboard', 'notifications'],
+    });
+
+    expect(allowed).toEqual(['dashboard', 'notifications', 'tasks']);
+  });
+
   it('blocks user-management page for non-manager roles', () => {
     const allowed = resolveAllowedPages({
       ...baseUser,
@@ -41,13 +51,16 @@ describe('moduleAccess helpers', () => {
   it('builds module label map from metadata modules', () => {
     const labels = buildModuleLabelMap([
       { id: 'inventory', label: { en: 'Inventory' } },
-      { id: 'sales', label: { ar: 'المبيعات' } },
+      { id: 'sales', label: { en: 'Sales' } },
+      { id: 'task', label: { en: 'Tasks' } },
       { id: 'unknown', label: {} },
     ]);
 
     expect(labels).toEqual({
       inventory: 'Inventory',
-      sales: 'المبيعات',
+      sales: 'Sales',
+      task: 'Tasks',
+      tasks: 'Tasks',
     });
   });
 });
