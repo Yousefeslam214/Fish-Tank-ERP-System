@@ -46,7 +46,7 @@ export interface UpdateUserRoleAndFarmsPayload {
 
 export interface UpdateUserModulesPayload {
   action: UserModuleAction;
-  moduleNames: string[];
+  moduleIds: string[];
 }
 
 const normalizeArrayPayload = (payload: unknown, keys: string[]): unknown[] => {
@@ -94,6 +94,13 @@ const normalizeModules = (record: Record<string, unknown>): string[] => {
 
   if (modules.length > 0) {
     return modules.map((entry) => entry.toLowerCase());
+  }
+
+  const moduleIds = asArray(record.moduleIds)
+    .map((entry) => asString(entry))
+    .filter((entry): entry is string => Boolean(entry));
+  if (moduleIds.length > 0) {
+    return moduleIds.map((entry) => entry.toLowerCase());
   }
 
   return asArray(record.moduleNames)
@@ -217,8 +224,10 @@ export const updateUserModules = async (
   await requestJson(`/users/${userId}/modules`, {
     method: 'PATCH',
     body: {
-      action: payload.action,
-      moduleNames: payload.moduleNames,
+      action: payload.action.toUpperCase(),
+      moduleIds: payload.moduleIds
+        .map((moduleId) => moduleId.trim())
+        .filter((moduleId) => moduleId.length > 0),
     },
   });
 };

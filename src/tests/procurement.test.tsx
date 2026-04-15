@@ -179,6 +179,45 @@ describe('Procurement component', () => {
     expect(screen.queryByText('PO-001')).not.toBeInTheDocument();
   });
 
+  it('updates a feed line item status from order details', async () => {
+    const user = userEvent.setup();
+
+    getFeedPurchaseOrdersMock.mockResolvedValue([
+      {
+        id: 'order-status',
+        orderNumber: 'PO-STATUS',
+        supplierId: 'supplier-1',
+        supplierName: 'Supplier Status',
+        status: 'APPROVED',
+        deliveryStatus: 'DELIVERED',
+        totalCost: 800,
+        items: [
+          {
+            id: 'item-status',
+            foodTypeId: 'food-1',
+            foodTypeName: 'Starter Feed',
+            quantityKg: 20,
+            unitCost: 40,
+            status: 'PENDING',
+          },
+        ],
+      },
+    ]);
+
+    render(<Procurement user={testUser} selectedFarm={null} />);
+
+    await screen.findByText('PO-STATUS');
+    await user.click(screen.getByRole('button', { name: 'View Details' }));
+
+    await screen.findByRole('dialog', { name: /feed order po-status/i });
+    await user.selectOptions(screen.getByLabelText('Line item status item-status'), 'RECEIVED');
+    await user.click(screen.getByRole('button', { name: 'Update' }));
+
+    await waitFor(() => {
+      expect(updateFeedPurchaseOrderItemStatusMock).toHaveBeenCalledWith('order-status', 'item-status', 'RECEIVED');
+    });
+  });
+
   it('enables receiving only for delivered orders and submits partial receipt updates', async () => {
     const user = userEvent.setup();
 

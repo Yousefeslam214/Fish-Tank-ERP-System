@@ -124,7 +124,7 @@ describe('userManagementApi', () => {
 
     await updateUserModules('user-1', {
       action: 'REMOVE',
-      moduleNames: ['inventory'],
+      moduleIds: ['inventory'],
     });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -146,7 +146,7 @@ describe('userManagementApi', () => {
         method: 'PATCH',
         body: JSON.stringify({
           action: 'REMOVE',
-          moduleNames: ['inventory'],
+          moduleIds: ['inventory'],
         }),
       }),
     );

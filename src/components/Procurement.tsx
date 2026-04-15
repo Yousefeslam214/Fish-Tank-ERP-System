@@ -128,6 +128,7 @@ const ORDER_STATUS_FILTER_OPTIONS = [
   { value: 'CANCELED', label: 'Canceled' },
   { value: 'REJECTED', label: 'Rejected' },
 ];
+const LINE_ITEM_STATUS_OPTIONS = ORDER_STATUS_FILTER_OPTIONS.filter((option) => option.value !== 'ALL');
 
 const createFeedOrderItem = (): FeedOrderFormItem => ({
   foodTypeId: '',
@@ -239,6 +240,8 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
   const [supplierItemTypes, setSupplierItemTypes] = useState<string[]>(['FOOD']);
 
   const [detailsDialog, setDetailsDialog] = useState<DetailsDialogState | null>(null);
+  const [lineItemStatusDrafts, setLineItemStatusDrafts] = useState<Record<string, string>>({});
+  const [updatingLineItemId, setUpdatingLineItemId] = useState<string | null>(null);
   const [receiveDialog, setReceiveDialog] = useState<ReceiveDialogState | null>(null);
   const [confirmationDialog, setConfirmationDialog] = useState<ConfirmationDialogState>({
     open: false,
@@ -364,6 +367,25 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
     void loadProcurementData();
   }, [loadProcurementData]);
 
+  useEffect(() => {
+    if (!detailsDialog) {
+      setLineItemStatusDrafts({});
+      return;
+    }
+
+    const items =
+      detailsDialog.kind === 'feed'
+        ? (detailsDialog.order as FeedPurchaseOrderRecord).items
+        : (detailsDialog.order as FishPurchaseOrderRecord).items;
+
+    const nextDrafts = items.reduce<Record<string, string>>((accumulator, item) => {
+      accumulator[item.id] = normalizeProcurementUiStatus(item.status);
+      return accumulator;
+    }, {});
+
+    setLineItemStatusDrafts(nextDrafts);
+  }, [detailsDialog]);
+
   const handleOrderAction = async (action: () => Promise<void>, successMessage: string) => {
     try {
       setSubmitting(true);
@@ -373,6 +395,45 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
     } catch (error) {
       window.alert(normalizeErrorMessage(error));
     } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const updateLineItemStatusDraft = (itemId: string, status: string) => {
+    setLineItemStatusDrafts((previous) => ({
+      ...previous,
+      [itemId]: normalizeProcurementUiStatus(status),
+    }));
+  };
+
+  const submitLineItemStatus = async (
+    itemId: string,
+    currentStatus: string,
+    kind: 'feed' | 'fish',
+    orderId: string,
+  ) => {
+    const nextStatus = normalizeProcurementUiStatus(lineItemStatusDrafts[itemId] || currentStatus);
+    if (nextStatus === normalizeProcurementUiStatus(currentStatus)) {
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setUpdatingLineItemId(itemId);
+
+      if (kind === 'feed') {
+        await updateFeedPurchaseOrderItemStatus(orderId, itemId, nextStatus);
+      } else {
+        await updateFishPurchaseOrderItemStatus(orderId, itemId, nextStatus);
+      }
+
+      setDetailsDialog(null);
+      await loadProcurementData();
+      window.alert('Line item status updated successfully.');
+    } catch (error) {
+      window.alert(normalizeErrorMessage(error));
+    } finally {
+      setUpdatingLineItemId(null);
       setSubmitting(false);
     }
   };
@@ -1685,6 +1746,7 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
                       <TableHead>Actual</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Line ID</TableHead>
+                      <TableHead>Update Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1702,6 +1764,38 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
                               </Badge>
                             </TableCell>
                             <TableCell>{toShortId(item.id)}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <select
+                                  aria-label={`Line item status ${item.id}`}
+                                  className="h-8 rounded-md border border-gray-300 px-2 text-xs bg-white"
+                                  value={lineItemStatusDrafts[item.id] || normalizeProcurementUiStatus(item.status)}
+                                  onChange={(event) => updateLineItemStatusDraft(item.id, event.target.value)}
+                                  disabled={submitting}
+                                >
+                                  {LINE_ITEM_STATUS_OPTIONS.map((option) => (
+                                    <option key={`${item.id}-feed-status-${option.value}`} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={
+                                    submitting ||
+                                    updatingLineItemId === item.id ||
+                                    normalizeProcurementUiStatus(lineItemStatusDrafts[item.id] || item.status) ===
+                                      normalizeProcurementUiStatus(item.status)
+                                  }
+                                  onClick={() =>
+                                    void submitLineItemStatus(item.id, item.status, 'feed', detailsDialog.order.id)
+                                  }
+                                >
+                                  {updatingLineItemId === item.id ? 'Updating...' : 'Update'}
+                                </Button>
+                              </div>
+                            </TableCell>
                           </TableRow>
                         ))
                       : (detailsDialog.order as FishPurchaseOrderRecord).items.map((item) => (
@@ -1719,6 +1813,38 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
                               </Badge>
                             </TableCell>
                             <TableCell>{toShortId(item.id)}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <select
+                                  aria-label={`Line item status ${item.id}`}
+                                  className="h-8 rounded-md border border-gray-300 px-2 text-xs bg-white"
+                                  value={lineItemStatusDrafts[item.id] || normalizeProcurementUiStatus(item.status)}
+                                  onChange={(event) => updateLineItemStatusDraft(item.id, event.target.value)}
+                                  disabled={submitting}
+                                >
+                                  {LINE_ITEM_STATUS_OPTIONS.map((option) => (
+                                    <option key={`${item.id}-fish-status-${option.value}`} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={
+                                    submitting ||
+                                    updatingLineItemId === item.id ||
+                                    normalizeProcurementUiStatus(lineItemStatusDrafts[item.id] || item.status) ===
+                                      normalizeProcurementUiStatus(item.status)
+                                  }
+                                  onClick={() =>
+                                    void submitLineItemStatus(item.id, item.status, 'fish', detailsDialog.order.id)
+                                  }
+                                >
+                                  {updatingLineItemId === item.id ? 'Updating...' : 'Update'}
+                                </Button>
+                              </div>
+                            </TableCell>
                           </TableRow>
                         ))}
                   </TableBody>

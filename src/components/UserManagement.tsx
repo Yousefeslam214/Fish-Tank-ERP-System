@@ -49,7 +49,7 @@ interface EditUserModulesState {
   open: boolean;
   user: ManagedUserRecord | null;
   action: UserModuleAction;
-  moduleNames: string[];
+  moduleIds: string[];
 }
 
 const DEFAULT_FORM: StaffRegistrationForm = {
@@ -118,7 +118,7 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
     open: false,
     user: null,
     action: 'ADD',
-    moduleNames: [],
+    moduleIds: [],
   });
 
   const roleOptions = useMemo(
@@ -224,9 +224,9 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
   const toggleModuleSelection = (moduleId: string) => {
     setEditModulesState((previous) => ({
       ...previous,
-      moduleNames: previous.moduleNames.includes(moduleId)
-        ? previous.moduleNames.filter((entry) => entry !== moduleId)
-        : [...previous.moduleNames, moduleId],
+      moduleIds: previous.moduleIds.includes(moduleId)
+        ? previous.moduleIds.filter((entry) => entry !== moduleId)
+        : [...previous.moduleIds, moduleId],
     }));
   };
 
@@ -288,7 +288,7 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
       open: true,
       user: userEntry,
       action: 'ADD',
-      moduleNames: [],
+      moduleIds: [],
     });
   };
 
@@ -333,7 +333,7 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
       return;
     }
 
-    if (editModulesState.moduleNames.length === 0) {
+    if (editModulesState.moduleIds.length === 0) {
       setErrorMessage('Select at least one module.');
       return;
     }
@@ -345,14 +345,14 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
 
       await updateUserModules(editModulesState.user.id, {
         action: editModulesState.action,
-        moduleNames: editModulesState.moduleNames,
+        moduleIds: editModulesState.moduleIds,
       });
 
       setEditModulesState({
         open: false,
         user: null,
         action: 'ADD',
-        moduleNames: [],
+        moduleIds: [],
       });
       await loadData();
       setSuccessMessage(`Module access ${editModulesState.action === 'ADD' ? 'added' : 'removed'} successfully.`);
@@ -802,7 +802,7 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                   <label key={`module-${moduleEntry.id}`} className="flex items-center gap-2 text-sm">
                     <input
                       type="checkbox"
-                      checked={editModulesState.moduleNames.includes(moduleEntry.id)}
+                      checked={editModulesState.moduleIds.includes(moduleEntry.id)}
                       onChange={() => toggleModuleSelection(moduleEntry.id)}
                       className="h-4 w-4 rounded border-gray-300"
                     />
@@ -816,7 +816,7 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
               <Button
                 variant="outline"
                 onClick={() =>
-                  setEditModulesState({ open: false, user: null, action: 'ADD', moduleNames: [] })
+                  setEditModulesState({ open: false, user: null, action: 'ADD', moduleIds: [] })
                 }
               >
                 Cancel

@@ -12,6 +12,7 @@ import Procurement from './components/Procurement';
 import SalesModule from './components/SalesModule';
 import FishTypeManagement from './components/FishTypeManagement';
 import FoodTypeManagement from './components/FoodTypeManagement';
+import UserManagement from './components/UserManagement';
 import { HarvestManagement } from './components/HarvestManagement';
 import Sidebar from './components/Sidebar';
 import { Toaster } from './components/ui/sonner';
@@ -283,6 +284,12 @@ export default function App() {
         {currentPage === 'harvest' && (
           <HarvestManagement
             farmId={selectedFarm?.id || 'farm-1'}
+          />
+        )}
+        {currentPage === 'users' && (
+          <UserManagement
+            user={currentUser}
+            selectedFarm={selectedFarm}
           />
         )}
       </div>

@@ -176,7 +176,7 @@ describe('UserManagement', () => {
     await waitFor(() => {
       expect(updateUserModulesMock).toHaveBeenCalledWith('user-1', {
         action: 'REMOVE',
-        moduleNames: ['inventory'],
+        moduleIds: ['inventory'],
       });
     });
   });
