@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPatch } from '../api';
+import { apiDelete, apiGet, apiPatch, apiPost } from '../api';
 
 export type TaskStatus = 'OPEN' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED';
 
@@ -15,6 +15,16 @@ export interface TaskItem {
   dueAt?: string;
   completedAt?: string;
   createdAt: string;
+}
+
+export interface TaskCreatePayload {
+  taskType: 'CHANGE_TANK_WATER' | 'CLEAN_TANK' | 'FEED_FISH' | 'MEASURE_GROWTH' | 'WATER_QUALITY_CHECK' | 'HARVEST_TANK' | 'OTHER';
+  assignedToUserId?: string;
+  tankId: string;
+  data?: Record<string, any>;
+  title: string;
+  description?: string;
+  dueAt?: string;
 }
 
 const toArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
@@ -76,4 +86,9 @@ export const updateTaskStatus = async (taskId: string, status: TaskStatus): Prom
 
 export const deleteTask = async (taskId: string): Promise<void> => {
   await apiDelete(`/tasks/${taskId}`);
+};
+
+export const createTask = async (payload: TaskCreatePayload): Promise<TaskItem | null> => {
+  const response = await apiPost('/tasks', payload);
+  return normalizeTask(readPayload(response));
 };

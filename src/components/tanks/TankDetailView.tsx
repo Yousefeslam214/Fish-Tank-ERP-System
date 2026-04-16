@@ -537,6 +537,7 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
         batchId={tankBatches[0]?.id}
         tankBatches={tankBatches}
         onSuccess={() => setTimeout(fetchTankDetails, 1000)}
+        user={user}
       />
 
       <WaterQualityModal

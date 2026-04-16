@@ -12,6 +12,8 @@ import { Switch } from '../../ui/switch';
 import { Droplet, Fish, TrendingUp, Activity, AlertTriangle, RefreshCw, Save } from 'lucide-react';
 import { apiPost } from '../../../api';
 import { getFoodTypesBySpecies, FoodType } from '../../../services/foodTypesApi';
+import { createTask } from '../../../services/taskApi';
+import { getTankAssignedUserIds } from '../../../services/tankAssignmentApi';
 import { toast } from 'sonner';
 
 interface FeedingModalProps {
@@ -21,9 +23,10 @@ interface FeedingModalProps {
   batchId?: string;
   tankBatches?: any[];
   onSuccess?: (record: any) => void;
+  user: any;
 }
 
-export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = [], onSuccess }: FeedingModalProps) {
+export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = [], onSuccess, user }: FeedingModalProps) {
   const [selectedBatchId, setSelectedBatchId] = useState<string>('');
   const [meals, setMeals] = useState(1);
   const [weightFed, setWeightFed] = useState(0);
@@ -108,8 +111,29 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
       if (!selectedBatchId) {
         throw new Error('Please select a batch to record feeding for.');
       }
+      
       const res = await apiPost<any>(`/tanks/feeding-records/${selectedBatchId}`, payload);
-      toast.success('Feeding record saved successfully');
+      
+      // Auto-create tasks for this feeding
+      try {
+        const assignedUserIds = await getTankAssignedUserIds(tank.id);
+        const targetUserIds = assignedUserIds.length > 0 ? assignedUserIds : [user.id];
+        
+        await Promise.all(targetUserIds.map(userId => 
+          createTask({
+            taskType: 'FEED_FISH',
+            assignedToUserId: userId,
+            tankId: tank.id,
+            title: `Feeding Record: ${tank.name}`,
+            description: `Recorded ${meals} meal(s) of ${weightFed}kg ${availableFoodTypes.find(f => f.id === foodTypeId)?.name || 'feed'}.`,
+            dueAt: new Date().toISOString()
+          })
+        ));
+      } catch (taskErr) {
+        console.warn('Feeding record saved, but failed to create task(s):', taskErr);
+      }
+
+      toast.success('Feeding record saved and tasks synchronized');
 
       if (onSuccess) onSuccess(res?.data || res || payload);
 
