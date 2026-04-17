@@ -85,6 +85,11 @@ This guide is the complete source of truth for all frontend tasks across Sales, 
   }
   ```
 
+## 5. User Management
+
+### new module added tasks
+  - add it to side bar
+
 ---
 
 ## Roles Appendix
