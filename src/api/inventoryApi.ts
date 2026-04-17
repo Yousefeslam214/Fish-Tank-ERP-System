@@ -26,3 +26,15 @@ export const allocateBatch = (id: string, data: any) =>
 
 export const deleteFeed = (id: string) =>
   apiDelete<any>(`/inventory/feed/${id}`);
+
+export const getMedicineInventory = () =>
+  apiGet<any>("/inventory/medicine");
+
+export const getMedicineInventoryTotal = () =>
+  apiGet<any>("/inventory/medicine/total");
+
+export const updateMedicineBatchQuantity = (id: string, newQuantity: number) =>
+  apiPatch<any>(`/inventory/medicine/${id}/quantity`, { newQuantity });
+
+export const deleteMedicineBatch = (id: string) =>
+  apiDelete<any>(`/inventory/medicine/${id}`);
