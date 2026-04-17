@@ -147,8 +147,32 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     setIsTanksLoading(true);
     try {
       const res = await apiGet<any>("/tanks");
-      const data = res.data || res || [];
-      setTanks(data);
+      const rawList = Array.isArray(res)
+        ? res
+        : Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray(res?.items)
+            ? res.items
+            : Array.isArray(res?.results)
+              ? res.results
+              : [];
+
+      const normalized = rawList
+        .map((tank: any) => {
+          const id = tank?.id || tank?._id;
+          if (!id) return null;
+          return {
+            id: String(id),
+            name: String(tank?.name || `Tank ${String(id).slice(0, 6)}`),
+            farmId: String(tank?.farmId || selectedFarm?.id || ""),
+            status: String(tank?.status || "UNKNOWN").toUpperCase(),
+            biomass: Number(tank?.biomass?.actual ?? tank?.biomass ?? 0),
+            capacity: Number(tank?.biomass?.capacity ?? tank?.capacity ?? tank?.biomassLimit ?? 0),
+          };
+        })
+        .filter(Boolean);
+
+      setTanks(normalized);
     } catch (error) {
       console.error("Error loading tanks", error);
     } finally {
@@ -183,11 +207,18 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     stockingDate: string,
     notes?: string
   ) => {
+    void stockingDate;
+    void notes;
     try {
-      await allocateBatch(batchId, { tankId, quantity, stockingDate, notes });
+      const targetBatch = fishBatches.find((b: any) => b.id === batchId);
+      const avgWeight = Number(targetBatch?.averageWeight ?? 0);
+      // Backend allocate route expects: { tankId, quantity, avgWeight }.
+      await allocateBatch(batchId, { tankId, quantity, avgWeight });
       await loadBatches();
+      toast.success("Batch allocated to tank successfully");
     } catch (error) {
       console.error("Allocation failed", error);
+      toast.error("Failed to allocate batch to tank");
     } finally {
       setShowAllocateModal(false);
       setSelectedBatch(null);
@@ -411,6 +442,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   const filteredFishBatches = selectedFarm
     ? fishBatches.filter((batch: any) => batch.farmId === selectedFarm.id)
     : fishBatches;
+  const readyToAllocateBatches = filteredFishBatches.filter(
+    (batch: any) => batch.status === "READY_TO_STOCK" && (batch.quantity ?? 0) > 0
+  );
 
   // Combine real feed with other mock supplies
   const combinedInventory = [
@@ -636,10 +670,14 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
       {/* Main Tabs */}
       <Tabs defaultValue="fish-stock" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="fish-stock">
             <Fish className="w-4 h-4 mr-2" />
             Fish Stock
+          </TabsTrigger>
+          <TabsTrigger value="allocate">
+            <Plus className="w-4 h-4 mr-2" />
+            Allocate to Tank
           </TabsTrigger>
           <TabsTrigger value="supplies">
             <Package className="w-4 h-4 mr-2" />
@@ -765,6 +803,60 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                     </p>
                   </div>
                 )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Allocate to Tank Tab */}
+        <TabsContent value="allocate" className="mt-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Allocate Fish to Tank</CardTitle>
+                <p className="text-sm text-gray-600 mt-1">
+                  Choose any ready batch and allocate it directly to a tank
+                </p>
+              </div>
+              <Button size="icon" variant="ghost" className="text-gray-400 hover:text-[#0A4D68]" onClick={loadBatches}>
+                <RefreshCw className="w-4 h-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {readyToAllocateBatches.length === 0 && (
+                <div className="text-center py-10 border border-dashed rounded-lg bg-gray-50">
+                  <Fish className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-600">No batches are ready to stock right now.</p>
+                </div>
+              )}
+
+              {readyToAllocateBatches.map((batch) => (
+                <div
+                  key={batch.id}
+                  className="flex flex-col gap-3 rounded-lg border p-4 md:flex-row md:items-center md:justify-between"
+                >
+                  <div>
+                    <p className="font-semibold text-[#0A4D68]">{batch.fishTypeName || batch.species || "Fish Batch"}</p>
+                    <p className="text-xs text-gray-500 mt-1">Batch ID: {batch.id}</p>
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
+                      <span>Qty: <span className="font-medium">{(batch.quantity ?? 0).toLocaleString()} fish</span></span>
+                      <span>Avg Weight: <span className="font-medium">{batch.averageWeight || 0}g</span></span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {getStatusBadge(batch.status)}
+                    <Button
+                      className="bg-[#0A4D68] hover:bg-[#083d52]"
+                      onClick={() => {
+                        setSelectedBatch(batch);
+                        setShowAllocateModal(true);
+                      }}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Allocate to Tank
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </CardContent>
           </Card>
         </TabsContent>

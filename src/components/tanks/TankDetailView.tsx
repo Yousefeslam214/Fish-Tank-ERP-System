@@ -14,6 +14,8 @@ import { WaterQualityTab } from './tabs/WaterQualityTab';
 import { FeedingHistoryTab } from './tabs/FeedingHistoryTab';
 import { GrowthMeasurementsTab } from './tabs/GrowthMeasurementsTab';
 import { PredictionsTab } from './tabs/PredictionsTab';
+import { TankTasksTab } from './tabs/TankTasksTab';
+import { TankAssignmentsTab } from './tabs/TankAssignmentsTab';
 
 // Modals
 import { FeedingModal } from './modals/FeedingModal';
@@ -419,6 +421,8 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
             <TabsTrigger value="feeding">Feeding History</TabsTrigger>
             <TabsTrigger value="growth">Growth Measurements</TabsTrigger>
             <TabsTrigger value="predictions">Predictions</TabsTrigger>
+            <TabsTrigger value="tasks">Tasks</TabsTrigger>
+            <TabsTrigger value="users">Assign Users</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -489,6 +493,14 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
               selectedBatchId={selectedBatchId}
               setSelectedBatchId={setSelectedBatchId}
             />
+          </TabsContent>
+
+          <TabsContent value="tasks">
+            <TankTasksTab user={user} tank={currentTank} />
+          </TabsContent>
+
+          <TabsContent value="users">
+            <TankAssignmentsTab user={user} tank={currentTank} />
           </TabsContent>
         </Tabs>
       </div>

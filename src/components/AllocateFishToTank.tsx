@@ -13,7 +13,7 @@ import {
 } from './ui/select';
 import { Badge } from './ui/badge';
 import { CheckCircle, Fish, AlertCircle } from 'lucide-react';
-import { FishInventoryBatch, Tank } from '../types';
+import { FishInventoryBatch } from '../types';
 import { mockTanks } from '../mockData';
 
 interface AllocateFishToTankProps {
@@ -49,14 +49,40 @@ export default function AllocateFishToTank({
     quantity?: string;
   }>({});
 
-  // Get available tanks for this farm (status ACTIVE or READY)
+  const normalizeTank = (tank: any) => {
+    const id = tank?.id || tank?._id;
+    if (!id) return null;
+    return {
+      id: String(id),
+      name: String(tank?.name || `Tank ${String(id).slice(0, 6)}`),
+      farmId: String(tank?.farmId || ''),
+      status: String(tank?.status || 'UNKNOWN').toUpperCase(),
+      biomass: Number(tank?.biomass?.actual ?? tank?.biomass ?? 0),
+      capacity: Number(tank?.biomass?.capacity ?? tank?.capacity ?? tank?.biomassLimit ?? 0),
+    };
+  };
+
+  // Allow stocking into common operational states.
+  const ALLOCATABLE_STATUSES = new Set(['ACTIVE', 'READY', 'EMPTY']);
+
   const tanksToDisplay = availableTanks.length > 0 ? availableTanks : mockTanks;
-  const tanks = tanksToDisplay.filter(
-    (tank) => tank.farmId === farmId && (tank.status === 'ACTIVE' || tank.status === 'READY')
-  );
+  const normalizedTanks = tanksToDisplay.map(normalizeTank).filter(Boolean) as Array<{
+    id: string;
+    name: string;
+    farmId: string;
+    status: string;
+    biomass: number;
+    capacity: number;
+  }>;
+
+  const tanks = normalizedTanks.filter((tank) => {
+    const farmMatch = !farmId || tank.farmId === farmId;
+    const statusMatch = ALLOCATABLE_STATUSES.has(tank.status);
+    return farmMatch && statusMatch;
+  });
 
   // Get selected tank details
-  const selectedTank = availableTanks.find((t) => t.id === selectedTankId);
+  const selectedTank = tanks.find((t) => t.id === selectedTankId);
 
   // Calculate capacity percentage
   const getCapacityPercentage = (tank: any) => {
@@ -75,6 +101,10 @@ export default function AllocateFishToTank({
   // Validate form
   const validateForm = () => {
     const newErrors: { tank?: string; quantity?: string } = {};
+
+    if (tanks.length === 0) {
+      newErrors.tank = 'No allocatable tanks available';
+    }
 
     if (!selectedTankId) {
       newErrors.tank = 'Please select a tank';
@@ -186,7 +216,7 @@ export default function AllocateFishToTank({
                 <SelectValue placeholder="Choose a tank..." />
               </SelectTrigger>
               <SelectContent>
-                {availableTanks.map((tank) => {
+                {tanks.map((tank) => {
                   const capacityPercent = getCapacityPercentage(tank);
                   const isNearCapacity = capacityPercent >= 80;
 
@@ -207,10 +237,20 @@ export default function AllocateFishToTank({
                     </SelectItem>
                   );
                 })}
+                {tanks.length === 0 && (
+                  <SelectItem value="__no_tanks__" disabled>
+                    No available tanks for allocation
+                  </SelectItem>
+                )}
               </SelectContent>
             </Select>
             {errors.tank && (
               <p className="text-xs text-red-600">{errors.tank}</p>
+            )}
+            {tanks.length === 0 && (
+              <p className="text-xs text-orange-600">
+                No allocatable tanks found. Tank must be in ACTIVE, READY, or EMPTY status.
+              </p>
             )}
 
             {/* Tank Capacity Display */}

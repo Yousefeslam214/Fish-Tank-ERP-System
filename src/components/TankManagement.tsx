@@ -18,8 +18,7 @@ import {
   Droplet,
   AlertTriangle,
   Plus,
-  Trash2,
-  X
+  Trash2
 } from 'lucide-react';
 import { Progress } from './ui/progress';
 import { User, Farm } from '../types';
@@ -27,14 +26,6 @@ import { apiGet, apiPost, apiDelete, apiPatch, apiPut } from '../api';
 import TankDetailView from './tanks/TankDetailView';
 import { AddTankModal } from './tanks/modals/AddTankModal';
 import { Pencil } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import {
-  assignUserToTank,
-  getFarmUsers,
-  getTankAssignedUserIds,
-  TankAssignableUser,
-  unassignUserFromTank,
-} from '../services/tankAssignmentApi';
 
 interface TankManagementProps {
   user: User;
@@ -64,6 +55,7 @@ interface ApiTankFeeding {
 }
 interface RawApiTank {
   id: string;
+  _id?: string;
   name: string;
   status: string;
   fishType?: string;
@@ -71,6 +63,8 @@ interface RawApiTank {
   waterQuality: ApiTankWaterQuality | null;
   feeding: ApiTankFeeding | null;
   batches?: any[];
+  assignedUserIds?: string[];
+  assignedUsers?: Array<string | { id?: string; _id?: string; userId?: string }>;
 }
 interface ApiTank {
   id: string;
@@ -112,10 +106,6 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
   const [editingTank, setEditingTank] = useState<any | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editTankId, setEditTankId] = useState<string | null>(null);
-  const [farmUsers, setFarmUsers] = useState<TankAssignableUser[]>([]);
-  const [assignedUserIdsByTank, setAssignedUserIdsByTank] = useState<Record<string, string[]>>({});
-  const [selectedAssigneeByTank, setSelectedAssigneeByTank] = useState<Record<string, string>>({});
-  const [assignmentBusyByTank, setAssignmentBusyByTank] = useState<Record<string, boolean>>({});
 
   const currentFarm = selectedFarm;
 
@@ -147,6 +137,7 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
 
         return {
           ...t,
+          id: t.id || t._id || '',
           species,
           biomass: biomassKg,
           capacity: capacityKg,
@@ -264,93 +255,6 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
   useEffect(() => {
     fetchTanks();
   }, [fetchTanks]);
-
-  useEffect(() => {
-    const loadFarmUsers = async () => {
-      if (!currentFarm?.id) {
-        setFarmUsers([]);
-        return;
-      }
-      try {
-        const users = await getFarmUsers(currentFarm.id);
-        setFarmUsers(users);
-      } catch (err) {
-        console.error('Failed to load farm users:', err);
-        setFarmUsers([]);
-      }
-    };
-    void loadFarmUsers();
-  }, [currentFarm?.id]);
-
-  useEffect(() => {
-    const loadAssignments = async () => {
-      if (tanks.length === 0) {
-        setAssignedUserIdsByTank({});
-        return;
-      }
-      const settled = await Promise.allSettled(
-        tanks.map(async (tank) => ({
-          tankId: tank.id,
-          ids: await getTankAssignedUserIds(tank.id),
-        })),
-      );
-      const next: Record<string, string[]> = {};
-      settled.forEach((res) => {
-        if (res.status === 'fulfilled') {
-          next[res.value.tankId] = res.value.ids;
-        }
-      });
-      setAssignedUserIdsByTank(next);
-    };
-    void loadAssignments();
-  }, [tanks]);
-
-  const setTankBusy = (tankId: string, busy: boolean) => {
-    setAssignmentBusyByTank((prev) => ({ ...prev, [tankId]: busy }));
-  };
-
-  const handleAssignStaff = async (tankId: string) => {
-    const userId = selectedAssigneeByTank[tankId];
-    if (!userId) return;
-    if ((assignedUserIdsByTank[tankId] || []).includes(userId)) return;
-
-    setTankBusy(tankId, true);
-    setAssignedUserIdsByTank((prev) => ({
-      ...prev,
-      [tankId]: Array.from(new Set([...(prev[tankId] || []), userId])),
-    }));
-    try {
-      await assignUserToTank(tankId, userId);
-      setSelectedAssigneeByTank((prev) => ({ ...prev, [tankId]: '' }));
-      toast.success('Staff assigned to tank');
-    } catch (err) {
-      setAssignedUserIdsByTank((prev) => ({
-        ...prev,
-        [tankId]: (prev[tankId] || []).filter((id) => id !== userId),
-      }));
-      toast.error('Failed to assign staff');
-    } finally {
-      setTankBusy(tankId, false);
-    }
-  };
-
-  const handleUnassignStaff = async (tankId: string, userId: string) => {
-    const previous = assignedUserIdsByTank[tankId] || [];
-    setTankBusy(tankId, true);
-    setAssignedUserIdsByTank((prev) => ({
-      ...prev,
-      [tankId]: (prev[tankId] || []).filter((id) => id !== userId),
-    }));
-    try {
-      await unassignUserFromTank(tankId, userId);
-      toast.success('Staff unassigned');
-    } catch (err) {
-      setAssignedUserIdsByTank((prev) => ({ ...prev, [tankId]: previous }));
-      toast.error('Failed to unassign staff');
-    } finally {
-      setTankBusy(tankId, false);
-    }
-  };
 
   const getStatusColor = (status: string) => {
     const s = status.toLowerCase();
@@ -596,65 +500,11 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
                     </div>
                   )}
 
-                  <div className="bg-gray-50 p-3 rounded-lg border border-dashed border-gray-200">
-                    <p className="text-sm font-medium mb-2">Assigned Staff</p>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {(assignedUserIdsByTank[tank.id] || []).map((userId) => {
-                        const userRecord = farmUsers.find((u) => u.id === userId);
-                        return (
-                          <Badge key={userId} variant="outline" className="flex items-center gap-1 pr-1">
-                            <span>{userRecord?.name || `User ${userId.slice(0, 6)}`}</span>
-                            <button
-                              type="button"
-                              className="rounded hover:bg-red-50 text-red-500"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void handleUnassignStaff(tank.id, userId);
-                              }}
-                              disabled={!!assignmentBusyByTank[tank.id]}
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </Badge>
-                        );
-                      })}
-                      {(assignedUserIdsByTank[tank.id] || []).length === 0 && (
-                        <p className="text-xs text-gray-500">No staff assigned</p>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                      <Select
-                        value={selectedAssigneeByTank[tank.id] || ''}
-                        onValueChange={(value) =>
-                          setSelectedAssigneeByTank((prev) => ({ ...prev, [tank.id]: value }))
-                        }
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue placeholder="Select staff member" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {farmUsers
-                            .filter((u) => !(assignedUserIdsByTank[tank.id] || []).includes(u.id))
-                            .map((u) => (
-                              <SelectItem key={u.id} value={u.id}>
-                                {u.name} ({u.role})
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        size="sm"
-                        className="h-8"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void handleAssignStaff(tank.id);
-                        }}
-                        disabled={!selectedAssigneeByTank[tank.id] || !!assignmentBusyByTank[tank.id]}
-                      >
-                        Assign
-                      </Button>
-                    </div>
+                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                    <p className="text-sm font-medium text-[#0A4D68] mb-1">Staff Assignment Moved</p>
+                    <p className="text-xs text-gray-600">
+                      Open this tank, then use <span className="font-medium">Assign Users</span> tab for user assignment.
+                    </p>
                   </div>
                 </CardContent>
               </Card>
