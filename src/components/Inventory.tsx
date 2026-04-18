@@ -1009,7 +1009,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                       <th className="px-4 py-4">Quantity</th>
                       <th className="px-4 py-4">Average Weight</th>
                       <th className="px-4 py-4">Health Status</th>
-                      <th className="px-4 py-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#f1f5f9]">
@@ -1047,32 +1046,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                         </td>
                         <td className="px-4 py-4">
                           {getHealthCheckBadge(batch.healthCheckStatus)}
-                        </td>
-                        <td className="px-4 py-4 text-right">
-                          <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {batch.status !== "QUARANTINE" && batch.status !== "DEPLETED" && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 w-8 p-0 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
-                                onClick={() => handleQuarantine(batch)}
-                                title="Quarantine"
-                              >
-                                <Clock className="w-4 h-4" />
-                              </Button>
-                            )}
-                            {batch.healthCheckStatus === "PENDING" && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                onClick={() => handleHealthCheck(batch)}
-                                title="Health Check"
-                              >
-                                <CheckCircle className="w-4 h-4" />
-                              </Button>
-                            )}
-                          </div>
                         </td>
                       </tr>
                     ))}
