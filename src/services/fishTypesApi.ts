@@ -343,9 +343,10 @@ export const getFishTypeById = async (fishTypeId: string): Promise<FishTypeRecor
 };
 
 export const createFishType = async (payload: FishTypeUpsertPayload): Promise<FishTypeRecord> => {
+  const { isActive: _isActive, ...createPayload } = payload as FishTypeUpsertPayload & { isActive?: boolean };
   const response = await requestJson('/farm/fish-types', {
     method: 'POST',
-    body: payload,
+    body: createPayload,
   });
 
   const data = unwrapApiData<unknown>(response);
