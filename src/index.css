@@ -3361,6 +3361,29 @@ html {
   font-size: var(--font-size);
 }
 
+.allocate-modal-scroll {
+  overflow-y: scroll !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+  scrollbar-color: #0a4d68 #e5e7eb;
+}
+
+.allocate-modal-scroll::-webkit-scrollbar {
+  width: 12px;
+}
+
+.allocate-modal-scroll::-webkit-scrollbar-track {
+  background: #e5e7eb;
+  border-radius: 9999px;
+}
+
+.allocate-modal-scroll::-webkit-scrollbar-thumb {
+  background: #0a4d68;
+  border: 2px solid #e5e7eb;
+  border-radius: 9999px;
+}
+
 @property --tw-translate-x {
   syntax: "*";
   inherits: false;
