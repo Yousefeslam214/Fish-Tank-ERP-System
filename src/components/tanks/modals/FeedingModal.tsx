@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from '../../ui/textarea';
 import { Switch } from '../../ui/switch';
 import { Droplet, Fish, TrendingUp, Activity, AlertTriangle, RefreshCw, Save } from 'lucide-react';
-import { apiPost } from '../../../api';
+import { apiPost, apiGet } from '../../../api';
 import { getFoodTypesBySpecies, FoodType } from '../../../services/foodTypesApi';
 import { createTask } from '../../../services/taskApi';
 import { getTankAssignedUserIds } from '../../../services/tankAssignmentApi';
@@ -37,6 +37,8 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
   const [notes, setNotes] = useState('');
   const [skipReason, setSkipReason] = useState(false);
   const [skipNotes, setSkipNotes] = useState('');
+  const [batchRequirement, setBatchRequirement] = useState<any>(null);
+  const [isLoadingRequirement, setIsLoadingRequirement] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -63,6 +65,7 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
         setIsLoadingFoodTypes(true);
         try {
           const data = await getFoodTypesBySpecies(tank.species);
+          console.log('Food types for species:', tank.species, data);
           setAvailableFoodTypes(data);
           if (data.length > 0) {
             setFoodTypeId(data[0].id);
@@ -77,14 +80,73 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
     }
   }, [open, tank?.species]);
 
-  const dailyRecommended = tank?.feeding?.recommended ?? 90;
-  const perMeal = dailyRecommended / 4;
-  const currentTotalFed = (tank?.feeding?.todayFed ?? 0);
+  useEffect(() => {
+    if (selectedBatchId && open) {
+      const fetchBatchRequirement = async () => {
+        setIsLoadingRequirement(true);
+        try {
+          // Attempting the route mentioned by the user
+          const res = await apiGet<any>(`/tanks/feeding-records/calculation/batch/${selectedBatchId}`);
+          console.log('Batch feeding requirement response:', res);
+          setBatchRequirement(res.data ?? res);
+        } catch (err) {
+          console.error('Failed to fetch batch requirement from API:', err);
+          
+          // Fallback to batch data from props if API fails
+          const selectedBatch = tankBatches.find(b => b.id.toString() === selectedBatchId);
+          if (selectedBatch?.feedingPlan) {
+            console.log('Falling back to feedingPlan from batch props');
+            setBatchRequirement({
+              recommendedAmount: parseFloat(selectedBatch.feedingPlan.dailyFeedingAmount || '0'),
+              totalRecommended: parseFloat(selectedBatch.feedingPlan.dailyFeedingAmount || '0'),
+              mealsPerDay: selectedBatch.feedingPlan.mealsPerDay || 4,
+              todayFed: selectedBatch.feedingPlan.todayFed || 0
+            });
+          } else {
+            setBatchRequirement(null);
+          }
+        } finally {
+          setIsLoadingRequirement(false);
+        }
+      };
+      fetchBatchRequirement();
+    } else {
+      setBatchRequirement(null);
+    }
+  }, [selectedBatchId, open, tankBatches]);
+
+  const dailyRecommended = 
+    batchRequirement?.totalDailyFeedKg || 
+    batchRequirement?.recommendedAmount || 
+    batchRequirement?.totalRecommended || 
+    tank?.feeding?.recommended || 
+    90;
+
+  const perMeal = batchRequirement?.feedPerMealKg || (dailyRecommended / (batchRequirement?.mealsPerDay || 4));
+  const currentTotalFed = batchRequirement?.fedTodayKg ?? (tank?.feeding?.todayFed ?? 0);
   const totalWithNewMeal = currentTotalFed + weightFed;
 
   const progress = {
     weight: dailyRecommended > 0 ? totalWithNewMeal / dailyRecommended : 0
   };
+
+  // Auto-select recommended food type when available
+  useEffect(() => {
+    if (batchRequirement?.recommendedFoodType?.id && availableFoodTypes.length > 0) {
+      const recommendedId = batchRequirement.recommendedFoodType.id;
+      const exists = availableFoodTypes.some(ft => ft.id === recommendedId);
+      if (exists) {
+        setFoodTypeId(recommendedId);
+      }
+    }
+  }, [batchRequirement, availableFoodTypes]);
+
+  // Auto-populate weight fed based on recommended amount and number of meals
+  useEffect(() => {
+    if (open && perMeal > 0 && weightFed === 0) {
+      setWeightFed(Number((perMeal * meals).toFixed(2)));
+    }
+  }, [open, perMeal, meals, weightFed]);
 
   const handleSave = async () => {
     if (!foodTypeId) {
@@ -113,13 +175,22 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
       }
       
       const res = await apiPost<any>(`/tanks/feeding-records/${selectedBatchId}`, payload);
+      console.log('Feeding record creation response:', res);
+
+      if (res && res.success === false) {
+        toast.error('Failed to record feeding: ' + (res.message || 'Validation error'));
+        setIsSaving(false);
+        return;
+      }
       
+      const createdTasks: any[] = [];
       // Auto-create tasks for this feeding
       try {
         const assignedUserIds = await getTankAssignedUserIds(tank.id);
+        console.log('Assigned user IDs for tank tasks:', assignedUserIds);
         const targetUserIds = assignedUserIds.length > 0 ? assignedUserIds : [user.id];
         
-        await Promise.all(targetUserIds.map(userId => 
+        const taskPromises = targetUserIds.map(userId => 
           createTask({
             taskType: 'FEED_FISH',
             assignedToUserId: userId,
@@ -128,14 +199,33 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
             description: `Recorded ${meals} meal(s) of ${weightFed}kg ${availableFoodTypes.find(f => f.id === foodTypeId)?.name || 'feed'}.`,
             dueAt: new Date().toISOString()
           })
-        ));
+        );
+        const tasks = await Promise.all(taskPromises);
+        const filteredTasks = tasks.filter(Boolean);
+        createdTasks.push(...filteredTasks);
+        console.log('Tasks synchronization response:', filteredTasks);
       } catch (taskErr) {
         console.warn('Feeding record saved, but failed to create task(s):', taskErr);
       }
 
-      toast.success('Feeding record saved and tasks synchronized');
+      toast.success('Feeding record saved and tasks synchronized', {
+        description: createdTasks.length > 0 ? `${createdTasks.length} task(s) created and assigned.` : undefined,
+        action: {
+          label: 'View Tasks',
+          onClick: () => {
+             // We can't easily change the global page state from here without a prop,
+             // but we can at least show the success message.
+             // If we want to support this, we'd need to pass a 'onNavigate' prop.
+          }
+        }
+      });
 
-      if (onSuccess) onSuccess(res?.data || res || payload);
+      if (onSuccess) {
+        onSuccess({
+          record: res?.data || res || payload,
+          tasks: createdTasks
+        });
+      }
 
       onOpenChange(false);
     } catch (err) {
@@ -170,35 +260,67 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
 
         <div className="p-6 space-y-6">
           <div className="bg-[#E0F4F5]/40 border border-[#088395]/20 rounded-2xl p-5 relative overflow-hidden group">
-            <div className="absolute top-1/2 -right-4 -translate-y-1/2 opacity-[0.03] group-hover:scale-110 transition-transform duration-500">
-              <TrendingUp className="w-32 h-32 text-[#0A4D68]" />
-            </div>
 
-            <div className="flex items-center gap-2 text-[#0A4D68] font-bold mb-4">
-              <div className="w-8 h-8 rounded-lg bg-[#088395] flex items-center justify-center shadow-sm">
-                <Activity className="w-4 h-4 text-white" />
+            <div className="flex items-center justify-between gap-2 font-bold mb-4">
+              <div className="flex items-center gap-2 text-[#0A4D68]">
+                <div className="w-8 h-8 rounded-lg bg-[#088395] flex items-center justify-center shadow-sm">
+                  <Activity className="w-4 h-4 text-white" />
+                </div>
+                <span className="tracking-tight">Feeding Recommendation</span>
               </div>
-              <span className="tracking-tight">Feeding Recommendation</span>
+              {batchRequirement?.safetyStatus && batchRequirement.safetyStatus !== 'SAFE' && (
+                <Badge variant="outline" className={`text-[10px] uppercase font-bold py-0 h-5 ${
+                  batchRequirement.safetyStatus === 'WARNING' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' : 
+                  'bg-red-500/10 text-red-600 border-red-500/20'
+                }`}>
+                  {batchRequirement.safetyStatus}
+                </Badge>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-x-6 gap-y-4">
               <div className="space-y-1">
                 <p className="text-[#0A4D68]/60 text-[10px] uppercase font-bold tracking-wider">Daily Target</p>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-xl font-bold text-[#0A4D68]">{dailyRecommended}</span>
-                  <span className="text-sm font-medium text-[#0A4D68]/70">kg / day</span>
+                  {isLoadingRequirement ? (
+                    <RefreshCw className="w-5 h-5 animate-spin text-[#0A4D68]/40" />
+                  ) : (
+                    <>
+                      <span className="text-xl font-bold text-[#0A4D68]">{dailyRecommended.toFixed(1)}</span>
+                      <span className="text-sm font-medium text-[#0A4D68]/70">kg / day</span>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="space-y-1 border-l pl-6 border-[#088395]/10">
-                <p className="text-[#0A4D68]/60 text-[10px] uppercase font-bold tracking-wider">Per Meal (Avg)</p>
+                <div className="flex justify-between items-center">
+                  <p className="text-[#0A4D68]/60 text-[10px] uppercase font-bold tracking-wider">Per Meal</p>
+                  {batchRequirement?.mealsPerDay && (
+                    <span className="text-[10px] font-bold text-[#088395] bg-[#088395]/10 px-1.5 py-0.5 rounded">
+                      Target: {batchRequirement.mealsPerDay}
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-xl font-bold text-[#0A4D68]">{perMeal.toFixed(1)}</span>
-                  <span className="text-sm font-medium text-[#0A4D68]/70">kg</span>
+                  {isLoadingRequirement ? (
+                    <RefreshCw className="w-5 h-5 animate-spin text-[#0A4D68]/40" />
+                  ) : (
+                    <>
+                      <span className="text-xl font-bold text-[#0A4D68]">{perMeal.toFixed(1)}</span>
+                      <span className="text-sm font-medium text-[#0A4D68]/70">kg</span>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="col-span-2 pt-2 border-t border-[#088395]/10">
                 <p className="text-[#0A4D68]/60 text-[10px] uppercase font-bold tracking-wider mb-1">Recommended Feed Type</p>
-                <p className="text-[#0A4D68] font-semibold text-sm">Grower 30% 3mm Floating</p>
+                <p className="text-[#0A4D68] font-semibold text-sm">
+                  {batchRequirement?.assignedFeedType || 
+                   (typeof batchRequirement?.recommendedFoodType === 'object' 
+                     ? batchRequirement?.recommendedFoodType?.name 
+                     : batchRequirement?.recommendedFoodType) || 
+                   'Grower 30% 3mm Floating'}
+                </p>
               </div>
             </div>
           </div>
@@ -260,7 +382,7 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
                   value={[meals]}
                   onValueChange={(value: number[]) => setMeals(value[0])}
                   min={0.5}
-                  max={4}
+                  max={batchRequirement?.mealsPerDay || 4}
                   step={0.5}
                   className="flex-1"
                 />
@@ -300,9 +422,15 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <div className="flex justify-between text-[11px] font-medium text-gray-500">
-                  <span>Consumption Status</span>
-                  <span className="text-white">{totalWithNewMeal.toFixed(1)} / {dailyRecommended} kg</span>
+                <div className="flex justify-between text-[11px] font-medium text-gray-400">
+                  <div className="flex items-center gap-1.5">
+                    <Droplet className="w-3 h-3" />
+                    <span>Weight: {totalWithNewMeal.toFixed(1)} / {dailyRecommended.toFixed(1)} kg</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Fish className="w-3 h-3" />
+                    <span>Meals: {batchRequirement?.mealsFedToday ?? 0} fed</span>
+                  </div>
                 </div>
                 <Progress 
                   value={Math.min(progress.weight * 100, 100)} 
@@ -313,7 +441,7 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-white/5 border border-white/10 p-3 rounded-xl flex items-center justify-between">
                   <span className="text-[10px] text-gray-500 font-bold uppercase">Meals</span>
-                  <span className="text-sm font-bold text-white">{meals} <span className="text-[10px] text-gray-600">/ 4</span></span>
+                  <span className="text-sm font-bold text-white">{meals} <span className="text-[10px] text-gray-600">/ {batchRequirement?.mealsPerDay || 4}</span></span>
                 </div>
                 <div className="bg-white/5 border border-white/10 p-3 rounded-xl flex items-center justify-between">
                   <span className="text-[10px] text-gray-500 font-bold uppercase">Diff</span>

@@ -223,6 +223,14 @@ export function FeedingHistoryTab({
                                 {typeof record.foodType === 'object' ? (record.foodType?.name || record.foodType?.brand || 'Standard Feed') : (record.foodType || record.feedType || 'N/A')}
                               </p>
                             </div>
+                            {record.taskId && (
+                              <div className="space-y-1">
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Linked Task</p>
+                                <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer font-mono text-[10px]">
+                                  {record.taskId.split('-')[0]}
+                                </Badge>
+                              </div>
+                            )}
                           </div>
                         </div>
 

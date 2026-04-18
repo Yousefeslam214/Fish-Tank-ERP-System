@@ -2,8 +2,9 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
-import { Activity, Droplet, Search } from 'lucide-react';
+import { Activity, Droplet, Search, RefreshCw, AlertTriangle } from 'lucide-react';
 import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Line, ReferenceLine } from 'recharts';
+import { apiGet } from '../../../api';
 
 interface WaterQualityTabProps {
   batchAssessments: Record<string, any>;
@@ -24,6 +25,40 @@ export function WaterQualityTab({
   setSelectedWqRecord,
   setShowWqDetailsModal
 }: WaterQualityTabProps) {
+  const [localAssessments, setLocalAssessments] = React.useState<Record<string, any>>({});
+  const [isLoadingAssessments, setIsLoadingAssessments] = React.useState(false);
+
+  React.useEffect(() => {
+    if (tankBatches.length > 0) {
+      const fetchAssessments = async () => {
+        setIsLoadingAssessments(true);
+        try {
+          const results = await Promise.all(
+            tankBatches.map(async (batch) => {
+              try {
+                const res = await apiGet<any>(`/tanks/water-quality/batch/${batch.id}/assessment`);
+                console.log(`Water quality assessment for batch ${batch.id}:`, res);
+                return { id: batch.id, data: res.data ?? res };
+              } catch (err) {
+                console.error(`Failed to fetch assessment for batch ${batch.id}:`, err);
+                return { id: batch.id, data: null };
+              }
+            })
+          );
+          
+          const newAssessments: Record<string, any> = {};
+          results.forEach(r => {
+            if (r.data) newAssessments[r.id] = r.data;
+          });
+          setLocalAssessments(newAssessments);
+        } finally {
+          setIsLoadingAssessments(false);
+        }
+      };
+      fetchAssessments();
+    }
+  }, [tankBatches]);
+
   const getStatusColor = (s: string) => {
     switch (s.toLowerCase()) {
       case 'optimal': return 'bg-[#10B981] text-white';
@@ -37,41 +72,90 @@ export function WaterQualityTab({
   return (
     <div className="space-y-4 pt-4">
       {/* Assessment Section */}
-      {Object.keys(batchAssessments).length > 0 && (
+      {(Object.keys(localAssessments).length > 0 || Object.keys(batchAssessments).length > 0 || isLoadingAssessments) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          {tankBatches.map(batch => {
-            const assessment = batchAssessments[batch.id];
-            if (!assessment) return null;
-            return (
-              <Card key={batch.id} className={`border-l-4 ${assessment.overallStatus === 'CRITICAL' ? 'border-l-red-500' : assessment.overallStatus === 'WARNING' ? 'border-l-yellow-500' : 'border-l-green-500'}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Activity className={`w-4 h-4 ${assessment.overallStatus === 'CRITICAL' ? 'text-red-500' : assessment.overallStatus === 'WARNING' ? 'text-yellow-500' : 'text-green-500'}`} />
-                      <div>
-                        <span className="font-bold text-gray-900 block">Batch {batch.batchNumber || 'N/A'}</span>
-                        <span className="text-[10px] text-gray-400 font-mono">ID: {batch.id.split('-')[0]}</span>
+          {isLoadingAssessments && Object.keys(localAssessments).length === 0 ? (
+            <Card className="md:col-span-2 py-8 flex flex-col items-center justify-center">
+              <RefreshCw className="w-6 h-6 animate-spin text-[#088395] mb-2" />
+              <p className="text-xs text-gray-500 font-medium">Analyzing water quality assessments...</p>
+            </Card>
+          ) : (
+            tankBatches.map(batch => {
+              const assessmentRaw = localAssessments[batch.id] || batchAssessments[batch.id];
+              if (!assessmentRaw) return null;
+              
+              const assessment = assessmentRaw.data || assessmentRaw;
+              const status = assessment.status || assessment.overallStatus || 'OPTIMAL';
+              const isCritical = status === 'CRITICAL';
+              const isWarning = status === 'WARNING' || status === 'CAUTION';
+              const params = assessment.parameters || {};
+
+              return (
+                <Card key={batch.id} className={`border-l-4 ${isCritical ? 'border-l-red-500' : isWarning ? 'border-l-yellow-500' : 'border-l-green-500'} group hover:shadow-md transition-all shadow-sm`}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Activity className={`w-4 h-4 ${isCritical ? 'text-red-500' : isWarning ? 'text-yellow-500' : 'text-green-500'}`} />
+                        <div>
+                          <span className="font-bold text-gray-900 block tracking-tight">Batch {batch.batchNumber || 'N/A'}</span>
+                          <span className="text-[10px] text-gray-400 font-mono">ID: {batch.id.split('-')[0]}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isLoadingAssessments && <RefreshCw className="w-3 h-3 animate-spin text-gray-400" />}
+                        <Badge className={`${isCritical ? 'bg-red-500' : isWarning ? 'bg-yellow-500' : 'bg-green-500'} font-bold uppercase text-[9px] tracking-wider`}>
+                          {status}
+                        </Badge>
                       </div>
                     </div>
-                    <Badge className={assessment.overallStatus === 'CRITICAL' ? 'bg-red-500' : assessment.overallStatus === 'WARNING' ? 'bg-yellow-500' : 'bg-green-500'}>
-                      {assessment.overallStatus}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-gray-700 mb-3 font-medium">{assessment.recommendation || assessment.message || 'Water quality is within optimal range for this batch.'}</p>
-                  <div className="grid grid-cols-2 gap-4 text-xs">
-                    <div className="bg-gray-50 p-2 rounded">
-                      <span className="text-gray-500 block">Growth Impact</span>
-                      <span className="font-bold text-gray-900">{assessment.growthImpact || 'Optimal'}</span>
+                    
+                    <p className="text-sm text-gray-700 mb-4 font-medium leading-relaxed">
+                      {assessment.recommendation || assessment.message || (isCritical || isWarning ? 'Action required to stabilize parameters.' : 'Water quality is within optimal range for this batch.')}
+                    </p>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+                      {Object.entries(params).map(([key, info]: [string, any]) => (
+                        <div key={key} className="flex flex-col p-2 bg-gray-50 rounded-lg border border-gray-100">
+                          <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1 line-clamp-1">{key.replace(/([A-Z])/g, ' $1')}</span>
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="font-bold text-[10px] text-gray-900 truncate">{info.value ?? 'N/A'}</span>
+                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                              info.status === 'OPTIMAL' ? 'bg-green-500' : 
+                              info.status === 'WARNING' ? 'bg-yellow-500' : 'bg-red-500'
+                            }`} />
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <div className="bg-gray-50 p-2 rounded">
-                      <span className="text-gray-500 block">Next Check Due</span>
-                      <span className="font-bold text-gray-900">{assessment.nextCheckDue || 'Scheduled'}</span>
+
+                    {assessment.alerts && assessment.alerts.length > 0 && (
+                      <div className="mt-3 p-2 bg-red-50 rounded-lg border border-red-100">
+                        {assessment.alerts.map((alert: string, idx: number) => (
+                          <div key={idx} className="flex items-center gap-2 text-[10px] text-red-700 font-bold">
+                            <AlertTriangle className="w-3 h-3" />
+                            {alert}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3 text-xs mt-4 pt-4 border-t border-gray-100">
+                      <div className="space-y-1">
+                        <span className="text-gray-400 block font-bold uppercase text-[9px] tracking-widest">Growth Impact</span>
+                        <span className={`font-bold ${isCritical ? 'text-red-600' : isWarning ? 'text-amber-600' : 'text-green-600'}`}>
+                          {assessment.growthImpact || (isCritical ? 'High Risk' : isWarning ? 'Slightly Reduced' : 'Maximum Growth')}
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-gray-400 block font-bold uppercase text-[9px] tracking-widest">Action Required</span>
+                        <span className="font-bold text-gray-900">{assessment.actionRequired ? 'YES' : 'NONE'}</span>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
         </div>
       )}
 

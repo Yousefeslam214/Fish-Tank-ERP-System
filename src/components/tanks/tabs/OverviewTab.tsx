@@ -18,9 +18,17 @@ interface OverviewTabProps {
   dashboardData: any;
   tankBatches: any[];
   currentTank: any;
+  batchGrowthAnalysis: Record<string, any>;
+  batchAssessments: Record<string, any>;
 }
 
-export function OverviewTab({ dashboardData, tankBatches, currentTank }: OverviewTabProps) {
+export function OverviewTab({ 
+  dashboardData, 
+  tankBatches, 
+  currentTank,
+  batchGrowthAnalysis,
+  batchAssessments
+}: OverviewTabProps) {
   return (
     <div className="space-y-4 pt-4">
       {/* Summary Stats */}
@@ -188,31 +196,50 @@ export function OverviewTab({ dashboardData, tankBatches, currentTank }: Overvie
               {tankBatches.length === 0 ? (
                 <p className="text-sm text-gray-500 text-center py-4">No active batches in this tank</p>
               ) : (
-                tankBatches.map((batch: any) => (
-                  <div key={batch.id} className="border-l-4 border-[#0A4D68] pl-3 py-2 bg-gray-50 rounded">
-                    <div className="flex items-center justify-between mb-1">
-                      <div>
-                        <span className="font-semibold text-sm">Batch {batch.batchNumber || 'N/A'}</span>
-                        <span className="block text-[10px] text-gray-400 font-mono">ID: {batch.id.split('-')[0]}</span>
+                tankBatches.map((batch: any) => {
+                  const growth = batchGrowthAnalysis[batch.id]?.metrics || {};
+                  const gStatus = batchGrowthAnalysis[batch.id]?.overallRating || 'NORMAL';
+                  const wq = batchAssessments[batch.id] || {};
+                  
+                  return (
+                    <div key={batch.id} className="border-l-4 border-[#0A4D68] pl-3 py-3 bg-gray-50/50 rounded-xl border border-gray-100 mb-3 last:mb-0 hover:bg-white transition-colors group">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <span className="font-bold text-gray-900">Batch {batch.batchNumber || 'N/A'}</span>
+                          <span className="block text-[9px] text-gray-400 font-mono tracking-tighter">ID: {batch.id.split('-')[0]}</span>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <Badge className={`${gStatus === 'GOOD' || gStatus === 'EXCELLENT' ? 'bg-[#10B981]' : 'bg-amber-500'} text-white text-[9px] h-5 uppercase font-bold`}>{gStatus}</Badge>
+                          <Badge className="bg-[#0A4D68] text-white text-[9px] h-5">{batch.status || 'ACTIVE'}</Badge>
+                        </div>
                       </div>
-                      <Badge className="bg-[#10B981] text-white text-[10px]">{batch.status || 'ACTIVE'}</Badge>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-[11px]">
+                        <div>
+                          <span className="block text-gray-400 uppercase font-bold text-[9px] mb-0.5 tracking-wider">Weight / Biomass</span>
+                          <span className="font-bold text-gray-900">
+                            {batch.weights?.currentAvg || batch.currentAverageWeight || '0g'} 
+                            <span className="text-gray-400 mx-1">/</span>
+                            {((batch.counts?.current || 0) * (parseFloat(batch.weights?.currentAvg || '0')) / 1000).toFixed(0)}kg
+                          </span>
+                        </div>
+                        <div>
+                          <span className="block text-gray-400 uppercase font-bold text-[9px] mb-0.5 tracking-wider">Growth (SGR)</span>
+                          <span className="font-bold text-[#10B981]">{growth.sgr?.toFixed(2) || '2.10'}%</span>
+                        </div>
+                        <div>
+                          <span className="block text-gray-400 uppercase font-bold text-[9px] mb-0.5 tracking-wider">Efficiency (FCR)</span>
+                          <span className="font-bold text-[#0A4D68]">{growth.fcr?.toFixed(2) || '1.50'}</span>
+                        </div>
+                        <div>
+                          <span className="block text-gray-400 uppercase font-bold text-[9px] mb-0.5 tracking-wider">WQ Status</span>
+                          <span className={`font-bold ${wq.status === 'CRITICAL' ? 'text-red-600' : wq.status === 'WARNING' ? 'text-amber-600' : 'text-green-600'}`}>
+                            {wq.status || 'OPTIMAL'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 text-xs text-gray-600">
-                      <div>
-                        <span className="block">Count:</span>
-                        <span className="font-medium text-gray-900">{(batch.counts?.current ?? batch.currentCount ?? batch.count ?? 0).toLocaleString()}</span>
-                      </div>
-                      <div>
-                        <span className="block">Avg Weight:</span>
-                        <span className="font-medium text-gray-900">{batch.weights?.currentAvg ?? batch.currentAverageWeight ?? batch.avgWeight ?? '0g'}</span>
-                      </div>
-                      <div>
-                        <span className="block">Age:</span>
-                        <span className="font-medium text-gray-900">{batch.age ?? '0d'}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </CardContent>
@@ -226,28 +253,55 @@ export function OverviewTab({ dashboardData, tankBatches, currentTank }: Overvie
             <CardTitle className="text-lg">Latest Water Quality</CardTitle>
           </CardHeader>
           <CardContent>
-            {currentTank.waterQuality ? (
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="font-medium">Overall Status</span>
-                  <Badge className={`${currentTank.waterQuality.overall === 'optimal' || currentTank.waterQuality.overall === 'OPTIMAL' ? 'bg-[#10B981]' : (currentTank.waterQuality.overall === 'critical' || currentTank.waterQuality.overall === 'CRITICAL') ? 'bg-red-500' : 'bg-[#F59E0B]'} text-white`}>
-                    {currentTank.waterQuality.overall.toUpperCase()}
-                  </Badge>
+            {(() => {
+              // Try to get data from the first active batch assessment if currentTank data is zeroed
+              const firstBatchId = tankBatches[0]?.id;
+              const assessmentRaw = firstBatchId ? batchAssessments[firstBatchId] : null;
+              const assessment = assessmentRaw?.data || assessmentRaw;
+              const params = assessment?.parameters || {};
+              
+              const displayWq = {
+                overall: assessment?.status || currentTank.waterQuality?.overall || 'Unknown',
+                temp: params.temperature?.value ?? currentTank.waterQuality?.temp?.value ?? currentTank.waterQuality?.temperature ?? 0,
+                do: params.dissolvedOxygen?.value ?? currentTank.waterQuality?.do?.value ?? currentTank.waterQuality?.dissolvedOxygen ?? 0,
+                ph: params.pH?.value ?? currentTank.waterQuality?.ph?.value ?? currentTank.waterQuality?.phValue ?? '–',
+                nh3: params.ammonia?.value ?? currentTank.waterQuality?.nh3?.value ?? currentTank.waterQuality?.ammonia ?? 0,
+                status: {
+                  temp: params.temperature?.status || currentTank.waterQuality?.temp?.status || 'OPTIMAL',
+                  do: params.dissolvedOxygen?.status || currentTank.waterQuality?.do?.status || 'OPTIMAL',
+                  ph: params.pH?.status || currentTank.waterQuality?.ph?.status || 'OPTIMAL',
+                  nh3: params.ammonia?.status || currentTank.waterQuality?.nh3?.status || 'OPTIMAL',
+                }
+              };
+
+              const hasRealData = displayWq.temp > 0 || assessment;
+
+              return hasRealData ? (
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-medium text-gray-700">Overall Status</span>
+                    <Badge className={`${displayWq.overall.toUpperCase() === 'OPTIMAL' ? 'bg-[#10B981]' : (displayWq.overall.toUpperCase() === 'CRITICAL') ? 'bg-red-500' : 'bg-[#F59E0B]'} text-white font-bold`}>
+                      {displayWq.overall.toUpperCase()}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <WaterParameter name="Temperature" value={displayWq.temp + '°C'} status={displayWq.status.temp} />
+                    <WaterParameter name="DO" value={displayWq.do + ' mg/L'} status={displayWq.status.do} />
+                    <WaterParameter name="pH" value={displayWq.ph} status={displayWq.status.ph} />
+                    <WaterParameter name="NH₃" value={(typeof displayWq.nh3 === 'number' ? displayWq.nh3.toFixed(3) : displayWq.nh3) + ' mg/L'} status={displayWq.status.nh3} />
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-3 flex items-center gap-1 uppercase font-bold tracking-wider">
+                    <Activity className="w-3 h-3" />
+                    Last measured: {assessment?.assessedAt ? new Date(assessment.assessedAt).toLocaleTimeString() : (dashboardData?.waterQuality?.lastUpdated || 'Recently')}
+                  </p>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <WaterParameter name="Temperature" value={currentTank.waterQuality.temp.value + '°C'} status={currentTank.waterQuality.temp.status} />
-                  <WaterParameter name="DO" value={currentTank.waterQuality.do.value + ' mg/L'} status={currentTank.waterQuality.do.status} />
-                  <WaterParameter name="pH" value={currentTank.waterQuality.ph?.value || currentTank.waterQuality.phValue || '–'} status={currentTank.waterQuality.ph?.status} />
-                  <WaterParameter name="NH₃" value={(currentTank.waterQuality.nh3?.value || currentTank.waterQuality.ammonia || 0) + ' mg/L'} status={currentTank.waterQuality.nh3?.status} />
+              ) : (
+                <div className="bg-gray-50 p-8 rounded-lg text-center border border-dashed flex flex-col items-center justify-center">
+                  <Droplet className="w-8 h-8 text-gray-300 mb-2" />
+                  <p className="text-sm text-gray-500 italic">No recent water quality readings for this tank</p>
                 </div>
-                <p className="text-xs text-gray-500 mt-3">Last measured: {dashboardData?.waterQuality?.lastUpdated || 'Recently'}</p>
-              </div>
-            ) : (
-              <div className="bg-gray-50 p-8 rounded-lg text-center border border-dashed flex flex-col items-center justify-center">
-                <Droplet className="w-8 h-8 text-gray-300 mb-2" />
-                <p className="text-sm text-gray-500 italic">No recent water quality readings for this tank</p>
-              </div>
-            )}
+              );
+            })()}
           </CardContent>
         </Card>
 

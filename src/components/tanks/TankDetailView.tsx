@@ -80,11 +80,11 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
     setDetailsError(null);
     try {
       const [dashRes, wqRes, fdRes, gmRes, btRes] = await Promise.allSettled([
-        apiGet<any>(`/tanks/${tank.id}/dashboard?t=${Date.now()}`),
-        apiGet<any>(`/tanks/${tank.id}/water-quality?t=${Date.now()}`),
-        apiGet<any>(`/tanks/${tank.id}/feeding-history?t=${Date.now()}`),
-        apiGet<any>(`/tanks/${tank.id}/growth-metrics?t=${Date.now()}`),
-        apiGet<any>(`/tanks/${tank.id}/batches?t=${Date.now()}`)
+        apiGet<any>(`/tanks/${tank.id}/dashboard`),
+        apiGet<any>(`/tanks/${tank.id}/water-quality`),
+        apiGet<any>(`/tanks/${tank.id}/feeding-history`),
+        apiGet<any>(`/tanks/${tank.id}/growth-metrics`),
+        apiGet<any>(`/tanks/${tank.id}/batches`)
       ]);
 
       const dashData = dashRes.status === 'fulfilled' ? (dashRes.value.data ?? dashRes.value) : null;
@@ -105,11 +105,11 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
         try {
           const batchDetailsRes = await Promise.allSettled(
             btData.map(b => Promise.allSettled([
-              apiGet<any>(`/tanks/water-quality/batch/${b.id}?t=${Date.now()}`),
-              apiGet<any>(`/tanks/feeding-records/batch/${b.id}?t=${Date.now()}`),
-              apiGet<any>(`/tanks/growth/batch/${b.id}?t=${Date.now()}`),
-              apiGet<any>(`/tanks/growth/batch/${b.id}/analysis?t=${Date.now()}`),
-              apiGet<any>(`/tanks/water-quality/batch/${b.id}/assessment?t=${Date.now()}`)
+              apiGet<any>(`/tanks/water-quality/batch/${b.id}`),
+              apiGet<any>(`/tanks/feeding-records/batch/${b.id}`),
+              apiGet<any>(`/tanks/growth/batch/${b.id}`),
+              apiGet<any>(`/tanks/growth/batch/${b.id}/analysis`),
+              apiGet<any>(`/tanks/water-quality/batch/${b.id}/assessment`)
             ]))
           );
 
@@ -183,7 +183,7 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
 
       // Check if action is required
       try {
-        const actionRes = await apiGet<any>(`/tanks/water-quality/status/requiring-action?t=${Date.now()}`);
+        const actionRes = await apiGet<any>(`/tanks/water-quality/status/requiring-action`);
         const actionData = actionRes.data ?? actionRes;
         if (Array.isArray(actionData)) {
           const tankAction = actionData.find((a: any) => a.tankId === tank.id || a.id === tank.id);
@@ -199,7 +199,7 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
 
       // Fetch Tank Level Feeding Calculation
       try {
-        const tankCalcRes = await apiGet<any>(`/tanks/feeding-records/calculation/tank/${tank.id}?t=${Date.now()}`);
+        const tankCalcRes = await apiGet<any>(`/tanks/feeding-records/calculation/tank/${tank.id}`);
         setTankFeedingCalculation(tankCalcRes.data ?? tankCalcRes);
       } catch (e) { }
 
@@ -426,6 +426,8 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
               dashboardData={dashboardData} 
               tankBatches={tankBatches} 
               currentTank={currentTank} 
+              batchGrowthAnalysis={batchGrowthAnalysis}
+              batchAssessments={batchAssessments}
             />
           </TabsContent>
 
