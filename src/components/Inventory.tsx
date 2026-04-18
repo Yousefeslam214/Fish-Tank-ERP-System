@@ -21,11 +21,11 @@ import {
   XCircle,
   Trash2,
   RefreshCw,
+  Eye,
 } from "lucide-react";
 import { User, Farm, FishInventoryBatch } from "../types";
-import { mockInventory } from "../mockData";
 import AllocateFishToTank from "./AllocateFishToTank";
-import { apiGet, apiPost } from "../api";
+import { apiGet } from "../api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -37,13 +37,15 @@ import {
   getFeedByFoodType,
   getBatches,
   getBatchById,
-  quarantineBatch,
-  healthCheckBatch,
   allocateBatch,
   deleteFeed,
+  getMedicineInventory,
+  getMedicineInventoryTotal,
+  updateMedicineBatchQuantity,
+  deleteMedicineBatch,
 } from "../api/inventoryApi";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// Types
 
 interface FeedItem {
   id: string;
@@ -54,26 +56,48 @@ interface FeedItem {
   [key: string]: unknown;
 }
 
+interface MedicineInventoryBatch {
+  id: string;
+  farmId: string;
+  medicineName: string;
+  company: string;
+  batchNumber: string;
+  quantity: number;
+  unit: string;
+  reorderLevel: number;
+  expiryDate?: string;
+  status?: string;
+  notes?: string;
+}
+
+interface MedicineTotalItem {
+  medicineName: string;
+  totalQuantity: number;
+  unit: string;
+}
+
 interface InventoryProps {
   user: User;
   selectedFarm: Farm | null;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// Component
 
 export default function Inventory({ user, selectedFarm }: InventoryProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
 
-  // Fish batches — API-driven
+  // Fish batches - API-driven
   const [fishBatches, setFishBatches] = useState<FishInventoryBatch[]>([]);
 
   // Allocation modal
   const [selectedBatch, setSelectedBatch] = useState<FishInventoryBatch | null>(null);
   const [showAllocateModal, setShowAllocateModal] = useState(false);
 
-  // Feed inventory — API-driven
+  // Feed inventory - API-driven
   const [feedInventory, setFeedInventory] = useState<FeedItem[]>([]);
+  const [medicineInventory, setMedicineInventory] = useState<MedicineInventoryBatch[]>([]);
+  const [medicineTotals, setMedicineTotals] = useState<MedicineTotalItem[]>([]);
 
   // Tanks for allocation
   const [tanks, setTanks] = useState<any[]>([]);
@@ -96,16 +120,117 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   const [healthModalOpen, setHealthModalOpen] = useState(false);
   const [healthModalMode, setHealthModalMode] = useState<'health' | 'quarantine'>('health');
   const [batchForHealth, setBatchForHealth] = useState<any>(null);
+  const [selectedMedicineBatch, setSelectedMedicineBatch] = useState<MedicineInventoryBatch | null>(null);
+  const [isMedicineDetailsOpen, setIsMedicineDetailsOpen] = useState(false);
+  const [medicineAdjustmentMode, setMedicineAdjustmentMode] = useState<"set" | "deduct">("set");
+  const [medicineAdjustmentValue, setMedicineAdjustmentValue] = useState<string>("");
+  const [isMedicineSaving, setIsMedicineSaving] = useState(false);
+  const [isMedicineDeleting, setIsMedicineDeleting] = useState(false);
 
-  // ── Data loaders ─────────────────────────────────────────────────────────────
+  // Data loaders
+
+  const toNumber = (value: unknown, fallback = 0): number => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+
+  const getArrayPayload = (value: any): any[] => {
+    if (Array.isArray(value)) return value;
+    if (Array.isArray(value?.data)) return value.data;
+    if (Array.isArray(value?.items)) return value.items;
+    if (Array.isArray(value?.results)) return value.results;
+    if (Array.isArray(value?.batches)) return value.batches;
+    if (Array.isArray(value?.fishBatches)) return value.fishBatches;
+    if (Array.isArray(value?.totals)) return value.totals;
+    return [];
+  };
+
+  const isReadyToAllocateStatus = (status: unknown): boolean => {
+    const normalized = String(status || "").toUpperCase();
+    return normalized === "READY_TO_STOCK" || normalized === "READY" || normalized === "AVAILABLE";
+  };
+
+  const normalizeFishBatch = (batch: any): FishInventoryBatch => {
+    const currentQuantity = toNumber(batch?.quantity ?? batch?.currentQuantity ?? batch?.currentQty, 0);
+    const initialQuantity = toNumber(batch?.initialQuantity ?? batch?.initialCount, currentQuantity);
+    const averageWeight = toNumber(
+      batch?.averageWeight ?? batch?.avgWeight ?? batch?.initialWeightGrams ?? batch?.initialAverageWeight,
+      0,
+    );
+
+    return {
+      id: String(batch?.id || batch?._id || ""),
+      farmId: String(batch?.farmId || batch?.farm || selectedFarm?.id || ""),
+      purchaseOrderId: String(batch?.purchaseOrderId || ""),
+      species: String(batch?.species || batch?.fishTypeName || batch?.fishType?.name || "Unknown Batch"),
+      quantity: currentQuantity,
+      initialQuantity,
+      averageWeight,
+      status: String(batch?.status || "").toUpperCase() as FishInventoryBatch["status"],
+      healthCheckStatus: String(batch?.healthCheckStatus || batch?.healthStatus || "PENDING").toUpperCase() as FishInventoryBatch["healthCheckStatus"],
+      healthCheckDate: batch?.healthCheckDate || batch?.healthCheckAt,
+      deliveryDate: batch?.deliveryDate || batch?.receivedDate || new Date().toISOString(),
+      quarantinePeriodDays: toNumber(batch?.quarantinePeriodDays, 0),
+      notes: batch?.notes || "",
+      fishTypeName: batch?.fishTypeName,
+    } as FishInventoryBatch & { fishTypeName?: string };
+  };
+
+  const normalizeMedicineBatch = (entry: any): MedicineInventoryBatch | null => {
+    const id = entry?.id || entry?._id;
+    if (!id) return null;
+
+    return {
+      id: String(id),
+      farmId: String(entry?.farmId || entry?.farm || selectedFarm?.id || ""),
+      medicineName: String(entry?.medicineName || entry?.medicine?.name || entry?.name || entry?.itemName || "Unknown Medicine"),
+      company: String(
+        entry?.company ||
+          entry?.manufacturer ||
+          entry?.supplier ||
+          entry?.brand ||
+          entry?.medicine?.company ||
+          entry?.medicine?.manufacturer ||
+          "-"
+      ),
+      batchNumber: String(entry?.batchNumber || entry?.batch || entry?.lotNumber || entry?.code || "-"),
+      quantity: toNumber(
+        entry?.quantity ?? entry?.currentQuantity ?? entry?.availableQuantity ?? entry?.stock ?? entry?.quantityKg,
+        0,
+      ),
+      unit: String(entry?.unit || entry?.quantityUnit || "unit"),
+      reorderLevel: toNumber(entry?.reorderLevel ?? entry?.minimumStock ?? entry?.minStockLevel ?? 10, 10),
+      expiryDate: entry?.expiryDate || entry?.expirationDate || entry?.expiresAt,
+      status: String(entry?.status || "").toUpperCase() || undefined,
+      notes: entry?.notes || entry?.description || "",
+    };
+  };
+
+  const getMedicineBatchStatus = (batch: MedicineInventoryBatch): string => {
+    if (batch.expiryDate && new Date(batch.expiryDate).getTime() < Date.now()) {
+      return "EXPIRED";
+    }
+    if (batch.quantity <= 0) return "OUT_OF_STOCK";
+    if (batch.quantity <= batch.reorderLevel) return "LOW_STOCK";
+    return batch.status || "IN_STOCK";
+  };
+
+  const medicineStatusBadgeClass = (status: string): string => {
+    const normalized = status.toUpperCase();
+    if (normalized === "EXPIRED" || normalized === "OUT_OF_STOCK") {
+      return "bg-red-100 text-red-800 border-red-200";
+    }
+    if (normalized === "LOW_STOCK") {
+      return "bg-orange-100 text-orange-800 border-orange-200";
+    }
+    return "bg-green-100 text-green-800 border-green-200";
+  };
 
   // GET /api/v1/inventory/batches
   const loadBatches = async () => {
     try {
       const res = await getBatches();
-      const batches = Array.isArray(res) 
-        ? res 
-        : (res?.data || res?.batches || res?.fishBatches || []);
+      const batches = getArrayPayload(res).map(normalizeFishBatch);
       setFishBatches(batches);
     } catch (error) {
       console.error("Error loading batches", error);
@@ -117,17 +242,66 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   const loadFeed = async () => {
     try {
       const res = await getFeedInventory();
-      // Handle both { data: [...] } and plain [...] response shapes
-      const feed = Array.isArray(res)
-        ? res
-        : Array.isArray(res.data)
-          ? res.data
-          : [];
-      console.log('📦 Loaded Feed Inventory:', feed);
+      const feed = getArrayPayload(res);
       setFeedInventory(feed);
     } catch (error) {
       console.error("Error loading feed inventory", error);
       setFeedInventory([]);
+    }
+  };
+
+  const loadMedicine = async () => {
+    try {
+      const res = await getMedicineInventory();
+      const normalized = getArrayPayload(res)
+        .map(normalizeMedicineBatch)
+        .filter((item): item is MedicineInventoryBatch => item !== null);
+      const filtered = selectedFarm
+        ? normalized.filter((item) => !item.farmId || item.farmId === selectedFarm.id)
+        : normalized;
+      setMedicineInventory(filtered);
+    } catch (error) {
+      console.error("Error loading medicine inventory", error);
+      setMedicineInventory([]);
+    }
+  };
+
+  const loadMedicineTotals = async () => {
+    try {
+      const res = await getMedicineInventoryTotal();
+      const rows = getArrayPayload(res);
+      if (rows.length > 0) {
+        setMedicineTotals(
+          rows.map((row: any) => ({
+            medicineName: String(row?.medicineName || row?.name || row?.medicine?.name || "Medicine"),
+            totalQuantity: toNumber(row?.totalQuantity ?? row?.quantity ?? row?.total ?? row?.stock, 0),
+            unit: String(row?.unit || row?.quantityUnit || "unit"),
+          })),
+        );
+        return;
+      }
+
+      const scalar =
+        typeof res === "number"
+          ? res
+          : typeof res?.data === "number"
+            ? res.data
+            : Number.NaN;
+
+      if (Number.isFinite(scalar)) {
+        setMedicineTotals([
+          {
+            medicineName: "All Medicines",
+            totalQuantity: scalar,
+            unit: "unit",
+          },
+        ]);
+      } else {
+        setMedicineTotals([]);
+      }
+    } catch (error) {
+      console.error("Error loading medicine totals", error);
+      setMedicineTotals([]);
     }
   };
 
@@ -147,8 +321,32 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     setIsTanksLoading(true);
     try {
       const res = await apiGet<any>("/tanks");
-      const data = res.data || res || [];
-      setTanks(data);
+      const rawList = Array.isArray(res)
+        ? res
+        : Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray(res?.items)
+            ? res.items
+            : Array.isArray(res?.results)
+              ? res.results
+              : [];
+
+      const normalized = rawList
+        .map((tank: any) => {
+          const id = tank?.id || tank?._id;
+          if (!id) return null;
+          return {
+            id: String(id),
+            name: String(tank?.name || `Tank ${String(id).slice(0, 6)}`),
+            farmId: String(tank?.farmId || selectedFarm?.id || ""),
+            status: String(tank?.status || "UNKNOWN").toUpperCase(),
+            biomass: Number(tank?.biomass?.actual ?? tank?.biomass ?? 0),
+            capacity: Number(tank?.biomass?.capacity ?? tank?.capacity ?? tank?.biomassLimit ?? 0),
+          };
+        })
+        .filter(Boolean);
+
+      setTanks(normalized);
     } catch (error) {
       console.error("Error loading tanks", error);
     } finally {
@@ -159,11 +357,13 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   useEffect(() => {
     loadBatches();
     loadFeed();
+    loadMedicine();
+    loadMedicineTotals();
     loadTanks();
     loadFoodTypes();
   }, []);
 
-  // ── Handlers ──────────────────────────────────────────────────────────────────
+  // Handlers
 
   // GET /api/v1/inventory/batches/:id
   const fetchBatch = async (id: string) => {
@@ -183,11 +383,18 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     stockingDate: string,
     notes?: string
   ) => {
+    void stockingDate;
+    void notes;
     try {
-      await allocateBatch(batchId, { tankId, quantity, stockingDate, notes });
+      const targetBatch = fishBatches.find((b: any) => b.id === batchId);
+      const avgWeight = toNumber(targetBatch?.averageWeight ?? targetBatch?.avgWeight, 0);
+      // Backend allocate route expects: { tankId, quantity, avgWeight }.
+      await allocateBatch(batchId, { tankId, quantity, avgWeight });
       await loadBatches();
+      toast.success("Batch allocated to tank successfully");
     } catch (error) {
       console.error("Allocation failed", error);
+      toast.error("Failed to allocate batch to tank");
     } finally {
       setShowAllocateModal(false);
       setSelectedBatch(null);
@@ -263,6 +470,74 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     }
   };
 
+  const openMedicineDetails = (batch: MedicineInventoryBatch) => {
+    setSelectedMedicineBatch(batch);
+    setMedicineAdjustmentMode("set");
+    setMedicineAdjustmentValue(String(batch.quantity));
+    setIsMedicineDetailsOpen(true);
+  };
+
+  const handleMedicineQuantityUpdate = async () => {
+    if (!selectedMedicineBatch) return;
+
+    const rawValue = Number(medicineAdjustmentValue);
+    if (!Number.isFinite(rawValue) || rawValue < 0) {
+      toast.error("Please enter a valid quantity");
+      return;
+    }
+
+    const nextQuantity =
+      medicineAdjustmentMode === "deduct"
+        ? selectedMedicineBatch.quantity - rawValue
+        : rawValue;
+
+    if (nextQuantity < 0) {
+      toast.error("Deduction exceeds available quantity");
+      return;
+    }
+
+    try {
+      setIsMedicineSaving(true);
+      await updateMedicineBatchQuantity(selectedMedicineBatch.id, nextQuantity);
+      toast.success("Medicine quantity updated");
+
+      const updated = { ...selectedMedicineBatch, quantity: nextQuantity };
+      setSelectedMedicineBatch(updated);
+      setMedicineAdjustmentValue(String(nextQuantity));
+
+      await Promise.all([loadMedicine(), loadMedicineTotals()]);
+    } catch (error) {
+      console.error("Medicine quantity update failed", error);
+      toast.error("Failed to update medicine quantity");
+    } finally {
+      setIsMedicineSaving(false);
+    }
+  };
+
+  const handleDeleteMedicine = async (batch: MedicineInventoryBatch) => {
+    if (!window.confirm(`Delete batch ${batch.batchNumber} for ${batch.medicineName}?`)) {
+      return;
+    }
+
+    try {
+      setIsMedicineDeleting(true);
+      await deleteMedicineBatch(batch.id);
+      toast.success("Medicine batch deleted");
+
+      if (selectedMedicineBatch?.id === batch.id) {
+        setIsMedicineDetailsOpen(false);
+        setSelectedMedicineBatch(null);
+      }
+
+      await Promise.all([loadMedicine(), loadMedicineTotals()]);
+    } catch (error) {
+      console.error("Medicine batch deletion failed", error);
+      toast.error("Failed to delete medicine batch");
+    } finally {
+      setIsMedicineDeleting(false);
+    }
+  };
+
   // GET /api/v1/inventory/feed/food-type/:foodId
   const filterFeed = async (foodId: string) => {
     try {
@@ -279,11 +554,13 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     }
   };
 
-  // ── Badge / icon helpers ──────────────────────────────────────────────────────
+  // Badge and icon helpers
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
+    const normalized = String(status || "").toUpperCase();
+    switch (normalized) {
       case "READY_TO_STOCK":
+      case "READY":
         return (
           <Badge className="bg-green-100 text-green-800" variant="outline">
             <CheckCircle className="w-3 h-3 mr-1" />
@@ -319,7 +596,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           </Badge>
         );
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge variant="outline">{normalized || "UNKNOWN"}</Badge>;
     }
   };
 
@@ -381,18 +658,56 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     }
   };
 
+  const mapApiStockStatusToUi = (status: unknown): "good" | "low" | "critical" | null => {
+    const normalized = String(status || "").toUpperCase();
+    if (!normalized) return null;
+
+    if (["OUT_OF_STOCK", "CONSUMED", "DEPLETED", "EXPIRED", "FAILED"].includes(normalized)) {
+      return "critical";
+    }
+    if (["LOW_STOCK", "LOW", "WARNING"].includes(normalized)) {
+      return "low";
+    }
+    if (["IN_STOCK", "AVAILABLE", "READY", "ACTIVE", "GOOD", "PASSED"].includes(normalized)) {
+      return "good";
+    }
+    return null;
+  };
+
   const getStockLevel = (item: any) => {
-    const reorderLevel = item.reorderLevel || 500;
-    const percentage = ((item.quantity || 0) / (reorderLevel * 2)) * 100;
-    return Math.min(percentage, 100);
+    const quantity = toNumber(item.quantity, 0);
+    const initialQuantity = toNumber(
+      item.initialQuantity ?? item.initialQuantityKg ?? item.originalQuantity,
+      0,
+    );
+    if (initialQuantity > 0) {
+      return Math.min((quantity / initialQuantity) * 100, 100);
+    }
+
+    const apiStatus = mapApiStockStatusToUi(item.status);
+    if (apiStatus === "critical") return 15;
+    if (apiStatus === "low") return 45;
+    if (apiStatus === "good") return 85;
+
+    const reorderLevel = toNumber(item.reorderLevel, 0);
+    if (reorderLevel > 0) {
+      const percentage = (quantity / (reorderLevel * 2)) * 100;
+      return Math.min(Math.max(percentage, 0), 100);
+    }
+    return quantity > 0 ? 70 : 0;
   };
 
   const getStockStatus = (item: any) => {
-    const reorderLevel = item.reorderLevel || 500;
-    const quantity = item.quantity || 0;
-    if (quantity <= reorderLevel * 0.5) return "critical";
-    if (quantity <= reorderLevel) return "low";
-    return "good";
+    const apiStatus = mapApiStockStatusToUi(item.status);
+    if (apiStatus) return apiStatus;
+
+    const reorderLevel = toNumber(item.reorderLevel, 0);
+    const quantity = toNumber(item.quantity, 0);
+    if (reorderLevel > 0) {
+      if (quantity <= reorderLevel * 0.5) return "critical";
+      if (quantity <= reorderLevel) return "low";
+    }
+    return quantity <= 0 ? "critical" : "good";
   };
 
   const getDaysUntilExpiry = (expiryDate?: string) => {
@@ -402,17 +717,19 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     );
   };
 
-  // ── Mock-inventory helpers ────────────────────────────────────────────────────
-
-  const inventory = selectedFarm
-    ? mockInventory.filter((item: any) => item.farmId === selectedFarm.id)
-    : mockInventory;
+  // API inventory helpers
 
   const filteredFishBatches = selectedFarm
     ? fishBatches.filter((batch: any) => batch.farmId === selectedFarm.id)
     : fishBatches;
+  const fishStockBatches = filteredFishBatches.filter(
+    (batch: any) => String(batch?.status || "").toUpperCase() !== "QUARANTINE"
+  );
+  const readyToAllocateBatches = filteredFishBatches.filter(
+    (batch: any) => isReadyToAllocateStatus(batch.status) && (batch.quantity ?? 0) > 0
+  );
 
-  // Combine real feed with other mock supplies
+  // Combine feed + medicine from API
   const combinedInventory = [
     ...feedInventory.map((f: any) => {
       // Find food type object from foodTypes list
@@ -434,13 +751,25 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         name,
         arabicName,
         quantity,
+        initialQuantity: toNumber(f.initialQuantityKg ?? f.initialQuantity ?? quantity, quantity),
         unit,
         reorderLevel: f.reorderLevel || ft?.reorderLevel || 100,
         costPerUnit: costPerUnit,
-        supplier: f.manufacturer || f.supplier || ft?.supplier || 'Main Supplier'
+        supplier: f.manufacturer || f.supplier || ft?.supplier || 'Main Supplier',
+        expiryDate: f.expiryDate,
+        status: f.status || 'IN_STOCK',
+        batchNumber: f.batchNumber || '-',
       };
     }),
-    ...inventory.filter((i: any) => i.type !== 'feed')
+    ...medicineInventory.map((m) => ({
+      ...m,
+      type: 'medicine',
+      name: m.medicineName,
+      supplier: m.company,
+      initialQuantity: toNumber((m as any).initialQuantity ?? (m as any).initialQuantityKg ?? m.quantity, m.quantity),
+      costPerUnit: toNumber((m as any).costPerUnit ?? (m as any).unitCost ?? 0, 0),
+      status: getMedicineBatchStatus(m),
+    })),
   ];
 
   const finalFilteredInventory = combinedInventory.filter((item: any) => {
@@ -449,9 +778,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     return matchesSearch && matchesType;
   });
 
-  const lowStockItems = combinedInventory.filter(
-    (item: any) => (item.quantity || 0) <= (item.reorderLevel || 100)
-  );
+  const lowStockItems = combinedInventory.filter((item: any) => getStockStatus(item) !== "good");
 
   const expiringItems = combinedInventory.filter((item: any) => {
     if (!item.expiryDate) return false;
@@ -464,7 +791,11 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     return sum + qty;
   }, 0);
 
-  // ── Render ────────────────────────────────────────────────────────────────────
+  const totalMedicineStock = medicineInventory.reduce((sum, batch) => sum + (batch.quantity || 0), 0);
+  const expiredMedicineCount = medicineInventory.filter((batch) => getMedicineBatchStatus(batch) === "EXPIRED").length;
+  const lowMedicineStockCount = medicineInventory.filter((batch) => getMedicineBatchStatus(batch) === "LOW_STOCK").length;
+
+  // Render
 
   return (
     <div className="p-6 space-y-6">
@@ -597,12 +928,12 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-gray-700">
-                {lowStockItems.length} item(s) below reorder level
+                {lowStockItems.length} item(s) flagged by stock status
               </p>
               <div className="mt-2 space-y-1">
                 {lowStockItems.slice(0, 3).map((item) => (
                   <p key={item.id} className="text-xs text-gray-600">
-                    • {item.name} ({item.quantity} {item.unit})
+                    * {item.name} ({item.quantity} {item.unit})
                   </p>
                 ))}
               </div>
@@ -625,7 +956,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
               <div className="mt-2 space-y-1">
                 {expiringItems.slice(0, 3).map((item) => (
                   <p key={item.id} className="text-xs text-gray-600">
-                    • {item.name} ({getDaysUntilExpiry(item.expiryDate)} days)
+                    * {item.name} ({getDaysUntilExpiry(item.expiryDate)} days)
                   </p>
                 ))}
               </div>
@@ -636,14 +967,22 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
       {/* Main Tabs */}
       <Tabs defaultValue="fish-stock" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="fish-stock">
             <Fish className="w-4 h-4 mr-2" />
             Fish Stock
           </TabsTrigger>
+          <TabsTrigger value="allocate">
+            <Plus className="w-4 h-4 mr-2" />
+            Allocate to Tank
+          </TabsTrigger>
           <TabsTrigger value="supplies">
             <Package className="w-4 h-4 mr-2" />
             Supplies
+          </TabsTrigger>
+          <TabsTrigger value="medicine">
+            <Pill className="w-4 h-4 mr-2" />
+            Medicine
           </TabsTrigger>
         </TabsList>
 
@@ -675,7 +1014,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#f1f5f9]">
-                    {filteredFishBatches.map((batch) => (
+                    {fishStockBatches.map((batch) => (
                       <tr key={batch.id} className="hover:bg-[#f8fafc] transition-colors group">
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
@@ -734,7 +1073,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                                 <CheckCircle className="w-4 h-4" />
                               </Button>
                             )}
-                            {batch.status === "READY_TO_STOCK" && batch.quantity > 0 && (
+                            {isReadyToAllocateStatus(batch.status) && batch.quantity > 0 && (
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -756,7 +1095,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                 </table>
               </div>
 
-                {filteredFishBatches.length === 0 && (
+                {fishStockBatches.length === 0 && (
                   <div className="text-center py-12">
                     <Fish className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                     <p className="text-gray-600">No fish inventory found</p>
@@ -765,6 +1104,60 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                     </p>
                   </div>
                 )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Allocate to Tank Tab */}
+        <TabsContent value="allocate" className="mt-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Allocate Fish to Tank</CardTitle>
+                <p className="text-sm text-gray-600 mt-1">
+                  Choose any ready batch and allocate it directly to a tank
+                </p>
+              </div>
+              <Button size="icon" variant="ghost" className="text-gray-400 hover:text-[#0A4D68]" onClick={loadBatches}>
+                <RefreshCw className="w-4 h-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {readyToAllocateBatches.length === 0 && (
+                <div className="text-center py-10 border border-dashed rounded-lg bg-gray-50">
+                  <Fish className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-600">No batches are ready to stock right now.</p>
+                </div>
+              )}
+
+              {readyToAllocateBatches.map((batch) => (
+                <div
+                  key={batch.id}
+                  className="flex flex-col gap-3 rounded-lg border p-4 md:flex-row md:items-center md:justify-between"
+                >
+                  <div>
+                    <p className="font-semibold text-[#0A4D68]">{batch.fishTypeName || batch.species || "Fish Batch"}</p>
+                    <p className="text-xs text-gray-500 mt-1">Batch ID: {batch.id}</p>
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
+                      <span>Qty: <span className="font-medium">{(batch.quantity ?? 0).toLocaleString()} fish</span></span>
+                      <span>Avg Weight: <span className="font-medium">{batch.averageWeight || 0}g</span></span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {getStatusBadge(batch.status)}
+                    <Button
+                      className="bg-[#0A4D68] hover:bg-[#083d52]"
+                      onClick={() => {
+                        setSelectedBatch(batch);
+                        setShowAllocateModal(true);
+                      }}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Allocate to Tank
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </CardContent>
           </Card>
         </TabsContent>
@@ -809,7 +1202,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl text-orange-600 font-bold">
-                  {combinedInventory.filter((i: any) => (i.quantity || 0) <= (i.reorderLevel || 100)).length}
+                  {combinedInventory.filter((i: any) => getStockStatus(i) !== "good").length}
                 </div>
                 <p className="text-xs text-gray-600 mt-1">Need reordering</p>
               </CardContent>
@@ -880,6 +1273,8 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                     className="h-9 w-9 text-gray-400 hover:text-[#0A4D68]"
                     onClick={() => {
                       loadFeed();
+                      loadMedicine();
+                      loadMedicineTotals();
                       loadFoodTypes();
                     }}
                   >
@@ -903,6 +1298,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                   const Icon = getTypeIcon(item.type || 'feed');
                   const stockLevel = getStockLevel(item);
                   const stockStatus = getStockStatus(item);
+                  const normalizedApiStatus = String(item.status || "").toUpperCase();
                   const daysUntilExpiry = getDaysUntilExpiry(item.expiryDate);
                   const itemName = item.name;
 
@@ -1003,7 +1399,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                         />
                         <div className="flex items-center justify-between text-xs text-gray-600">
                           <span>
-                            Reorder at: {item.reorderLevel} {item.unit}
+                            {toNumber(item.reorderLevel, 0) > 0
+                              ? `Reorder at: ${item.reorderLevel} ${item.unit}`
+                              : `API Status: ${normalizedApiStatus || "N/A"}`}
                           </span>
                           <span>
                             ${item.costPerUnit} per {item.unit}
@@ -1011,18 +1409,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                         </div>
                       </div>
 
-                      {stockStatus !== "good" && (
-                        <div className="mt-3 pt-3 border-t">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full"
-                          >
-                            <ShoppingCart className="w-4 h-4 mr-2" />
-                            Reorder from {item.supplier}
-                          </Button>
-                        </div>
-                      )}
                     </div>
                   );
                 })}
@@ -1035,6 +1421,160 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                   <p className="text-sm text-gray-500 mt-1">
                     Try adjusting your search or filters
                   </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="medicine" className="mt-4 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Medicine Batches</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{medicineInventory.length}</div>
+                <p className="text-xs text-gray-600 mt-1">Active inventory rows</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Total Quantity</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totalMedicineStock.toLocaleString()}</div>
+                <p className="text-xs text-gray-600 mt-1">Across all medicine batches</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Low Stock</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-orange-600">{lowMedicineStockCount}</div>
+                <p className="text-xs text-gray-600 mt-1">Needs refill soon</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Expired</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">{expiredMedicineCount}</div>
+                <p className="text-xs text-gray-600 mt-1">Do not use</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {medicineTotals.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Medicine Totals</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {medicineTotals.map((item, idx) => (
+                  <div
+                    key={`${item.medicineName}-${idx}`}
+                    className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+                  >
+                    <span className="font-medium text-gray-700">{item.medicineName}</span>
+                    <span className="text-gray-600">
+                      {item.totalQuantity.toLocaleString()} {item.unit}
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Medicine Inventory List</CardTitle>
+                <p className="text-sm text-gray-600 mt-1">
+                  Table view with quantity status and batch-level controls
+                </p>
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="text-gray-400 hover:text-[#0A4D68]"
+                onClick={() => {
+                  loadMedicine();
+                  loadMedicineTotals();
+                }}
+              >
+                <RefreshCw className="w-4 h-4" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {medicineInventory.length === 0 ? (
+                <div className="text-center py-12 border border-dashed rounded-lg bg-gray-50">
+                  <Pill className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-600">No medicine inventory found for this farm.</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Once medicine stock is received, it will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left border-collapse">
+                    <thead className="bg-[#f8fafc] text-[#64748b] font-bold uppercase text-[10px] tracking-widest border-b border-[#e2e8f0]">
+                      <tr>
+                        <th className="px-4 py-3">Medicine</th>
+                        <th className="px-4 py-3">Company</th>
+                        <th className="px-4 py-3">Batch</th>
+                        <th className="px-4 py-3">Quantity</th>
+                        <th className="px-4 py-3">Expiry Date</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#f1f5f9]">
+                      {medicineInventory.map((batch) => {
+                        const status = getMedicineBatchStatus(batch);
+                        return (
+                          <tr key={batch.id} className="hover:bg-[#f8fafc] transition-colors">
+                            <td className="px-4 py-3 font-semibold text-[#0A4D68]">{batch.medicineName}</td>
+                            <td className="px-4 py-3 text-gray-700">{batch.company || "-"}</td>
+                            <td className="px-4 py-3 font-mono text-xs text-gray-600">{batch.batchNumber || "-"}</td>
+                            <td className="px-4 py-3">
+                              {batch.quantity.toLocaleString()} {batch.unit}
+                            </td>
+                            <td className="px-4 py-3 text-gray-700">
+                              {batch.expiryDate ? new Date(batch.expiryDate).toLocaleDateString() : "-"}
+                            </td>
+                            <td className="px-4 py-3">
+                              <Badge variant="outline" className={medicineStatusBadgeClass(status)}>
+                                {status.replace(/_/g, " ")}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center justify-end gap-2">
+                                <Button size="sm" variant="outline" onClick={() => openMedicineDetails(batch)}>
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  Details
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  onClick={() => handleDeleteMedicine(batch)}
+                                  disabled={isMedicineDeleting}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </CardContent>
@@ -1134,7 +1674,137 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Health Check & Quarantine Modal — Inventory Batch version */}
+      <Dialog
+        open={isMedicineDetailsOpen}
+        onOpenChange={(open) => {
+          setIsMedicineDetailsOpen(open);
+          if (!open) {
+            setSelectedMedicineBatch(null);
+            setMedicineAdjustmentMode("set");
+            setMedicineAdjustmentValue("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[540px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-[#0A4D68]">
+              <Pill className="w-5 h-5" />
+              Medicine Batch Details
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedMedicineBatch && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 rounded-lg border p-3 text-sm">
+                <div>
+                  <p className="text-xs text-gray-500">Medicine</p>
+                  <p className="font-semibold">{selectedMedicineBatch.medicineName}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Company</p>
+                  <p className="font-medium">{selectedMedicineBatch.company || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Batch</p>
+                  <p className="font-mono text-xs">{selectedMedicineBatch.batchNumber || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Status</p>
+                  <Badge
+                    variant="outline"
+                    className={medicineStatusBadgeClass(getMedicineBatchStatus(selectedMedicineBatch))}
+                  >
+                    {getMedicineBatchStatus(selectedMedicineBatch).replace(/_/g, " ")}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Current Quantity</p>
+                  <p className="font-semibold">
+                    {selectedMedicineBatch.quantity.toLocaleString()} {selectedMedicineBatch.unit}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Expiry Date</p>
+                  <p className="font-medium">
+                    {selectedMedicineBatch.expiryDate
+                      ? new Date(selectedMedicineBatch.expiryDate).toLocaleDateString()
+                      : "-"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-lg border p-3 space-y-3">
+                <p className="text-sm font-semibold text-gray-800">Inventory Adjustments</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Adjustment Type</Label>
+                    <Select
+                      value={medicineAdjustmentMode}
+                      onValueChange={(value: "set" | "deduct") => setMedicineAdjustmentMode(value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="set">Set exact quantity</SelectItem>
+                        <SelectItem value="deduct">Deduct used quantity</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>
+                      {medicineAdjustmentMode === "set" ? "New Quantity" : "Quantity to Deduct"}
+                    </Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={medicineAdjustmentValue}
+                      onChange={(e) => setMedicineAdjustmentValue(e.target.value)}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="text-xs text-gray-600">
+                  Resulting quantity:{" "}
+                  <span className="font-semibold">
+                    {Math.max(
+                      0,
+                      medicineAdjustmentMode === "deduct"
+                        ? selectedMedicineBatch.quantity - (Number(medicineAdjustmentValue) || 0)
+                        : Number(medicineAdjustmentValue) || 0,
+                    ).toLocaleString()}{" "}
+                    {selectedMedicineBatch.unit}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex items-center justify-between sm:justify-between">
+            <Button
+              variant="outline"
+              className="text-red-600 border-red-200 hover:bg-red-50"
+              onClick={() => selectedMedicineBatch && handleDeleteMedicine(selectedMedicineBatch)}
+              disabled={!selectedMedicineBatch || isMedicineDeleting || isMedicineSaving}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              {isMedicineDeleting ? "Deleting..." : "Delete Batch"}
+            </Button>
+
+            <Button
+              onClick={handleMedicineQuantityUpdate}
+              className="bg-[#0A4D68] hover:bg-[#083d52]"
+              disabled={!selectedMedicineBatch || isMedicineSaving || isMedicineDeleting}
+            >
+              {isMedicineSaving ? "Saving..." : "Update Quantity"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Health Check & Quarantine Modal - Inventory Batch version */}
       {batchForHealth && (
         <BatchHealthModal
           open={healthModalOpen}
@@ -1147,3 +1817,4 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     </div>
   );
 }
+
