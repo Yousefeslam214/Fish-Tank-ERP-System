@@ -13,7 +13,6 @@ interface TankTasksTabProps {
   tank: any;
 }
 
-type ViewScope = 'tank' | 'mine';
 type StatusFilter = 'ALL' | TaskStatus;
 
 const STATUS_LIST: TaskStatus[] = ['OPEN', 'IN_PROGRESS', 'DONE', 'CANCELLED'];
@@ -44,7 +43,6 @@ const taskMatchesTank = (task: TaskItem, tank: any): boolean => {
 
 export function TankTasksTab({ user, tank }: TankTasksTabProps) {
   const canViewFarmTasks = user.role === 'admin' || user.role === 'manager';
-  const [scope, setScope] = useState<ViewScope>('tank');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -63,19 +61,16 @@ export function TankTasksTab({ user, tank }: TankTasksTabProps) {
       const selectedStatus = statusFilter === 'ALL' ? undefined : statusFilter;
 
       const sourceTasks =
-        scope === 'mine' || !canViewFarmTasks
-          ? await getMyTasks()
-          : await getFarmTasks(selectedStatus);
+        canViewFarmTasks
+          ? await getFarmTasks(selectedStatus)
+          : await getMyTasks();
 
       const statusFiltered =
-        scope === 'mine' && selectedStatus
+        selectedStatus
           ? sourceTasks.filter((task) => task.status === selectedStatus)
           : sourceTasks;
 
-      const scoped =
-        scope === 'tank' && canViewFarmTasks
-          ? statusFiltered.filter((task) => taskMatchesTank(task, tank))
-          : statusFiltered;
+      const scoped = statusFiltered.filter((task) => taskMatchesTank(task, tank));
 
       setTasks(scoped);
     } catch (err) {
@@ -84,7 +79,7 @@ export function TankTasksTab({ user, tank }: TankTasksTabProps) {
     } finally {
       setLoading(false);
     }
-  }, [canViewFarmTasks, scope, statusFilter, tank]);
+  }, [canViewFarmTasks, statusFilter, tank]);
 
   useEffect(() => {
     void loadTasks();
@@ -132,26 +127,6 @@ export function TankTasksTab({ user, tank }: TankTasksTabProps) {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {canViewFarmTasks && (
-            <div className="flex bg-gray-100 p-1 rounded-lg">
-              <Button
-                size="sm"
-                variant={scope === 'tank' ? 'default' : 'ghost'}
-                className="h-8"
-                onClick={() => setScope('tank')}
-              >
-                Tank Tasks
-              </Button>
-              <Button
-                size="sm"
-                variant={scope === 'mine' ? 'default' : 'ghost'}
-                className="h-8"
-                onClick={() => setScope('mine')}
-              >
-                My Tasks
-              </Button>
-            </div>
-          )}
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
             <SelectTrigger className="w-[170px] h-8">
               <SelectValue placeholder="Filter status" />
@@ -208,9 +183,7 @@ export function TankTasksTab({ user, tank }: TankTasksTabProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">
-            {scope === 'tank' && canViewFarmTasks ? 'Tasks related to this tank' : 'My assigned tasks'}
-          </CardTitle>
+          <CardTitle className="text-base">Tasks related to this tank</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {loading && <p className="text-sm text-gray-500">Loading tasks...</p>}

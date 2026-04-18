@@ -134,6 +134,33 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     return Number.isFinite(parsed) ? parsed : fallback;
   };
 
+  const getAlertThreshold = (entry: any, fallback = 0): number => {
+    const threshold = toNumber(
+      entry?.alertThreshold ??
+        entry?.alertthreshold ??
+        entry?.reorderLevel ??
+        entry?.minimumStock ??
+        entry?.minStockLevel ??
+        entry?.threshold ??
+        entry?.lowStockThreshold ??
+        entry?.foodType?.alertThreshold ??
+        entry?.foodType?.alertthreshold ??
+        entry?.foodType?.reorderLevel ??
+        entry?.foodType?.minimumStock ??
+        entry?.foodType?.minStockLevel ??
+        entry?.foodType?.threshold ??
+        entry?.foodType?.lowStockThreshold,
+      Number.NaN,
+    );
+
+    if (Number.isFinite(threshold) && threshold > 0) {
+      return threshold;
+    }
+
+    const fallbackNumber = toNumber(fallback, 0);
+    return fallbackNumber > 0 ? fallbackNumber : 0;
+  };
+
   const getArrayPayload = (value: any): any[] => {
     if (Array.isArray(value)) return value;
     if (Array.isArray(value?.data)) return value.data;
@@ -743,6 +770,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       const unit = f.unit || (ft?.unit || 'kg');
       const quantity = typeof f.quantityKg === 'number' ? f.quantityKg : (typeof f.quantity === 'number' ? f.quantity : 0);
       const costPerUnit = f.costPerKg || f.unitCost || f.costPerUnit || ft?.costPerUnit || 0;
+      const foodTypeThreshold = getAlertThreshold(ft, 100);
       
       return {
         ...f,
@@ -752,7 +780,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         quantity,
         initialQuantity: toNumber(f.initialQuantityKg ?? f.initialQuantity ?? quantity, quantity),
         unit,
-        reorderLevel: f.reorderLevel || ft?.reorderLevel || 100,
+        reorderLevel: getAlertThreshold(f, foodTypeThreshold),
         costPerUnit: costPerUnit,
         supplier: f.manufacturer || f.supplier || ft?.supplier || 'Main Supplier',
         expiryDate: f.expiryDate,
@@ -814,14 +842,17 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         {(() => {
           const feedStockByType = foodTypes.map(ft => {
             const ftId = (ft.id || ft._id);
-            const total = feedInventory
+            const matches = feedInventory
               .filter(f => {
                   const fid = f.foodTypeId || f.foodType || f.foodId || f.foodType_id;
                   const extractedId = typeof fid === 'object' ? fid?.id || fid?._id : fid;
                   return extractedId === ftId;
-              })
-              .reduce((sum, f) => sum + (Number(f.quantityKg) || Number(f.quantity) || 0), 0);
-            return { ...ft, total };
+              });
+            const total = matches.reduce((sum, f) => sum + (Number(f.quantityKg) || Number(f.quantity) || 0), 0);
+            const apiThreshold = matches.reduce((acc, row) => (acc > 0 ? acc : getAlertThreshold(row, 0)), 0);
+            const reorderLevel = apiThreshold || getAlertThreshold(ft, 500);
+
+            return { ...ft, total, reorderLevel };
           });
           
           return feedStockByType.map(ft => (
@@ -834,8 +865,8 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                 </div>
                 <div className="mt-2 flex items-center justify-between text-[10px]">
                   <span className="text-gray-500">Value: {(ft.total * (ft.costPerUnit || 0)).toLocaleString()} EGP</span>
-                  <Badge className={`${ft.total < 500 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'} border-none text-[8px]`}>
-                    {ft.total < 500 ? 'REORDER' : 'OK'}
+                  <Badge className={`${ft.reorderLevel > 0 && ft.total <= ft.reorderLevel ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'} border-none text-[8px]`}>
+                    {ft.reorderLevel > 0 && ft.total <= ft.reorderLevel ? 'REORDER' : 'OK'}
                   </Badge>
                 </div>
               </CardContent>

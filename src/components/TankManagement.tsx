@@ -500,12 +500,6 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
                     </div>
                   )}
 
-                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                    <p className="text-sm font-medium text-[#0A4D68] mb-1">Staff Assignment Moved</p>
-                    <p className="text-xs text-gray-600">
-                      Open this tank, then use <span className="font-medium">Assign Users</span> tab for user assignment.
-                    </p>
-                  </div>
                 </CardContent>
               </Card>
             ))}

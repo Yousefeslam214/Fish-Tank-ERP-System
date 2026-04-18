@@ -72,19 +72,39 @@ export default function App() {
       return formatted;
     };
 
+    const parseTimestampValue = (value: unknown): Date | null => {
+      if (value instanceof Date) {
+        return Number.isNaN(value.getTime()) ? null : value;
+      }
+
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        const normalized = Math.abs(value) < 1e12 ? value * 1000 : value;
+        const date = new Date(normalized);
+        return Number.isNaN(date.getTime()) ? null : date;
+      }
+
+      if (typeof value === 'string' && value.trim()) {
+        const trimmed = value.trim();
+        if (/^\d+(\.\d+)?$/.test(trimmed)) {
+          const numericValue = Number(trimmed);
+          if (Number.isFinite(numericValue)) {
+            const normalized = Math.abs(numericValue) < 1e12 ? numericValue * 1000 : numericValue;
+            const date = new Date(normalized);
+            if (!Number.isNaN(date.getTime())) return date;
+          }
+        }
+
+        const date = new Date(trimmed);
+        return Number.isNaN(date.getTime()) ? null : date;
+      }
+
+      return null;
+    };
+
     const pickTimestamp = (...values: unknown[]): string => {
       for (const value of values) {
-        if (value instanceof Date) {
-          return Number.isNaN(value.getTime()) ? new Date().toISOString() : value.toISOString();
-        }
-        if (typeof value === 'number') {
-          const date = new Date(value);
-          if (!Number.isNaN(date.getTime())) return date.toISOString();
-        }
-        if (typeof value === 'string' && value.trim()) {
-          const date = new Date(value);
-          if (!Number.isNaN(date.getTime())) return date.toISOString();
-        }
+        const parsed = parseTimestampValue(value);
+        if (parsed) return parsed.toISOString();
       }
       return new Date().toISOString();
     };

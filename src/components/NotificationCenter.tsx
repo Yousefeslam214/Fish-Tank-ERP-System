@@ -85,17 +85,58 @@ export default function NotificationCenter({ user, notifications, onUpdateNotifi
     }
   };
 
-  const getTimeAgo = (timestamp?: string) => {
-    if (!timestamp) return 'Just now';
-    const now = new Date();
-    const time = new Date(timestamp);
-    if (Number.isNaN(time.getTime())) return 'Just now';
-    const diffInHours = Math.floor((now.getTime() - time.getTime()) / (1000 * 60 * 60));
+  const parseTimestampValue = (value: unknown): Date | null => {
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? null : value;
+    }
 
-    if (diffInHours < 1) return 'Just now';
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      const normalized = Math.abs(value) < 1e12 ? value * 1000 : value;
+      const date = new Date(normalized);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    if (typeof value === 'string' && value.trim()) {
+      const trimmed = value.trim();
+      if (/^\d+(\.\d+)?$/.test(trimmed)) {
+        const numericValue = Number(trimmed);
+        if (Number.isFinite(numericValue)) {
+          const normalized = Math.abs(numericValue) < 1e12 ? numericValue * 1000 : numericValue;
+          const date = new Date(normalized);
+          if (!Number.isNaN(date.getTime())) return date;
+        }
+      }
+
+      const date = new Date(trimmed);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    return null;
+  };
+
+  const getTimeAgo = (timestamp?: unknown) => {
+    const time = parseTimestampValue(timestamp);
+    if (!time) return 'Just now';
+
+    const diffMs = Date.now() - time.getTime();
+    if (diffMs <= 0) return 'Just now';
+
+    const diffInMinutes = Math.floor(diffMs / (1000 * 60));
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+
+    const diffInHours = Math.floor(diffInMinutes / 60);
     if (diffInHours < 24) return `${diffInHours}h ago`;
+
     const diffInDays = Math.floor(diffInHours / 24);
-    return `${diffInDays}d ago`;
+    if (diffInDays < 7) return `${diffInDays}d ago`;
+
+    return time.toLocaleDateString();
+  };
+
+  const getExactTime = (timestamp?: unknown) => {
+    const time = parseTimestampValue(timestamp);
+    return time ? time.toLocaleString() : '';
   };
 
   return (
@@ -221,7 +262,10 @@ export default function NotificationCenter({ user, notifications, onUpdateNotifi
                                 <div className="w-2 h-2 bg-blue-600 rounded-full" />
                               )}
                             </div>
-                            <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
+                            <span
+                              className="text-xs text-gray-500 whitespace-nowrap ml-2"
+                              title={getExactTime(notification.timestamp)}
+                            >
                               {getTimeAgo(notification.timestamp)}
                             </span>
                           </div>
