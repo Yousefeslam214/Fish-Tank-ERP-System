@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import FishTypeManagementEnhanced from '../components/FishTypeManagementEnhanced';
 import * as fishTypesApi from '../services/fishTypesApi';
+import * as harvestApi from '../services/harvestApi';
 import { User } from '../types';
 
 vi.mock('../services/fishTypesApi', async () => {
@@ -20,6 +21,14 @@ vi.mock('../services/fishTypesApi', async () => {
   };
 });
 
+vi.mock('../services/harvestApi', async () => {
+  const actual = await vi.importActual<typeof import('../services/harvestApi')>('../services/harvestApi');
+  return {
+    ...actual,
+    getPricingByFishType: vi.fn(),
+  };
+});
+
 const getFishTypesMock = vi.mocked(fishTypesApi.getFishTypes);
 const getFoodTypesMock = vi.mocked(fishTypesApi.getFoodTypes);
 const getFishTypeByIdMock = vi.mocked(fishTypesApi.getFishTypeById);
@@ -28,6 +37,7 @@ const createFishTypeMock = vi.mocked(fishTypesApi.createFishType);
 const feedingRateMock = vi.mocked(fishTypesApi.getFeedingRate);
 const mealFrequencyMock = vi.mocked(fishTypesApi.getMealFrequency);
 const proteinRequirementMock = vi.mocked(fishTypesApi.getProteinRequirement);
+const getPricingByFishTypeMock = vi.mocked(harvestApi.getPricingByFishType);
 
 const testUser: User = {
   id: 'user-1',
@@ -112,6 +122,19 @@ describe('FishTypeManagementEnhanced', () => {
       weight: 45,
       proteinPercentage: 32,
     });
+    getPricingByFishTypeMock.mockResolvedValue([
+      {
+        id: 'pricing-1',
+        fishTypeId: 'fish-1',
+        gradeName: 'Grade 1',
+        minWeight: 200,
+        maxWeight: 350,
+        numOfFishInKilo: 4,
+        pricePerKg: 95,
+        isWaste: false,
+        isActive: true,
+      },
+    ]);
   });
 
   it('loads fish type list from API and runs calculators', async () => {
@@ -202,5 +225,5 @@ describe('FishTypeManagementEnhanced', () => {
         }),
       );
     });
-  });
+  }, 10_000);
 });

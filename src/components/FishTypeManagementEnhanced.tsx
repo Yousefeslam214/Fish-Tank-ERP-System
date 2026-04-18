@@ -334,7 +334,7 @@ const toUpsertPayload = (form: FishTypeFormState): FishTypeUpsertPayload => ({
         }))
       : undefined,
   notes: form.notes.trim() || undefined,
-  allowedFoodTypeIds: form.allowedFoodTypeIds,
+  allowedFoodTypeIds: form.allowedFoodTypeIds.length > 0 ? form.allowedFoodTypeIds : undefined,
   isActive: form.isActive,
 });
 
@@ -650,8 +650,8 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
   };
 
   return (
-    <div className="w-full min-h-screen bg-gradient-to-b from-[#F4FAFB] via-[#EDF6F8] to-[#E8F1F4] flex flex-col">
-      <div className="bg-gradient-to-r from-[#0A4D68] via-[#0D5D75] to-[#117487] text-white px-6 py-4 border-b border-white/15">
+       <div className="w-full min-h-screen bg-[#F9FAFB] flex flex-col">
+      <div className="bg-[#0A4D68] text-white px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Fish className="w-6 h-6" />
@@ -659,7 +659,7 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm">{currentFarmLabel}</span>
-            <div className="w-10 h-10 rounded-full bg-[#11A0B2] flex items-center justify-center font-semibold ring-2 ring-white/30">
+            <div className="w-10 h-10 rounded-full bg-[#088395] flex items-center justify-center font-semibold">
               {user.name
                 .split(' ')
                 .map((part) => part[0])
@@ -687,7 +687,7 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
               {isRefreshing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCcw className="w-4 h-4 mr-2" />}
               Refresh
             </Button>
-            <Button className="bg-[#0D8FA3] hover:bg-[#0A6F83] border border-[#0A6F83]" onClick={openCreateModal}>
+            <Button className="bg-[#088395] hover:bg-[#0A4D68]" onClick={openCreateModal}>
               <Plus className="w-4 h-4 mr-2" />
               Add Fish Type
             </Button>
@@ -708,7 +708,7 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {fishTypes.map((fishType) => (
-              <Card key={fishType.id} className="bg-white shadow-sm border border-[#CFE0E6]">
+              <Card key={fishType.id} className="bg-white shadow-sm">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div>
@@ -749,7 +749,7 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
           </div>
         )}
 
-        <Card className="border border-[#CFE0E6] bg-white/90">
+        <Card>
           <CardHeader>
             <CardTitle>Fish Type Calculators</CardTitle>
           </CardHeader>
@@ -793,12 +793,12 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
                 />
               </div>
             </div>
-            <Button className="bg-[#0D8FA3] hover:bg-[#0A6F83] border border-[#0A6F83]" onClick={() => void runCalculators()} disabled={isRunningCalculator}>
+            <Button className="bg-[#088395] hover:bg-[#0A4D68]" onClick={() => void runCalculators()} disabled={isRunningCalculator}>
               {isRunningCalculator ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               Run Calculators
             </Button>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card className="bg-[#F4FAFC] border border-[#D3E3EA]">
+              <Card className="bg-gray-50">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm">Feeding Rate</CardTitle>
                 </CardHeader>
@@ -806,7 +806,7 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
                   {feedingRateResult ? `${feedingRateResult.feedingRatePercentage}% body weight/day` : 'Run calculator'}
                 </CardContent>
               </Card>
-              <Card className="bg-[#F4FAFC] border border-[#D3E3EA]">
+              <Card className="bg-gray-50">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm">Meal Frequency</CardTitle>
                 </CardHeader>
@@ -814,7 +814,7 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
                   {mealFrequencyResult ? `${mealFrequencyResult.mealsPerDay} meals/day` : 'Run calculator'}
                 </CardContent>
               </Card>
-              <Card className="bg-[#F4FAFC] border border-[#D3E3EA]">
+              <Card className="bg-gray-50">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm">Protein Requirement</CardTitle>
                 </CardHeader>

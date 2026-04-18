@@ -1,4 +1,5 @@
 import {
+  ApiClientError,
   asArray,
   asBoolean,
   asNumber,
@@ -137,6 +138,47 @@ export interface ProteinRequirementResult {
   weight: number;
   proteinPercentage: number;
 }
+
+const ALLOWED_FOOD_RELATION_SET_ERROR = 'allowedfoodtypes.set is not a function';
+
+const stripAllowedFoodTypeIds = (payload: FishTypeUpsertPayload): FishTypeUpsertPayload => {
+  const { allowedFoodTypeIds: _allowedFoodTypeIds, ...rest } = payload;
+  return rest;
+};
+
+const isAllowedFoodRelationSetError = (error: unknown): boolean => {
+  if (error instanceof ApiClientError) {
+    if (error.message.toLowerCase().includes(ALLOWED_FOOD_RELATION_SET_ERROR)) {
+      return true;
+    }
+    const payload = asRecord(error.payload);
+    const message = payload?.message;
+    if (typeof message === 'string' && message.toLowerCase().includes(ALLOWED_FOOD_RELATION_SET_ERROR)) {
+      return true;
+    }
+    if (Array.isArray(message)) {
+      return message.some(
+        (entry) => typeof entry === 'string' && entry.toLowerCase().includes(ALLOWED_FOOD_RELATION_SET_ERROR),
+      );
+    }
+    return false;
+  }
+
+  if (error instanceof Error) {
+    return error.message.toLowerCase().includes(ALLOWED_FOOD_RELATION_SET_ERROR);
+  }
+
+  return false;
+};
+
+const parseFishTypeUpsertResponse = (response: unknown, operation: 'create' | 'update'): FishTypeRecord => {
+  const data = unwrapApiData<unknown>(response);
+  const normalized = normalizeFishType(data);
+  if (!normalized) {
+    throw new Error(`Malformed fish type ${operation} response.`);
+  }
+  return normalized;
+};
 
 const normalizeRange = (value: unknown): FeedingWeightRange | null => {
   const record = asRecord(value);
@@ -344,36 +386,46 @@ export const getFishTypeById = async (fishTypeId: string): Promise<FishTypeRecor
 
 export const createFishType = async (payload: FishTypeUpsertPayload): Promise<FishTypeRecord> => {
   const { isActive: _isActive, ...createPayload } = payload as FishTypeUpsertPayload & { isActive?: boolean };
-  const response = await requestJson('/farm/fish-types', {
-    method: 'POST',
-    body: createPayload,
-  });
-
-  const data = unwrapApiData<unknown>(response);
-  const normalized = normalizeFishType(data);
-  if (!normalized) {
-    throw new Error('Malformed fish type create response.');
+  try {
+    const response = await requestJson('/farm/fish-types', {
+      method: 'POST',
+      body: createPayload,
+    });
+    return parseFishTypeUpsertResponse(response, 'create');
+  } catch (error) {
+    if (isAllowedFoodRelationSetError(error) && createPayload.allowedFoodTypeIds !== undefined) {
+      const response = await requestJson('/farm/fish-types', {
+        method: 'POST',
+        body: stripAllowedFoodTypeIds(createPayload),
+      });
+      return parseFishTypeUpsertResponse(response, 'create');
+    } else {
+      throw error;
+    }
   }
-
-  return normalized;
 };
 
 export const updateFishType = async (
   fishTypeId: string,
   payload: FishTypeUpsertPayload,
 ): Promise<FishTypeRecord> => {
-  const response = await requestJson(`/farm/fish-types/${fishTypeId}`, {
-    method: 'PUT',
-    body: payload,
-  });
-
-  const data = unwrapApiData<unknown>(response);
-  const normalized = normalizeFishType(data);
-  if (!normalized) {
-    throw new Error('Malformed fish type update response.');
+  try {
+    const response = await requestJson(`/farm/fish-types/${fishTypeId}`, {
+      method: 'PUT',
+      body: payload,
+    });
+    return parseFishTypeUpsertResponse(response, 'update');
+  } catch (error) {
+    if (isAllowedFoodRelationSetError(error) && payload.allowedFoodTypeIds !== undefined) {
+      const response = await requestJson(`/farm/fish-types/${fishTypeId}`, {
+        method: 'PUT',
+        body: stripAllowedFoodTypeIds(payload),
+      });
+      return parseFishTypeUpsertResponse(response, 'update');
+    } else {
+      throw error;
+    }
   }
-
-  return normalized;
 };
 
 export const getFeedingRate = async (

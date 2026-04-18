@@ -116,7 +116,7 @@ describe('fishTypesApi', () => {
         }),
       );
 
-    await createFishType(basePayload);
+    await createFishType({ ...basePayload, isActive: true });
     await updateFishType('fish-1', { ...basePayload, criticalParameters: ['DO'] });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -135,6 +135,81 @@ describe('fishTypesApi', () => {
         body: JSON.stringify({ ...basePayload, criticalParameters: ['DO'] }),
       }),
     );
+  });
+
+  it('retries create without allowedFoodTypeIds when backend throws allowedFoodTypes.set error', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            success: false,
+            errorCode: 'INTERNAL_ERROR',
+            message: 'entity.allowedFoodTypes.set is not a function',
+          },
+          500,
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            success: true,
+            data: {
+              ...basePayload,
+              id: 'fish-1',
+              allowedFoodTypes: [],
+              criticalParameters: [],
+              isActive: true,
+            },
+          },
+          201,
+        ),
+      );
+
+    await createFishType(basePayload);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    const firstBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body ?? '{}')) as Record<string, unknown>;
+    const retryBody = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body ?? '{}')) as Record<string, unknown>;
+
+    expect(firstBody.allowedFoodTypeIds).toEqual(['food-1']);
+    expect(retryBody.allowedFoodTypeIds).toBeUndefined();
+  });
+
+  it('retries create without allowedFoodTypeIds when backend returns wrapped success:false relation error', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({
+          success: false,
+          errorCode: 'INTERNAL_ERROR',
+          message: 'entity.allowedFoodTypes.set is not a function',
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            success: true,
+            data: {
+              ...basePayload,
+              id: 'fish-1',
+              allowedFoodTypes: [],
+              criticalParameters: [],
+              isActive: true,
+            },
+          },
+          201,
+        ),
+      );
+
+    await createFishType(basePayload);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    const firstBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body ?? '{}')) as Record<string, unknown>;
+    const retryBody = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body ?? '{}')) as Record<string, unknown>;
+
+    expect(firstBody.allowedFoodTypeIds).toEqual(['food-1']);
+    expect(retryBody.allowedFoodTypeIds).toBeUndefined();
   });
 
   it('normalizes calculator endpoint responses', async () => {
