@@ -380,16 +380,15 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     batchId: string,
     tankId: string,
     quantity: number,
+    avgWeight: number,
     stockingDate: string,
     notes?: string
   ) => {
     void stockingDate;
     void notes;
     try {
-      const targetBatch = fishBatches.find((b: any) => b.id === batchId);
-      const avgWeight = toNumber(targetBatch?.averageWeight ?? targetBatch?.avgWeight, 0);
       // Backend allocate route expects: { tankId, quantity, avgWeight }.
-      await allocateBatch(batchId, { tankId, quantity, avgWeight });
+      await allocateBatch(batchId, { tankId, quantity, avgWeight: toNumber(avgWeight, 0) });
       await loadBatches();
       toast.success("Batch allocated to tank successfully");
     } catch (error) {
@@ -1073,20 +1072,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                                 <CheckCircle className="w-4 h-4" />
                               </Button>
                             )}
-                            {isReadyToAllocateStatus(batch.status) && batch.quantity > 0 && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 w-8 p-0 text-[#0A4D68] hover:bg-blue-50"
-                                onClick={() => {
-                                  setSelectedBatch(batch);
-                                  setShowAllocateModal(true);
-                                }}
-                                title="Allocate to Tank"
-                              >
-                                <Plus className="w-4 h-4" />
-                              </Button>
-                            )}
                           </div>
                         </td>
                       </tr>
@@ -1140,7 +1125,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                     <p className="text-xs text-gray-500 mt-1">Batch ID: {batch.id}</p>
                     <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
                       <span>Qty: <span className="font-medium">{(batch.quantity ?? 0).toLocaleString()} fish</span></span>
-                      <span>Avg Weight: <span className="font-medium">{batch.averageWeight || 0}g</span></span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
