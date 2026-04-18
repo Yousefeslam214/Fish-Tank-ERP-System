@@ -30,6 +30,9 @@ const basePayload = {
   fcrMin: 1.2,
   fcrMax: 1.6,
   survivalRate: 90,
+  targetSGR: 2,
+  targetWeightForHarvest: 2.8,
+  defaultMarketPrice: 95,
   feedingRateMatrix: {
     weight_ranges: [{ min: 0, max: 10 }],
     temperatures: [20, 24, 26],
@@ -37,6 +40,7 @@ const basePayload = {
   },
   mealFrequencyRules: [{ maxWeight: 10, mealsPerDay: 6 }],
   proteinRequirements: [{ minWeight: 0, maxWeight: 10, proteinPercentage: 40 }],
+  expectedGradeDistribution: [{ gradePricingId: 'pricing-1', percentage: 100 }],
   allowedFoodTypeIds: ['food-1'],
 };
 
@@ -62,6 +66,7 @@ describe('fishTypesApi', () => {
             id: 'fish-1',
             allowedFoodTypes: ['food-1'],
             criticalParameters: ['DO', 'NH3'],
+            expectedGradeDistribution: [{ gradePricingId: 'pricing-1', percentage: 100 }],
             isActive: true,
           },
         ],
@@ -75,6 +80,9 @@ describe('fishTypesApi', () => {
       name: 'Nile Tilapia',
       allowedFoodTypeIds: ['food-1'],
       criticalParameters: ['DO', 'NH3'],
+      targetWeightForHarvest: 2.8,
+      defaultMarketPrice: 95,
+      expectedGradeDistribution: [{ gradePricingId: 'pricing-1', percentage: 100 }],
     });
   });
 

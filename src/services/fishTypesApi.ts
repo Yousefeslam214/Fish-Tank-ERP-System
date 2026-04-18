@@ -30,6 +30,11 @@ export interface ProteinRequirementRule {
   proteinPercentage: number;
 }
 
+export interface ExpectedGradeDistributionEntry {
+  gradePricingId: string;
+  percentage: number;
+}
+
 export interface FoodTypeOption {
   id: string;
   name: string;
@@ -63,10 +68,13 @@ export interface FishTypeRecord {
   fcrMax: number;
   survivalRate: number;
   targetSGR?: number;
+  targetWeightForHarvest?: number;
+  defaultMarketPrice?: number;
   feedingRateMatrix: FeedingRateMatrix;
   mealFrequencyRules: MealFrequencyRule[];
   criticalParameters: string[];
   proteinRequirements: ProteinRequirementRule[];
+  expectedGradeDistribution?: ExpectedGradeDistributionEntry[];
   allowedFoodTypeIds: string[];
   allowedFoodTypes: FoodTypeOption[];
   notes?: string;
@@ -99,12 +107,14 @@ export interface FishTypeUpsertPayload {
   fcrMax: number;
   survivalRate: number;
   targetSGR?: number;
+  targetWeightForHarvest?: number;
+  defaultMarketPrice?: number;
   feedingRateMatrix: FeedingRateMatrix;
   mealFrequencyRules: MealFrequencyRule[];
   criticalParameters?: string[];
   notes?: string;
   allowedFoodTypeIds?: string[];
-  expectedGradeDistribution?: unknown[];
+  expectedGradeDistribution?: ExpectedGradeDistributionEntry[];
   proteinRequirements?: ProteinRequirementRule[];
   isActive?: boolean;
 }
@@ -194,6 +204,26 @@ const normalizeProteinRequirements = (value: unknown): ProteinRequirementRule[] 
     })
     .filter((entry): entry is ProteinRequirementRule => entry !== null);
 
+const normalizeExpectedGradeDistribution = (value: unknown): ExpectedGradeDistributionEntry[] =>
+  asArray(value)
+    .map((entry) => {
+      const record = asRecord(entry);
+      if (!record) {
+        return null;
+      }
+
+      const gradePricingId = asString(record.gradePricingId) || asString(record.pricingId) || asString(record.gradeId);
+      if (!gradePricingId) {
+        return null;
+      }
+
+      return {
+        gradePricingId,
+        percentage: asNumber(record.percentage) ?? 0,
+      };
+    })
+    .filter((entry): entry is ExpectedGradeDistributionEntry => entry !== null);
+
 const normalizeFoodType = (value: unknown): FoodTypeOption | null => {
   const record = asRecord(value);
   if (!record) {
@@ -267,12 +297,15 @@ const normalizeFishType = (value: unknown): FishTypeRecord | null => {
     fcrMax: asNumber(record.fcrMax) ?? 0,
     survivalRate: asNumber(record.survivalRate) ?? 0,
     targetSGR: asNumber(record.targetSGR),
+    targetWeightForHarvest: asNumber(record.targetWeightForHarvest),
+    defaultMarketPrice: asNumber(record.defaultMarketPrice),
     feedingRateMatrix: normalizeFeedingRateMatrix(record.feedingRateMatrix),
     mealFrequencyRules: normalizeMealFrequencyRules(record.mealFrequencyRules),
     criticalParameters: asArray(record.criticalParameters)
       .map((entry) => asString(entry))
       .filter((entry): entry is string => Boolean(entry)),
     proteinRequirements: normalizeProteinRequirements(record.proteinRequirements),
+    expectedGradeDistribution: normalizeExpectedGradeDistribution(record.expectedGradeDistribution),
     allowedFoodTypeIds,
     allowedFoodTypes,
     notes: asString(record.notes),

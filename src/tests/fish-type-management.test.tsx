@@ -63,6 +63,8 @@ const sampleFishType = {
   fcrMax: 1.6,
   survivalRate: 90,
   targetSGR: 2,
+  targetWeightForHarvest: 2.8,
+  defaultMarketPrice: 95,
   feedingRateMatrix: {
     weight_ranges: [{ min: 0, max: 10 }],
     temperatures: [20, 24, 26],
@@ -71,6 +73,7 @@ const sampleFishType = {
   mealFrequencyRules: [{ maxWeight: 10, mealsPerDay: 6 }],
   criticalParameters: ['DO', 'NH3'],
   proteinRequirements: [{ minWeight: 0, maxWeight: 10, proteinPercentage: 40 }],
+  expectedGradeDistribution: [{ gradePricingId: 'pricing-1', percentage: 100 }],
   allowedFoodTypeIds: ['food-1'],
   allowedFoodTypes: [],
   notes: 'Notes',
@@ -128,6 +131,33 @@ describe('FishTypeManagementEnhanced', () => {
     expect(await screen.findByText('12% body weight/day')).toBeInTheDocument();
     expect(screen.getByText('4 meals/day')).toBeInTheDocument();
     expect(screen.getByText('32% protein')).toBeInTheDocument();
+  });
+
+  it('renders refreshed create modal with tabs, water sections, and structured editors', async () => {
+    const user = userEvent.setup();
+    render(<FishTypeManagementEnhanced user={testUser} selectedFarm={null} />);
+
+    await screen.findAllByText('Nile Tilapia');
+    await user.click(screen.getByRole('button', { name: /Add Fish Type/i }));
+
+    expect(await screen.findByText('Create New Fish Type')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Basic Info' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Water Quality' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Feeding Rates' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Protein & Meals' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Food Types' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: 'Water Quality' }));
+    expect(await screen.findByText('Water Quality Parameters')).toBeInTheDocument();
+    expect(screen.getAllByText('Temperature (°C)').length).toBeGreaterThan(0);
+    expect(screen.getByText('Dissolved Oxygen (mg/L)')).toBeInTheDocument();
+    expect(screen.getByText('Performance Benchmarks')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create Fish Type' })).toBeInTheDocument();
+
+    expect(screen.queryByText('Feeding Rate Matrix JSON')).not.toBeInTheDocument();
+    expect(screen.queryByText('Meal Frequency Rules JSON')).not.toBeInTheDocument();
+    expect(screen.queryByText('Protein Requirements JSON')).not.toBeInTheDocument();
   });
 
   it('supports edit flow (by-id load + update) and create flow', async () => {
