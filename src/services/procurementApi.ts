@@ -285,7 +285,7 @@ const normalizeFeedOrder = (value: unknown): FeedPurchaseOrderRecord | null => {
     return null;
   }
 
-  const id = asString(record.id);
+  const id = asString(record.id) || asString(record._id);
   if (!id) {
     return null;
   }
@@ -345,7 +345,7 @@ const normalizeFishOrder = (value: unknown): FishPurchaseOrderRecord | null => {
     return null;
   }
 
-  const id = asString(record.id);
+  const id = asString(record.id) || asString(record._id);
   if (!id) {
     return null;
   }

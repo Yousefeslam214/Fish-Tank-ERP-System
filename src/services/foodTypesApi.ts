@@ -58,7 +58,7 @@ const normalizeFoodType = (value: unknown): FoodType | null => {
   const record = asRecord(value);
   if (!record) return null;
 
-  const id = asString(record.id);
+  const id = asString(record.id) || asString(record._id);
   const name = asString(record.name);
   if (!id || !name) return null;
 

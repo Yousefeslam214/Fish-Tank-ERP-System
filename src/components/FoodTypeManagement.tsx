@@ -86,8 +86,19 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
     setLoading(true);
     setError(null);
     try {
-      const res = await apiGet<any>('/aquaculture/food-types');
-      setFoodTypes(res.data || res || []);
+      const res = await apiGet<any>('/aquaculture/food-types?limit=100');
+      const rawData = res.data || res || [];
+      const normalizedData = Array.isArray(rawData) ? rawData.map((item: any) => ({
+        ...item,
+        id: item.id || item._id
+      })) : [];
+      
+      console.log('✅ Fetched food types:', {
+        originalCount: Array.isArray(rawData) ? rawData.length : 'not an array',
+        normalizedCount: normalizedData.length,
+        normalizedData
+      });
+      setFoodTypes(normalizedData);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -277,7 +288,7 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
               <p className="text-sm font-medium">Failed to load feed types</p>
               <p className="text-xs mt-0.5">{error}</p>
             </div>
-            <Button size="sm" variant="outline" onClick={() => fetchFoodTypes()}>Retry</Button>
+            <Button size="sm" variant="ghost" className="text-red-600" onClick={() => fetchFoodTypes()}>Retry</Button>
           </div>
         )}
 
@@ -295,7 +306,7 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
             </div>
           ) : (
             foodTypes.map((foodType) => (
-              <Card key={foodType.id} className="bg-white shadow-sm">
+              <Card key={foodType.id || foodType._id} className="bg-white shadow-sm">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -392,7 +403,7 @@ export default function FoodTypeManagement({ user, selectedFarm }: FoodTypeManag
                       size="sm"
                       variant="outline"
                       className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                      onClick={() => setDeleteConfirmId(foodType.id)}
+                      onClick={() => setDeleteConfirmId(foodType.id || foodType._id)}
                     >
                       <Trash2 className="w-3 h-3" />
                     </Button>

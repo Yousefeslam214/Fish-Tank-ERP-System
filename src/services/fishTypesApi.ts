@@ -370,7 +370,7 @@ const normalizeFishTypeList = (payload: unknown): FishTypeRecord[] => {
 };
 
 export const getFishTypes = async (includeInactive = false): Promise<FishTypeRecord[]> => {
-  const payload = await requestJson(`/farm/fish-types?includeInactive=${String(includeInactive)}`);
+  const payload = await requestJson(`/farm/fish-types?includeInactive=${String(includeInactive)}&limit=100`);
   return normalizeFishTypeList(payload);
 };
 

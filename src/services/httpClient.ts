@@ -141,11 +141,14 @@ export const asArray = <T = unknown>(value: unknown): T[] =>
   Array.isArray(value) ? (value as T[]) : [];
 
 export const asString = (value: unknown): string | undefined => {
-  if (typeof value !== 'string') {
-    return undefined;
+  if (typeof value === 'string') {
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : undefined;
   }
-  const normalized = value.trim();
-  return normalized.length > 0 ? normalized : undefined;
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return undefined;
 };
 
 export const asNumber = (value: unknown): number | undefined => {
