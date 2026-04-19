@@ -198,17 +198,17 @@ export default function RecordGrowthMeasurement({
   const handleSubmit = async () => {
     // Validation
     if (formData.sampleSize < 10 || formData.sampleSize > 100) {
-      alert('Sample size must be between 10 and 100 fish');
+      toast.warning('Warning: Sample size should typically be between 10 and 100 for accuracy.');
       return;
     }
 
     if (formData.totalSampleWeight <= 0) {
-      alert('Total sample weight must be greater than 0');
+      toast.error('Total sample weight must be greater than 0');
       return;
     }
 
     if (!detailedEntry && (formData.minWeight <= 0 || formData.maxWeight <= 0)) {
-      alert('Please enter min and max weights');
+      toast.error('Please enter min and max weight for the sample');
       return;
     }
 
@@ -220,7 +220,7 @@ export default function RecordGrowthMeasurement({
       return;
     }
 
-    const payload: any = {
+    const payload = {
       measuredAt: new Date(formData.measuredAt + 'T12:00:00').toISOString(),
       daysInCulture: Math.max(1, Number(batch.daysInCulture) || 1),
       sampleSize: Number(formData.sampleSize) || 0,
@@ -229,21 +229,15 @@ export default function RecordGrowthMeasurement({
       minWeightGrams: Number(detailedEntry ? stats?.min : formData.minWeight) || 0,
       maxWeightGrams: Number(detailedEntry ? stats?.max : formData.maxWeight) || 0,
       estimatedFishCount: Math.max(1, Number(batch.currentCount) || 1),
-      measuredBy: formData.measuredBy,
+      stdDeviationGrams: Number(detailedEntry ? stats?.stdDev : 0) || 0,
+      coefficientOfVariation: Number(detailedEntry ? stats?.cv : 0) || 0,
+      averageLengthCm: Number(formData.averageLength) || 0,
+      measuredBy: formData.measuredBy || 'Caretaker',
       isEstimate: false,
-      notes: formData.notes
+      notes: formData.notes || ''
     };
 
-    // Only add optional fields if they have values
-    const stdDev = Number(detailedEntry ? stats?.stdDev : 0);
-    if (stdDev > 0) payload.stdDeviationGrams = parseFloat(stdDev.toFixed(2));
-    
-    const cv = Number(detailedEntry ? stats?.cv : 0);
-    if (cv > 0) payload.coefficientOfVariation = parseFloat(cv.toFixed(2));
-    
-    if (formData.averageLength > 0) payload.averageLengthCm = Number(formData.averageLength);
-
-    console.log('Saving growth measurement:', payload);
+    console.log("Saving growth measurement with Swagger-aligned payload:", payload);
 
     try {
       if (measurement?.id) {
@@ -252,6 +246,7 @@ export default function RecordGrowthMeasurement({
         toast.success('Growth record updated');
       } else {
         // Use POST to create a new growth measurement for this batch
+        // Verified Swagger Path: /tanks/growth/{batchId}
         await apiPost(`/tanks/growth/${batch.id}`, payload);
       }
       
@@ -283,7 +278,24 @@ export default function RecordGrowthMeasurement({
       }
     } catch (err) {
       console.error('Failed to save growth:', err);
-      toast.error('Failed to save growth: ' + (err as Error).message);
+      let errorMessage = (err as Error).message;
+      
+      // Try to extract a clean message from the API error string
+      try {
+        if (errorMessage.includes(']: ')) {
+          const jsonStr = errorMessage.split(']: ')[1];
+          const errorObj = JSON.parse(jsonStr);
+          if (errorObj.message) {
+            errorMessage = Array.isArray(errorObj.message) 
+              ? errorObj.message.join(', ') 
+              : errorObj.message;
+          }
+        }
+      } catch (e) {
+        // Just use the original message if parsing fails
+      }
+      
+      toast.error('Failed to save growth: ' + errorMessage);
     }
   };
 

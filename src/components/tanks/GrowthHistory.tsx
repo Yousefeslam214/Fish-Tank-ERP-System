@@ -25,6 +25,7 @@ interface GrowthHistoryProps {
     id: string;
     batchNumber: string;
     tankName: string;
+    tankId?: string;
     fishType: string;
     stockedDate: Date;
     initialCount: number;
@@ -287,6 +288,7 @@ export default function GrowthHistory({
           id: batch.id,
           batchNumber: batch.batchNumber,
           tankName: batch.tankName,
+          tankId: batch.tankId,
           fishType: batch.fishType,
           daysInCulture,
           lastWeight: lastMeasurement?.averageWeightGrams || batch.lastWeight || batch.initialWeight,

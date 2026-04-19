@@ -71,7 +71,7 @@ export function GrowthMeasurementsTab({
 
   const analysis = batchGrowthAnalysis[activeBatch.id];
   const history = selectedBatchGrowthHistory[activeBatch.id] || [];
-  
+
   React.useEffect(() => {
     if (activeBatch) {
       console.log('Active batch for growth tracking:', activeBatch.id, activeBatch);
@@ -89,8 +89,8 @@ export function GrowthMeasurementsTab({
   const economics = analysisData?.economics || {};
   const recommendations = analysisData?.recommendations || [];
 
-  const currentWeight = history.length > 0 
-    ? history[history.length - 1].averageWeightGrams 
+  const currentWeight = history.length > 0
+    ? history[history.length - 1].averageWeightGrams
     : parseFloat(activeBatch.weights?.currentAvg || activeBatch.weights?.current || activeBatch.currentAvgWeight || activeBatch.avgWeight || activeBatch.currentAvg || activeBatch.weights?.initial || activeBatch.initialAverageWeight || '0');
 
   return (
@@ -138,82 +138,88 @@ export function GrowthMeasurementsTab({
       </Card>
 
       {/* Analysis Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card className="bg-white border-blue-50 shadow-sm overflow-hidden hover:shadow-md transition-shadow group">
-          <div className="h-1 bg-blue-500"></div>
-          <CardContent className="p-4">
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1 group-hover:text-blue-500 transition-colors">Growth Rate (SGR)</p>
-            <div className="flex items-center justify-between">
-              {isLoadingAnalysis ? (
-                <RefreshCw className="w-5 h-5 animate-spin text-blue-400" />
-              ) : (
-                <>
-                  <h4 className="text-xl font-black text-gray-900">{metrics.sgr?.toFixed(2) || '---'}%</h4>
-                  <Badge className={`${analysisData?.sgrRating === 'EXCELLENT' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'} border-none uppercase font-black text-[9px]`}>
-                    {analysisData?.sgrRating || 'NORMAL'}
-                  </Badge>
-                </>
+      {/* Horizontal Analysis Metrics Indicators - Forced Row */}
+      <div className="flex flex-row gap-3 w-full overflow-x-auto pb-2 no-scrollbar">
+        <Card className="flex-1 bg-white border-blue-100 shadow-sm hover:shadow-md transition-all group border-l-4 border-l-blue-500">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest group-hover:text-blue-500">Growth Rate (SGR)</p>
+              {!isLoadingAnalysis && (
+                <Badge className={`${analysisData?.sgrRating === 'EXCELLENT' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'} border-none uppercase font-black text-[8px] h-4`}>
+                {analysisData?.sgrRating || 'NORMAL'}
+              </Badge>
               )}
             </div>
-            <p className="text-[10px] text-gray-500 mt-1">Weight gain per day</p>
+            <div className="flex items-baseline gap-2">
+              {isLoadingAnalysis ? (
+                <RefreshCw className="w-4 h-4 animate-spin text-blue-400" />
+              ) : (
+                <h4 className="text-lg font-black text-gray-900">{metrics.sgr?.toFixed(2) || '---'}%</h4>
+              )}
+              <span className="text-[9px] text-gray-500">/day</span>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-green-50 shadow-sm overflow-hidden hover:shadow-md transition-shadow group">
-          <div className="h-1 bg-green-500"></div>
-          <CardContent className="p-4">
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1 group-hover:text-green-500 transition-colors">Feed Efficiency (FCR)</p>
-            <div className="flex items-center justify-between">
-              {isLoadingAnalysis ? (
-                <RefreshCw className="w-5 h-5 animate-spin text-green-400" />
-              ) : (
-                <>
-                  <h4 className="text-xl font-black text-gray-900">{metrics.fcr?.toFixed(2) || '---'}</h4>
-                  <Badge className={`${analysisData?.fcrRating === 'POOR' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'} border-none uppercase font-black text-[9px]`}>
-                    {analysisData?.fcrRating || 'GOOD'}
-                  </Badge>
-                </>
+        <Card className="flex-1 bg-white border-green-100 shadow-sm hover:shadow-md transition-all group border-l-4 border-l-green-500">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest group-hover:text-green-500">Efficiency (FCR)</p>
+              {!isLoadingAnalysis && (
+                <Badge className={`${analysisData?.fcrRating === 'POOR' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'} border-none uppercase font-black text-[8px] h-4`}>
+                {analysisData?.fcrRating || 'GOOD'}
+              </Badge>
               )}
             </div>
-            <p className="text-[10px] text-gray-500 mt-1">Lower is better</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white border-teal-50 shadow-sm overflow-hidden hover:shadow-md transition-shadow group">
-          <div className="h-1 bg-teal-500"></div>
-          <CardContent className="p-4">
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1 group-hover:text-teal-500 transition-colors">Current Weight</p>
-            <h4 className="text-xl font-black text-gray-900">{currentWeight?.toFixed(1) || '0.0'}g</h4>
-            <p className="text-[10px] text-gray-500 mt-1">Avg per fish</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white border-orange-50 shadow-sm overflow-hidden hover:shadow-md transition-shadow group">
-          <div className="h-1 bg-orange-500"></div>
-          <CardContent className="p-4">
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1 group-hover:text-orange-500 transition-colors">Biomass</p>
-            <h4 className="text-xl font-black text-gray-900">{((activeBatch.counts?.current || activeBatch.currentCount || activeBatch.count || 0) * (currentWeight || 0) / 1000).toLocaleString(undefined, {maximumFractionDigits: 1})} kg</h4>
-            <p className="text-[10px] text-gray-500 mt-1">Total batch weight</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white border-purple-50 shadow-sm overflow-hidden hover:shadow-md transition-shadow group">
-          <div className="h-1 bg-purple-500"></div>
-          <CardContent className="p-4">
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1 group-hover:text-purple-500 transition-colors">Feed Cost (To Date)</p>
-            <div className="flex items-center justify-between">
+            <div className="flex items-baseline gap-2">
               {isLoadingAnalysis ? (
-                <RefreshCw className="w-5 h-5 animate-spin text-purple-400" />
+                <RefreshCw className="w-4 h-4 animate-spin text-green-400" />
               ) : (
-                <>
-                  <h4 className="text-xl font-black text-gray-900">${economics.feedCostToDate?.toLocaleString() || '---'}</h4>
-                  <Badge className="bg-purple-100 text-purple-700 border-none uppercase font-black text-[9px]">
-                    Analysis
-                  </Badge>
-                </>
+                <h4 className="text-lg font-black text-gray-900">{metrics.fcr?.toFixed(2) || '---'}</h4>
+              )}
+              <span className="text-[9px] text-gray-500">FCR</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="flex-1 bg-white border-teal-100 shadow-sm hover:shadow-md transition-all group border-l-4 border-l-teal-500">
+          <CardContent className="p-3">
+            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-1 group-hover:text-teal-500">Current Weight</p>
+            <div className="flex items-baseline gap-2">
+              <h4 className="text-lg font-black text-gray-900">{currentWeight?.toFixed(1) || '0.0'}g</h4>
+              <span className="text-[9px] text-gray-500">avg</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="flex-1 bg-white border-orange-100 shadow-sm hover:shadow-md transition-all group border-l-4 border-l-orange-500">
+          <CardContent className="p-3">
+            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-1 group-hover:text-orange-500">Total Biomass</p>
+            <div className="flex items-baseline gap-2">
+              <h4 className="text-lg font-black text-gray-900">{((activeBatch.counts?.current || activeBatch.currentCount || activeBatch.count || 0) * (currentWeight || 0) / 1000).toLocaleString(undefined, {maximumFractionDigits: 1})}</h4>
+              <span className="text-[9px] text-gray-500">kg total</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="flex-1 bg-white border-purple-100 shadow-sm hover:shadow-md transition-all group border-l-4 border-l-purple-500">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest group-hover:text-purple-500">Feed Cost</p>
+              {!isLoadingAnalysis && (
+                <Badge className="bg-purple-100 text-purple-700 border-none uppercase font-black text-[8px] h-4">
+                  USD
+                </Badge>
               )}
             </div>
-            <p className="text-[10px] text-gray-500 mt-1">Cumulative cost</p>
+            <div className="flex items-baseline gap-2">
+              {isLoadingAnalysis ? (
+                <RefreshCw className="w-4 h-4 animate-spin text-purple-400" />
+              ) : (
+                <h4 className="text-lg font-black text-gray-900">${economics.feedCostToDate?.toLocaleString() || '---'}</h4>
+              )}
+              <span className="text-[9px] text-gray-500">to date</span>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -270,7 +276,7 @@ export function GrowthMeasurementsTab({
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Proj. Revenue</p>
-                <p className="text-lg font-black text-[#10B981]">${economics.projectedRevenue?.toLocaleString(undefined, {maximumFractionDigits: 0}) || '---'}</p>
+                <p className="text-lg font-black text-[#10B981]">${economics.projectedRevenue?.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '---'}</p>
                 <p className="text-[9px] text-gray-500 font-bold">Current biomass</p>
               </div>
             </div>
@@ -283,6 +289,7 @@ export function GrowthMeasurementsTab({
           id: activeBatch.id,
           batchNumber: activeBatch.batchNumber || activeBatch.id.substring(0, 8),
           tankName: currentTank.name,
+          tankId: currentTank.id,
           fishType: activeBatch.fishType || activeBatch.species || currentTank.species,
           stockedDate: new Date(activeBatch.dates?.stockedDate || activeBatch.stockedDate || activeBatch.createdAt || Date.now()),
           initialCount: activeBatch.counts?.initial || activeBatch.initialCount || 0,
