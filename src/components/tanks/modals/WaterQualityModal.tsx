@@ -118,8 +118,6 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
         return;
       }
 
-      const overallStatus = (numDo < 5 || numAmmonia > 0.5) ? 'WARNING' : 'OPTIMAL';
-
       if (initialRecord?.id) {
         const updatePayload = {
           temperature: numTemp,
@@ -133,7 +131,6 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
           hardness: hardness ? parseFloat(hardness.toString()) : 0,
           turbidity: turbidity ? parseFloat(turbidity.toString()) : 0,
           co2: co2 ? parseFloat(co2.toString()) : 0,
-          overallStatus: overallStatus,
           actionTaken: actionTaken,
           actionNotes: notes || ''
         };
@@ -153,9 +150,6 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
           hardness: hardness ? parseFloat(hardness.toString()) : 0,
           turbidity: turbidity ? parseFloat(turbidity.toString()) : 0,
           co2: co2 ? parseFloat(co2.toString()) : 0,
-          measuredAt: new Date().toISOString(),
-          overallStatus: overallStatus,
-          measuredBy: user?.name || 'System'
         };
         if (!selectedBatchId) {
           throw new Error('Please select a batch to record water quality for.');
