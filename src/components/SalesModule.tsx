@@ -7,6 +7,7 @@ import {
   ClipboardList,
   TrendingUp,
   Loader2,
+  ArrowRight,
 } from 'lucide-react';
 import { User, Farm } from '../types';
 import { mockFarms } from '../mockData';
@@ -14,10 +15,13 @@ import CustomerManagement from './sales/CustomerManagement';
 import HarvestedInventoryView from './sales/HarvestedInventoryView';
 import SalesOrderList from './sales/SalesOrderList';
 import { getSalesDashboardMetrics } from '../services/salesApi';
+import { Button } from './ui/button';
 
 interface SalesModuleProps {
   user: User;
   selectedFarm: Farm | null;
+  allowedPages?: string[];
+  onNavigateToPage?: (page: string) => void;
 }
 
 const normalizeErrorMessage = (error: unknown): string => {
@@ -27,8 +31,9 @@ const normalizeErrorMessage = (error: unknown): string => {
   return 'Failed to load sales dashboard data.';
 };
 
-export default function SalesModule({ user, selectedFarm }: SalesModuleProps) {
+export default function SalesModule({ user, selectedFarm, allowedPages = [], onNavigateToPage }: SalesModuleProps) {
   const currentFarm = selectedFarm || mockFarms[0];
+  const canOpenHarvest = allowedPages.includes('harvest');
   const [activeTab, setActiveTab] = useState('orders');
   const [refreshKey, setRefreshKey] = useState(0);
   const [loadingStats, setLoadingStats] = useState(true);
@@ -71,6 +76,17 @@ export default function SalesModule({ user, selectedFarm }: SalesModuleProps) {
             <span className="text-xl font-semibold">Sales Management</span>
           </div>
           <div className="flex items-center gap-4">
+            {canOpenHarvest && (
+              <Button
+                type="button"
+                variant="outline"
+                className="border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white"
+                onClick={() => onNavigateToPage?.('harvest')}
+              >
+                Go to Harvest
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            )}
             <span className="text-sm">{currentFarm.name}</span>
             <div className="w-10 h-10 rounded-full bg-[#088395] flex items-center justify-center font-semibold">
               {user.name

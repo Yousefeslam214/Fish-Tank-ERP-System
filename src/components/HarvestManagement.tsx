@@ -575,7 +575,7 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="workflow">Workflow</TabsTrigger>
+            <TabsTrigger value="workflow">Harvest</TabsTrigger>
             <TabsTrigger value="pricing">Pricing</TabsTrigger>
             <TabsTrigger value="history">History</TabsTrigger>
           </TabsList>
@@ -672,7 +672,7 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
           <TabsContent value="workflow" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Workflow Step {workflowStep} / 4</CardTitle>
+                <CardTitle>Harvest Step {workflowStep} / 4</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 {workflowStep === 1 && (

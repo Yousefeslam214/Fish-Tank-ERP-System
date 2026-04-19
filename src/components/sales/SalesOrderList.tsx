@@ -67,7 +67,7 @@ const normalizeErrorMessage = (error: unknown): string => {
   return 'Unable to process sales request.';
 };
 
-const matchesRole = (user: SalesFarmUserRecord, roleCode: number, roleLabel: string): boolean => {
+const matchesRole = (user: SalesFarmUserRecord, roleCode: number, roleLabels: string[]): boolean => {
   if (user.roleCode === roleCode) {
     return true;
   }
@@ -77,7 +77,7 @@ const matchesRole = (user: SalesFarmUserRecord, roleCode: number, roleLabel: str
     return true;
   }
 
-  return normalizedRole === roleLabel;
+  return roleLabels.includes(normalizedRole);
 };
 
 export default function SalesOrderList({ onOrdersChanged, selectedFarm, user }: SalesOrderListProps) {
@@ -104,16 +104,27 @@ export default function SalesOrderList({ onOrdersChanged, selectedFarm, user }: 
   const [selectedWorkerId, setSelectedWorkerId] = useState('');
   const [selectedDeliveryUserId, setSelectedDeliveryUserId] = useState('');
 
-  const farmId = selectedFarm.id || user.farmId || '';
+  const farmId = useMemo(() => {
+    const selectedFarmId = selectedFarm.id?.trim() || '';
+    const userFarmId = user.farmId?.trim() || '';
 
-  const workerUsers = useMemo(
-    () => farmUsers.filter((farmUser) => matchesRole(farmUser, 6, 'WORKER')),
+    if (selectedFarmId && userFarmId && selectedFarmId !== userFarmId) {
+      return userFarmId;
+    }
+
+    return selectedFarmId || userFarmId;
+  }, [selectedFarm.id, user.farmId]);
+
+  const strictWorkerUsers = useMemo(
+    () => farmUsers.filter((farmUser) => matchesRole(farmUser, 6, ['WORKER'])),
     [farmUsers],
   );
-  const deliveryUsers = useMemo(
-    () => farmUsers.filter((farmUser) => matchesRole(farmUser, 5, 'DELIVERY')),
+  const strictDeliveryUsers = useMemo(
+    () => farmUsers.filter((farmUser) => matchesRole(farmUser, 5, ['DELIVERY', 'DELIVERY_USER'])),
     [farmUsers],
   );
+  const workerUsers = strictWorkerUsers;
+  const deliveryUsers = strictDeliveryUsers;
 
   const customerLookup = useMemo(
     () => customers.reduce<Record<string, SalesCustomerRecord>>((acc, customer) => ({ ...acc, [customer.id]: customer }), {}),
@@ -646,7 +657,7 @@ export default function SalesOrderList({ onOrdersChanged, selectedFarm, user }: 
                   <Label>Assign Worker *</Label>
                   <Select value={selectedWorkerId} onValueChange={setSelectedWorkerId}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select worker (role 6)" />
+                      <SelectValue placeholder="Select worker" />
                     </SelectTrigger>
                     <SelectContent>
                       {workerUsers.map((farmUser) => (
@@ -665,7 +676,7 @@ export default function SalesOrderList({ onOrdersChanged, selectedFarm, user }: 
                   <Label>Assign Delivery User *</Label>
                   <Select value={selectedDeliveryUserId} onValueChange={setSelectedDeliveryUserId}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select delivery user (role 5)" />
+                      <SelectValue placeholder="Select delivery user" />
                     </SelectTrigger>
                     <SelectContent>
                       {deliveryUsers.map((farmUser) => (
