@@ -123,9 +123,10 @@ describe('harvestApi', () => {
       .mockResolvedValueOnce(
         jsonResponse({
           id: 'grading-1',
-          pricingId: 'pricing-1',
-          sourceBatchId: 'batch-1',
-          weightKg: 50,
+          fishTypeId: 'fish-1',
+          gradeId: 'pricing-1',
+          weight: 50,
+          count: 150,
           condition: 'GOOD',
           pricePerKg: 42,
           totalValue: 2100,
@@ -150,16 +151,16 @@ describe('harvestApi', () => {
     });
 
     await addHarvestGradingRecord('event-1', {
-      pricingId: 'pricing-1',
+      fishTypeId: 'fish-1',
+      gradeId: 'pricing-1',
       sourceBatchId: 'batch-1',
-      weightKg: 50,
+      weight: 50,
+      count: 150,
       condition: 'GOOD',
     });
 
     await completeHarvestEvent('event-1', {
-      laborCost: 200,
-      transportCost: 150,
-      packagingCost: 50,
+      notes: 'Completed successfully',
     });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -176,13 +177,14 @@ describe('harvestApi', () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      expect.stringContaining('/harvest/events/event-1/grading'),
+      expect.stringContaining('/aquaculture-system/harvest/events/event-1/grading'),
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
-          pricingId: 'pricing-1',
-          sourceBatchId: 'batch-1',
-          weightKg: 50,
+          fishTypeId: 'fish-1',
+          gradeId: 'pricing-1',
+          weight: 50,
+          count: 150,
           condition: 'GOOD',
         }),
       }),
@@ -190,13 +192,11 @@ describe('harvestApi', () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
-      expect.stringContaining('/harvest/events/event-1/complete'),
+      expect.stringContaining('/aquaculture-system/harvest/events/event-1/complete'),
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
-          laborCost: 200,
-          transportCost: 150,
-          packagingCost: 50,
+          notes: 'Completed successfully',
         }),
       }),
     );

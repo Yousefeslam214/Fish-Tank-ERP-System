@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { Textarea } from './ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
 import { Fish, Loader2, Plus, RefreshCcw, Scissors, TrendingUp } from 'lucide-react';
@@ -122,14 +123,11 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
   const [pricingList, setPricingList] = useState<FishGradePricingRecord[]>([]);
   const [selectedPricingId, setSelectedPricingId] = useState('');
   const [gradingWeightKg, setGradingWeightKg] = useState('');
+  const [gradingCount, setGradingCount] = useState('');
   const [gradingCondition, setGradingCondition] = useState<HarvestCondition>('GOOD');
   const [isSubmittingStepAction, setIsSubmittingStepAction] = useState(false);
 
-  const [completionCosts, setCompletionCosts] = useState<CompleteHarvestPayload>({
-    laborCost: 0,
-    transportCost: 0,
-    packagingCost: 0,
-  });
+  const [completionPayload, setCompletionPayload] = useState<CompleteHarvestPayload>({ notes: '' });
   const [completedEvent, setCompletedEvent] = useState<HarvestEventRecord | null>(null);
 
   const [pricingFishTypeId, setPricingFishTypeId] = useState('');
@@ -157,6 +155,10 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
   );
   const totalGradingRevenue = useMemo(
     () => currentGradings.reduce((sum, grading) => sum + grading.totalValue, 0),
+    [currentGradings],
+  );
+  const totalGradedCount = useMemo(
+    () => currentGradings.reduce((sum, grading) => sum + grading.count, 0),
     [currentGradings],
   );
 
@@ -409,8 +411,8 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
   };
 
   const handleAddGrading = async () => {
-    if (!currentEvent || !selectedPricingId || !selectedBatchId) {
-      setGlobalError('Harvest event, pricing, and source batch are required.');
+    if (!currentEvent || !selectedPricingId || !selectedFishTypeId) {
+      setGlobalError('Harvest event, fish type, and grade are required.');
       return;
     }
 
@@ -419,11 +421,18 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
       setGlobalError('Enter a valid grading weight.');
       return;
     }
+    const parsedCount = Number(gradingCount);
+    if (!Number.isFinite(parsedCount) || parsedCount <= 0) {
+      setGlobalError('Enter a valid fish count.');
+      return;
+    }
 
     const payload: AddHarvestGradingPayload = {
-      pricingId: selectedPricingId,
-      sourceBatchId: selectedBatchId,
-      weightKg: parsedWeight,
+      fishTypeId: selectedFishTypeId,
+      gradeId: selectedPricingId,
+      sourceBatchId: selectedBatchId || undefined,
+      weight: parsedWeight,
+      count: parsedCount,
       condition: gradingCondition,
     };
 
@@ -434,6 +443,7 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
       const gradings = await getHarvestGradings(currentEvent.id);
       setCurrentGradings(gradings);
       setGradingWeightKg('');
+      setGradingCount('');
     } catch (error) {
       setGlobalError(error instanceof Error ? error.message : 'Failed to add grading record.');
     } finally {
@@ -450,7 +460,7 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
     setIsSubmittingStepAction(true);
     setGlobalError(null);
     try {
-      const completed = await completeHarvestEvent(currentEvent.id, completionCosts);
+      const completed = await completeHarvestEvent(currentEvent.id, completionPayload);
       setCompletedEvent(completed);
       setWorkflowStep(4);
       await refreshEventsAndActiveTanks();
@@ -468,7 +478,8 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
     setCompletedEvent(null);
     setSelectedPricingId('');
     setGradingWeightKg('');
-    setCompletionCosts({ laborCost: 0, transportCost: 0, packagingCost: 0 });
+    setGradingCount('');
+    setCompletionPayload({ notes: '' });
     setSelectedBatchId('');
     setPrediction(null);
   };
@@ -813,24 +824,38 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                       </div>
                     </div>
 
-                    <div>
-                      <Label htmlFor="workflow-weight-kg">Weight (kg)</Label>
-                      <Input
-                        id="workflow-weight-kg"
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        value={gradingWeightKg}
-                        onChange={(event) => setGradingWeightKg(event.target.value)}
-                        placeholder="Enter harvested weight in kg"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="workflow-weight-kg">Weight (kg)</Label>
+                        <Input
+                          id="workflow-weight-kg"
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={gradingWeightKg}
+                          onChange={(event) => setGradingWeightKg(event.target.value)}
+                          placeholder="Enter harvested weight in kg"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="workflow-fish-count">Fish Count</Label>
+                        <Input
+                          id="workflow-fish-count"
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={gradingCount}
+                          onChange={(event) => setGradingCount(event.target.value)}
+                          placeholder="Enter graded fish count"
+                        />
+                      </div>
                     </div>
 
                     <div className="flex gap-2">
                       <Button
                         className="bg-[#088395] hover:bg-[#0A4D68]"
                         onClick={() => void handleAddGrading()}
-                        disabled={isSubmittingStepAction || !selectedPricingId || !gradingWeightKg}
+                        disabled={isSubmittingStepAction || !selectedFishTypeId || !selectedPricingId || !gradingWeightKg || !gradingCount}
                       >
                         {isSubmittingStepAction ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                         Add Grading
@@ -856,13 +881,14 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                             {currentGradings.map((grading) => (
                               <div key={grading.id} className="border rounded p-2 flex justify-between text-sm">
                                 <span>
-                                  {grading.gradeName || grading.pricingId} - {formatNumber(grading.weightKg)} kg ({grading.condition})
+                                  {grading.gradeName || grading.gradeId} - {formatNumber(grading.weightKg)} kg - {grading.count} fish ({grading.condition})
                                 </span>
                                 <span>{formatNumber(grading.totalValue)} EGP</span>
                               </div>
                             ))}
                             <div className="pt-2 border-t text-sm font-medium flex justify-between">
                               <span>Total Weight: {formatNumber(totalGradedWeight)} kg</span>
+                              <span>Total Fish: {formatNumber(totalGradedCount)}</span>
                               <span>Total Value: {formatNumber(totalGradingRevenue)} EGP</span>
                             </div>
                           </div>
@@ -878,47 +904,24 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                       <CardContent className="py-3 text-sm space-y-1">
                         <p>Harvest Event: {currentEvent?.id}</p>
                         <p>Graded Weight: {formatNumber(totalGradedWeight)} kg</p>
+                        <p>Graded Count: {formatNumber(totalGradedCount)} fish</p>
                         <p>Expected Revenue: {formatNumber(totalGradingRevenue)} EGP</p>
                       </CardContent>
                     </Card>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <Label htmlFor="completion-labor-cost">Labor Cost</Label>
-                        <Input
-                          id="completion-labor-cost"
-                          type="number"
-                          min="0"
-                          value={completionCosts.laborCost ?? 0}
-                          onChange={(event) =>
-                            setCompletionCosts((prev) => ({ ...prev, laborCost: Number(event.target.value) || 0 }))
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="completion-transport-cost">Transport Cost</Label>
-                        <Input
-                          id="completion-transport-cost"
-                          type="number"
-                          min="0"
-                          value={completionCosts.transportCost ?? 0}
-                          onChange={(event) =>
-                            setCompletionCosts((prev) => ({ ...prev, transportCost: Number(event.target.value) || 0 }))
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="completion-packaging-cost">Packaging Cost</Label>
-                        <Input
-                          id="completion-packaging-cost"
-                          type="number"
-                          min="0"
-                          value={completionCosts.packagingCost ?? 0}
-                          onChange={(event) =>
-                            setCompletionCosts((prev) => ({ ...prev, packagingCost: Number(event.target.value) || 0 }))
-                          }
-                        />
-                      </div>
+                    <div>
+                      <Label htmlFor="completion-notes">Completion Notes</Label>
+                      <Textarea
+                        id="completion-notes"
+                        rows={4}
+                        placeholder="Add optional completion notes..."
+                        value={completionPayload.notes || ''}
+                        onChange={(event) =>
+                          setCompletionPayload({
+                            notes: event.target.value,
+                          })
+                        }
+                      />
                     </div>
 
                     <div className="flex gap-2">
@@ -947,16 +950,9 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                         <p>Event ID: {completedEvent?.id || currentEvent?.id}</p>
                         <p>Status: {completedEvent?.status || 'COMPLETED'}</p>
                         <p>Total Graded Weight: {formatNumber(totalGradedWeight)} kg</p>
+                        <p>Total Graded Count: {formatNumber(totalGradedCount)} fish</p>
                         <p>Total Revenue: {formatNumber(totalGradingRevenue)} EGP</p>
-                        <p>
-                          Added Costs:{' '}
-                          {formatNumber(
-                            (completionCosts.laborCost || 0) +
-                              (completionCosts.transportCost || 0) +
-                              (completionCosts.packagingCost || 0),
-                          )}{' '}
-                          EGP
-                        </p>
+                        {completionPayload.notes?.trim() ? <p>Notes: {completionPayload.notes}</p> : null}
                       </CardContent>
                     </Card>
 

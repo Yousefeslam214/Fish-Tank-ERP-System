@@ -18,19 +18,22 @@ import {
   Trash2,
   AlertTriangle,
   Loader2,
+  Truck,
 } from 'lucide-react';
 import { User, Farm } from '../../types';
 import {
+  approveSalesOrder,
   AvailableSalesInventoryRecord,
   cancelSalesOrder,
   createSalesOrder,
-  fulfillSalesOrder,
   getAvailableSalesInventory,
+  getFarmUsers,
   getSalesCustomers,
   getSalesOrderById,
   getSalesOrders,
   getSalesStockDashboard,
   SalesCustomerRecord,
+  SalesFarmUserRecord,
   SalesOrderRecord,
   formatSalesStatusLabel,
   normalizeSalesStatus,
@@ -64,7 +67,20 @@ const normalizeErrorMessage = (error: unknown): string => {
   return 'Unable to process sales request.';
 };
 
-export default function SalesOrderList({ onOrdersChanged }: SalesOrderListProps) {
+const matchesRole = (user: SalesFarmUserRecord, roleCode: number, roleLabel: string): boolean => {
+  if (user.roleCode === roleCode) {
+    return true;
+  }
+
+  const normalizedRole = user.role.trim().toUpperCase();
+  if (/^\d+$/.test(normalizedRole) && Number(normalizedRole) === roleCode) {
+    return true;
+  }
+
+  return normalizedRole === roleLabel;
+};
+
+export default function SalesOrderList({ onOrdersChanged, selectedFarm, user }: SalesOrderListProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
 
@@ -80,6 +96,24 @@ export default function SalesOrderList({ onOrdersChanged }: SalesOrderListProps)
   const [deliveryDate, setDeliveryDate] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
   const [selectedItems, setSelectedItems] = useState<SelectedOrderItem[]>([]);
+
+  const [detailOrder, setDetailOrder] = useState<SalesOrderRecord | null>(null);
+  const [approveOrderId, setApproveOrderId] = useState<string | null>(null);
+  const [farmUsers, setFarmUsers] = useState<SalesFarmUserRecord[]>([]);
+  const [loadingFarmUsers, setLoadingFarmUsers] = useState(false);
+  const [selectedWorkerId, setSelectedWorkerId] = useState('');
+  const [selectedDeliveryUserId, setSelectedDeliveryUserId] = useState('');
+
+  const farmId = selectedFarm.id || user.farmId || '';
+
+  const workerUsers = useMemo(
+    () => farmUsers.filter((farmUser) => matchesRole(farmUser, 6, 'WORKER')),
+    [farmUsers],
+  );
+  const deliveryUsers = useMemo(
+    () => farmUsers.filter((farmUser) => matchesRole(farmUser, 5, 'DELIVERY')),
+    [farmUsers],
+  );
 
   const customerLookup = useMemo(
     () => customers.reduce<Record<string, SalesCustomerRecord>>((acc, customer) => ({ ...acc, [customer.id]: customer }), {}),
@@ -160,8 +194,12 @@ export default function SalesOrderList({ onOrdersChanged }: SalesOrderListProps)
     switch (normalizeSalesStatus(status)) {
       case 'PENDING':
         return 'bg-[#F59E0B] text-white';
+      case 'APPROVED':
+        return 'bg-[#0EA5E9] text-white';
       case 'FULFILLED':
         return 'bg-[#10B981] text-white';
+      case 'DELIVERED':
+        return 'bg-[#14B8A6] text-white';
       case 'CANCELLED':
         return 'bg-[#EF4444] text-white';
       default:
@@ -173,8 +211,12 @@ export default function SalesOrderList({ onOrdersChanged }: SalesOrderListProps)
     switch (normalizeSalesStatus(status)) {
       case 'PENDING':
         return <Clock className="w-4 h-4" />;
-      case 'FULFILLED':
+      case 'APPROVED':
         return <CheckCircle className="w-4 h-4" />;
+      case 'FULFILLED':
+        return <Package className="w-4 h-4" />;
+      case 'DELIVERED':
+        return <Truck className="w-4 h-4" />;
       case 'CANCELLED':
         return <XCircle className="w-4 h-4" />;
       default:
@@ -236,6 +278,13 @@ export default function SalesOrderList({ onOrdersChanged }: SalesOrderListProps)
     setSelectedItems([]);
   };
 
+  const resetApprovalForm = () => {
+    setApproveOrderId(null);
+    setSelectedWorkerId('');
+    setSelectedDeliveryUserId('');
+    setFarmUsers([]);
+  };
+
   const handleCreateOrder = async () => {
     if (!selectedCustomer || selectedItems.length === 0) {
       window.alert('Please select a customer and add at least one line item.');
@@ -267,13 +316,47 @@ export default function SalesOrderList({ onOrdersChanged }: SalesOrderListProps)
     }
   };
 
-  const handleFulfill = async (orderId: string) => {
+  const openApproveModal = async (orderId: string) => {
+    if (!farmId) {
+      window.alert('Farm context is required to load workers and delivery users.');
+      return;
+    }
+
+    setApproveOrderId(orderId);
+    setSelectedWorkerId('');
+    setSelectedDeliveryUserId('');
+    setLoadingFarmUsers(true);
+
+    try {
+      const usersByFarm = await getFarmUsers(farmId);
+      setFarmUsers(usersByFarm);
+    } catch (error) {
+      setFarmUsers([]);
+      window.alert(normalizeErrorMessage(error));
+    } finally {
+      setLoadingFarmUsers(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!approveOrderId) {
+      return;
+    }
+    if (!selectedWorkerId || !selectedDeliveryUserId) {
+      window.alert('Select both worker and delivery user before approval.');
+      return;
+    }
+
     try {
       setSubmitting(true);
-      await fulfillSalesOrder(orderId);
+      await approveSalesOrder(approveOrderId, {
+        assignedWorkerId: selectedWorkerId,
+        assignedDeliveryUserId: selectedDeliveryUserId,
+      });
+      resetApprovalForm();
       await loadOrdersData();
       onOrdersChanged?.();
-      window.alert('Sales order marked as fulfilled.');
+      window.alert('Sales order approved successfully.');
     } catch (error) {
       window.alert(normalizeErrorMessage(error));
     } finally {
@@ -299,7 +382,8 @@ export default function SalesOrderList({ onOrdersChanged }: SalesOrderListProps)
     try {
       setSubmitting(true);
       const detail = await getSalesOrderById(orderId);
-      window.alert(JSON.stringify(detail ?? {}, null, 2));
+      const fallback = orders.find((order) => order.id === orderId) || null;
+      setDetailOrder(detail || fallback);
     } catch (error) {
       window.alert(normalizeErrorMessage(error));
     } finally {
@@ -313,13 +397,15 @@ export default function SalesOrderList({ onOrdersChanged }: SalesOrderListProps)
         <h2 className="text-2xl font-semibold">Sales Orders</h2>
         <div className="flex gap-2">
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-44">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">All Status</SelectItem>
               <SelectItem value="PENDING">Pending</SelectItem>
+              <SelectItem value="APPROVED">Approved</SelectItem>
               <SelectItem value="FULFILLED">Fulfilled</SelectItem>
+              <SelectItem value="DELIVERED">Delivered</SelectItem>
               <SelectItem value="CANCELLED">Cancelled</SelectItem>
             </SelectContent>
           </Select>
@@ -444,11 +530,11 @@ export default function SalesOrderList({ onOrdersChanged }: SalesOrderListProps)
                       <Button
                         size="sm"
                         className="bg-[#10B981] hover:bg-[#059669]"
-                        onClick={() => void handleFulfill(order.id)}
+                        onClick={() => void openApproveModal(order.id)}
                         disabled={submitting}
                       >
                         <CheckCircle className="w-3 h-3 mr-1" />
-                        Fulfill
+                        Approve
                       </Button>
                       <Button
                         size="sm"
@@ -476,6 +562,141 @@ export default function SalesOrderList({ onOrdersChanged }: SalesOrderListProps)
           )}
         </div>
       )}
+
+      <Dialog open={Boolean(detailOrder)} onOpenChange={(open) => (!open ? setDetailOrder(null) : undefined)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Sales Order Details</DialogTitle>
+          </DialogHeader>
+
+          {detailOrder && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <div className="rounded border bg-gray-50 p-3">
+                  <p className="text-xs text-gray-500">Order Number</p>
+                  <p className="font-medium">{detailOrder.orderNumber}</p>
+                </div>
+                <div className="rounded border bg-gray-50 p-3">
+                  <p className="text-xs text-gray-500">Customer</p>
+                  <p className="font-medium">
+                    {detailOrder.customerName || customerLookup[detailOrder.customerId]?.name || 'Unknown customer'}
+                  </p>
+                </div>
+                <div className="rounded border bg-gray-50 p-3">
+                  <p className="text-xs text-gray-500">Status</p>
+                  <p className="font-medium">{formatSalesStatusLabel(detailOrder.status)}</p>
+                </div>
+                <div className="rounded border bg-gray-50 p-3">
+                  <p className="text-xs text-gray-500">Total Amount</p>
+                  <p className="font-medium">{detailOrder.totalAmount.toLocaleString()} EGP</p>
+                </div>
+              </div>
+
+              <div className="border rounded-md overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="text-left px-3 py-2">Inventory ID (Lot Number)</th>
+                      <th className="text-left px-3 py-2">Quantity (kg)</th>
+                      <th className="text-left px-3 py-2">Unit Price</th>
+                      <th className="text-left px-3 py-2">Subtotal</th>
+                      <th className="text-left px-3 py-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detailOrder.lineItems.map((lineItem) => (
+                      <tr key={lineItem.id} className="border-t">
+                        <td className="px-3 py-2">{lineItem.lotNumber || lineItem.harvestedInventoryId || '-'}</td>
+                        <td className="px-3 py-2">{lineItem.quantity}</td>
+                        <td className="px-3 py-2">{lineItem.unitPrice.toLocaleString()} EGP</td>
+                        <td className="px-3 py-2">{lineItem.subtotal.toLocaleString()} EGP</td>
+                        <td className="px-3 py-2">{formatSalesStatusLabel(lineItem.status)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(approveOrderId)}
+        onOpenChange={(open) => {
+          if (!open) {
+            resetApprovalForm();
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Approve Sales Order</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {loadingFarmUsers ? (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading farm users...
+              </div>
+            ) : (
+              <>
+                <div>
+                  <Label>Assign Worker *</Label>
+                  <Select value={selectedWorkerId} onValueChange={setSelectedWorkerId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select worker (role 6)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {workerUsers.map((farmUser) => (
+                        <SelectItem key={farmUser.id} value={farmUser.id}>
+                          {farmUser.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {workerUsers.length === 0 && (
+                    <p className="text-xs text-amber-700 mt-1">No worker users found for this farm.</p>
+                  )}
+                </div>
+
+                <div>
+                  <Label>Assign Delivery User *</Label>
+                  <Select value={selectedDeliveryUserId} onValueChange={setSelectedDeliveryUserId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select delivery user (role 5)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {deliveryUsers.map((farmUser) => (
+                        <SelectItem key={farmUser.id} value={farmUser.id}>
+                          {farmUser.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {deliveryUsers.length === 0 && (
+                    <p className="text-xs text-amber-700 mt-1">No delivery users found for this farm.</p>
+                  )}
+                </div>
+              </>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1" onClick={resetApprovalForm} disabled={submitting}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-[#088395] hover:bg-[#0A4D68]"
+                onClick={() => void handleApprove()}
+                disabled={submitting || loadingFarmUsers || !selectedWorkerId || !selectedDeliveryUserId}
+              >
+                {submitting ? 'Approving...' : 'Approve Order'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={showCreateModal}

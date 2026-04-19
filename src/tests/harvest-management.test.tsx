@@ -124,9 +124,10 @@ const setupBaseMocks = () => {
   });
   addGradingMock.mockResolvedValue({
     id: 'grading-1',
-    pricingId: 'pricing-1',
-    sourceBatchId: 'batch-1',
+    fishTypeId: 'fish-1',
+    gradeId: 'pricing-1',
     weightKg: 50,
+    count: 150,
     condition: 'GOOD',
     gradeName: 'Grade 1',
     gradeType: 'GRADE_1',
@@ -136,9 +137,10 @@ const setupBaseMocks = () => {
   gradingsMock.mockResolvedValue([
     {
       id: 'grading-1',
-      pricingId: 'pricing-1',
-      sourceBatchId: 'batch-1',
+      fishTypeId: 'fish-1',
+      gradeId: 'pricing-1',
       weightKg: 50,
+      count: 150,
       condition: 'GOOD',
       gradeName: 'Grade 1',
       gradeType: 'GRADE_1',
@@ -247,13 +249,17 @@ describe('HarvestManagement', () => {
 
     await user.clear(screen.getByLabelText('Weight (kg)'));
     await user.type(screen.getByLabelText('Weight (kg)'), '50');
+    await user.clear(screen.getByLabelText('Fish Count'));
+    await user.type(screen.getByLabelText('Fish Count'), '150');
     await user.click(screen.getByRole('button', { name: /Add Grading/i }));
 
     await waitFor(() => {
       expect(addGradingMock).toHaveBeenCalledWith('event-1', {
-        pricingId: 'pricing-1',
+        fishTypeId: 'fish-1',
+        gradeId: 'pricing-1',
         sourceBatchId: 'batch-1',
-        weightKg: 50,
+        weight: 50,
+        count: 150,
         condition: 'GOOD',
       });
     });
@@ -266,9 +272,7 @@ describe('HarvestManagement', () => {
 
     expect(await screen.findByText('Harvest Completed')).toBeInTheDocument();
     expect(completeHarvestMock).toHaveBeenCalledWith('event-1', {
-      laborCost: 0,
-      transportCost: 0,
-      packagingCost: 0,
+      notes: '',
     });
   });
 

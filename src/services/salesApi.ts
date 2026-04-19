@@ -9,7 +9,13 @@ import {
   unwrapApiData,
 } from './httpClient';
 
-export type SalesOrderStatusKey = 'PENDING' | 'FULFILLED' | 'CANCELLED' | 'UNKNOWN';
+export type SalesOrderStatusKey =
+  | 'PENDING'
+  | 'APPROVED'
+  | 'FULFILLED'
+  | 'DELIVERED'
+  | 'CANCELLED'
+  | 'UNKNOWN';
 
 export interface SalesOrderItemRecord {
   id: string;
@@ -123,6 +129,19 @@ export interface SalesCustomerCreatePayload {
   isActive: boolean;
 }
 
+export interface SalesFarmUserRecord {
+  id: string;
+  name: string;
+  role: string;
+  roleCode?: number;
+  email?: string;
+}
+
+export interface ApproveSalesOrderPayload {
+  assignedWorkerId: string;
+  assignedDeliveryUserId: string;
+}
+
 const toStatusKey = (value: unknown): string => {
   const normalized = asString(value);
   if (!normalized) {
@@ -218,6 +237,65 @@ const normalizeCustomer = (value: unknown): SalesCustomerRecord | null => {
     notes: asString(record.notes),
     createdAt: parseIsoDate(record.createdAt),
     updatedAt: parseIsoDate(record.updatedAt),
+  };
+};
+
+const resolveRoleValue = (value: unknown): { role: string; roleCode?: number } => {
+  const numericRole = asNumber(value);
+  if (numericRole !== undefined) {
+    return {
+      role: String(numericRole),
+      roleCode: numericRole,
+    };
+  }
+
+  const stringRole = asString(value);
+  if (!stringRole) {
+    return { role: 'UNKNOWN' };
+  }
+
+  const parsedFromString = asNumber(stringRole);
+  return {
+    role: toStatusKey(stringRole),
+    roleCode: parsedFromString,
+  };
+};
+
+const normalizeFarmUser = (value: unknown): SalesFarmUserRecord | null => {
+  const record = asRecord(value);
+  if (!record) {
+    return null;
+  }
+
+  const nestedUser = asRecord(record.user);
+  const id =
+    readRecordId(record) ||
+    asString(record.userId) ||
+    (nestedUser ? readRecordId(nestedUser) : undefined);
+
+  if (!id) {
+    return null;
+  }
+
+  const firstName = asString(record.firstName) || asString(nestedUser?.firstName) || '';
+  const lastName = asString(record.lastName) || asString(nestedUser?.lastName) || '';
+  const fallbackName = `${firstName} ${lastName}`.trim();
+  const name =
+    asString(record.name) ||
+    asString(nestedUser?.name) ||
+    fallbackName ||
+    asString(record.email) ||
+    asString(nestedUser?.email) ||
+    id;
+
+  const roleInfo = resolveRoleValue(record.role ?? record.userRole ?? nestedUser?.role);
+
+  return {
+    id,
+    name,
+    role: roleInfo.role,
+    roleCode: roleInfo.roleCode,
+    email: asString(record.email) || asString(nestedUser?.email),
   };
 };
 
@@ -450,12 +528,38 @@ export const getSalesOrderById = async (orderId: string): Promise<SalesOrderReco
   return normalizeSalesOrder(record);
 };
 
+export const approveSalesOrder = async (
+  orderId: string,
+  payload: ApproveSalesOrderPayload,
+): Promise<void> => {
+  try {
+    await requestJson(`/sales/orders/${orderId}/approve`, {
+      method: 'POST',
+      body: payload,
+    });
+    return;
+  } catch (error) {
+    if (!(error instanceof ApiClientError) || (error.status !== 404 && error.status !== 405)) {
+      throw error;
+    }
+  }
+
+  await callStatusTransition(`/sales/orders/${orderId}/fulfill`);
+};
+
 export const fulfillSalesOrder = async (orderId: string): Promise<void> => {
   await callStatusTransition(`/sales/orders/${orderId}/fulfill`);
 };
 
 export const cancelSalesOrder = async (orderId: string): Promise<void> => {
   await callStatusTransition(`/sales/orders/${orderId}/cancel`);
+};
+
+export const getFarmUsers = async (farmId: string): Promise<SalesFarmUserRecord[]> => {
+  const payload = await requestJson(`/users/farm/${farmId}`);
+  return extractArrayPayload(payload, ['users', 'items', 'rows', 'data'])
+    .map(normalizeFarmUser)
+    .filter((entry): entry is SalesFarmUserRecord => entry !== null);
 };
 
 export const getSalesCustomers = async (filters?: {
@@ -628,7 +732,13 @@ export const formatSalesStatusLabel = (status: string): string =>
 
 export const normalizeSalesStatus = (status: string): SalesOrderStatusKey => {
   const normalized = toStatusKey(status);
-  if (normalized === 'PENDING' || normalized === 'FULFILLED' || normalized === 'CANCELLED') {
+  if (
+    normalized === 'PENDING' ||
+    normalized === 'APPROVED' ||
+    normalized === 'FULFILLED' ||
+    normalized === 'DELIVERED' ||
+    normalized === 'CANCELLED'
+  ) {
     return normalized;
   }
   return 'UNKNOWN';

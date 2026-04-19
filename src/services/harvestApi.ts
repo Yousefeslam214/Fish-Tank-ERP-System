@@ -1,4 +1,5 @@
 import {
+  ApiClientError,
   asArray,
   asBoolean,
   asNumber,
@@ -38,9 +39,12 @@ export interface HarvestActiveTankRecord {
 
 export interface HarvestGradingRecord {
   id: string;
-  pricingId: string;
-  sourceBatchId: string;
+  fishTypeId?: string;
+  gradeId: string;
+  pricingId?: string;
+  sourceBatchId?: string;
   weightKg: number;
+  count: number;
   condition: string;
   gradeName?: string;
   gradeType?: string;
@@ -100,16 +104,16 @@ export interface StartHarvestPayload {
 }
 
 export interface AddHarvestGradingPayload {
-  pricingId: string;
-  weightKg: number;
-  sourceBatchId: string;
+  fishTypeId: string;
+  gradeId: string;
+  weight: number;
+  count: number;
   condition?: HarvestCondition;
+  sourceBatchId?: string;
 }
 
 export interface CompleteHarvestPayload {
-  laborCost?: number;
-  transportCost?: number;
-  packagingCost?: number;
+  notes?: string;
 }
 
 export interface CreateFishGradePricingPayload {
@@ -183,24 +187,49 @@ const normalizeGrading = (value: unknown): HarvestGradingRecord | null => {
   }
 
   const id = asString(record.id);
-  const pricingId = asString(record.pricingId);
-  const sourceBatchId = asString(record.sourceBatchId);
-  if (!id || !pricingId || !sourceBatchId) {
+  const gradeId = asString(record.gradeId) || asString(record.pricingId);
+  if (!id || !gradeId) {
     return null;
   }
 
   return {
     id,
-    pricingId,
-    sourceBatchId,
-    weightKg: extractNumber(record.weightKg),
+    fishTypeId: asString(record.fishTypeId),
+    gradeId,
+    pricingId: asString(record.pricingId),
+    sourceBatchId: asString(record.sourceBatchId),
+    weightKg: extractNumber(record.weightKg ?? record.weight),
+    count: extractNumber(record.count ?? record.fishCount),
     condition: asString(record.condition) || 'GOOD',
-    gradeName: asString(record.gradeName),
+    gradeName: asString(record.gradeName) || asString(asRecord(record.grade)?.name),
     gradeType: asString(record.gradeType),
     pricePerKg: extractNumber(record.pricePerKg),
     totalValue: extractNumber(record.totalValue),
     createdAt: asString(record.createdAt) || asString(record.timestamp),
   };
+};
+
+const postWithFallback = async (
+  primaryPath: string,
+  fallbackPath: string,
+  primaryBody: unknown,
+  fallbackBody: unknown,
+): Promise<unknown> => {
+  try {
+    return await requestJson(primaryPath, {
+      method: 'POST',
+      body: primaryBody,
+    });
+  } catch (error) {
+    if (!(error instanceof ApiClientError) || (error.status !== 404 && error.status !== 405)) {
+      throw error;
+    }
+  }
+
+  return requestJson(fallbackPath, {
+    method: 'POST',
+    body: fallbackBody,
+  });
 };
 
 const normalizePricing = (value: unknown): FishGradePricingRecord | null => {
@@ -372,19 +401,39 @@ export const addHarvestGradingRecord = async (
   eventId: string,
   payload: AddHarvestGradingPayload,
 ): Promise<HarvestGradingRecord> => {
-  const response = await requestJson(`/harvest/events/${eventId}/grading`, {
-    method: 'POST',
-    body: payload,
-  });
+  const primaryBody = {
+    fishTypeId: payload.fishTypeId,
+    gradeId: payload.gradeId,
+    weight: payload.weight,
+    count: payload.count,
+    condition: payload.condition,
+  };
+
+  const fallbackBody = {
+    pricingId: payload.gradeId,
+    sourceBatchId: payload.sourceBatchId,
+    weightKg: payload.weight,
+    condition: payload.condition,
+  };
+
+  const response = await postWithFallback(
+    `/aquaculture-system/harvest/events/${eventId}/grading`,
+    `/harvest/events/${eventId}/grading`,
+    primaryBody,
+    fallbackBody,
+  );
 
   const data = unwrapApiData<unknown>(response);
   const grading = normalizeGrading(data);
   if (!grading) {
     const fallback: HarvestGradingRecord = {
       id: `local-${Date.now()}`,
-      pricingId: payload.pricingId,
+      fishTypeId: payload.fishTypeId,
+      gradeId: payload.gradeId,
+      pricingId: payload.gradeId,
       sourceBatchId: payload.sourceBatchId,
-      weightKg: payload.weightKg,
+      weightKg: payload.weight,
+      count: payload.count,
       condition: payload.condition || 'GOOD',
       pricePerKg: 0,
       totalValue: 0,
@@ -399,10 +448,12 @@ export const completeHarvestEvent = async (
   eventId: string,
   payload: CompleteHarvestPayload,
 ): Promise<HarvestEventRecord> => {
-  const response = await requestJson(`/harvest/events/${eventId}/complete`, {
-    method: 'POST',
-    body: payload,
-  });
+  const response = await postWithFallback(
+    `/aquaculture-system/harvest/events/${eventId}/complete`,
+    `/harvest/events/${eventId}/complete`,
+    { notes: payload.notes || '' },
+    {},
+  );
   const data = unwrapApiData<unknown>(response);
   const event = normalizeHarvestEvent(data);
   if (!event) {
