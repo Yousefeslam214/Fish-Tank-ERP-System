@@ -21,6 +21,7 @@ const QUICK_LOGIN_PRESETS = [
   { key: 'admin', email: 'admin.test@fishfarm360.local' },
   { key: 'manager', email: 'manager.test@fishfarm360.local' },
   { key: 'technican', email: 'technician.test@fishfarm360.local' },
+  { key: 'accountant', email: 'accountant.test@fishfarm360.local' },
   { key: 'sales', email: 'sales.test@fishfarm360.local' },
   { key: 'worker', email: 'worker.test@fishfarm360.local' },
   { key: 'delivery', email: 'delivery.test@fishfarm360.local' },
