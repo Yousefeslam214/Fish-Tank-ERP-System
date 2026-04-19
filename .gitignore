@@ -8,3 +8,5 @@ public/
 scratch/
 *.log
 .gemini/
+doc/
+postman/
