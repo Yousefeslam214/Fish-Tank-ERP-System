@@ -14,38 +14,48 @@ describe('moduleAccess helpers', () => {
   it('allows all module pages when user modules are missing', () => {
     const allowed = resolveAllowedPages(baseUser);
 
-    expect(allowed).toEqual([...MODULE_BACKED_PAGE_ORDER, 'users']);
+    expect(allowed).toEqual([...MODULE_BACKED_PAGE_ORDER]);
   });
 
-  it('filters to module list and keeps user-management page for manager', () => {
+  it('filters to the explicit module list only', () => {
     const allowed = resolveAllowedPages({
       ...baseUser,
       role: 'manager',
       modules: ['dashboard', 'inventory', 'sales'],
     });
 
-    expect(allowed).toEqual(['dashboard', 'inventory', 'sales', 'users']);
+    expect(allowed).toEqual(['dashboard', 'inventory', 'sales']);
   });
 
-  it('unlocks tasks when notifications module is granted', () => {
+  it('normalizes user-management module to users page', () => {
+    const allowed = resolveAllowedPages({
+      ...baseUser,
+      role: 'worker',
+      modules: ['dashboard', 'user-management'],
+    });
+
+    expect(allowed).toEqual(['dashboard', 'users']);
+  });
+
+  it('does not include tasks unless tasks module is explicitly granted', () => {
     const allowed = resolveAllowedPages({
       ...baseUser,
       role: 'worker',
       modules: ['dashboard', 'notifications'],
     });
 
-    expect(allowed).toEqual(['dashboard', 'notifications', 'tasks']);
+    expect(allowed).toEqual(['dashboard', 'notifications']);
   });
 
-  it('blocks user-management page for non-manager roles', () => {
+  it('allows user-management page when users module is granted', () => {
     const allowed = resolveAllowedPages({
       ...baseUser,
       role: 'worker',
-      modules: ['dashboard', 'inventory'],
+      modules: ['dashboard', 'users'],
     });
 
-    expect(allowed).toEqual(['dashboard', 'inventory']);
-    expect(isPageAllowed('users', allowed)).toBe(false);
+    expect(allowed).toEqual(['dashboard', 'users']);
+    expect(isPageAllowed('users', allowed)).toBe(true);
   });
 
   it('builds module label map from metadata modules', () => {
@@ -53,14 +63,15 @@ describe('moduleAccess helpers', () => {
       { id: 'inventory', label: { en: 'Inventory' } },
       { id: 'sales', label: { en: 'Sales' } },
       { id: 'task', label: { en: 'Tasks' } },
+      { id: 'user_management', label: { en: 'User Management' } },
       { id: 'unknown', label: {} },
     ]);
 
     expect(labels).toEqual({
       inventory: 'Inventory',
       sales: 'Sales',
-      task: 'Tasks',
       tasks: 'Tasks',
+      users: 'User Management',
     });
   });
 });
