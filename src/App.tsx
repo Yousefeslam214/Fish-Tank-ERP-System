@@ -403,6 +403,8 @@ export default function App() {
           <SalesModule
             user={currentUser}
             selectedFarm={selectedFarm}
+            allowedPages={allowedPages}
+            onNavigateToPage={handlePageChange}
           />
         )}
         {currentPage === 'fish-types' && (
