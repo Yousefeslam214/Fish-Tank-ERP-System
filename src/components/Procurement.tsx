@@ -18,6 +18,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { CreateMedicineOrderDialog, MedicineOrderFormItem } from './procurement/CreateMedicineOrderDialog';
 import {
   ShoppingCart,
   Users,
@@ -39,13 +40,17 @@ import { getFoodTypes } from '../services/foodTypesApi';
 import {
   createFeedPurchaseOrder,
   createFishPurchaseOrder,
+  createMedicinePurchaseOrder,
   createProcurementSupplier,
   FeedPurchaseOrderRecord,
   FishPurchaseOrderRecord,
   formatProcurementStatusLabel,
   getFeedPurchaseOrders,
   getFishPurchaseOrders,
+  getMedicinePurchaseOrderById,
+  getMedicinePurchaseOrders,
   getProcurementSuppliers,
+  MedicinePurchaseOrderRecord,
   normalizeProcurementStatus,
   ProcurementSupplierRecord,
   updateFeedPurchaseOrderDeliveryStatus,
@@ -53,6 +58,9 @@ import {
   updateFeedPurchaseOrderStatus,
   updateFishPurchaseOrderItemStatus,
   updateFishPurchaseOrderStatus,
+  updateMedicinePurchaseOrderDeliveryStatus,
+  updateMedicinePurchaseOrderItemStatus,
+  updateMedicinePurchaseOrderStatus,
 } from '../services/procurementApi';
 import {
   canReceiveByDeliveryStatus,
@@ -109,8 +117,8 @@ interface ConfirmationDialogState {
 }
 
 interface DetailsDialogState {
-  kind: 'feed' | 'fish';
-  order: FeedPurchaseOrderRecord | FishPurchaseOrderRecord;
+  kind: 'feed' | 'fish' | 'medicine';
+  order: FeedPurchaseOrderRecord | FishPurchaseOrderRecord | MedicinePurchaseOrderRecord;
 }
 
 const PAGE_SIZE = 5;
@@ -138,6 +146,14 @@ const createFeedOrderItem = (): FeedOrderFormItem => ({
 
 const createFishOrderItem = (): FishOrderFormItem => ({
   fishTypeId: '',
+  quantity: 0,
+  unitCost: 0,
+});
+
+const createMedicineOrderItem = (): MedicineOrderFormItem => ({
+  medicine: '',
+  company: '',
+  fishTypeIds: [],
   quantity: 0,
   unitCost: 0,
 });
@@ -172,6 +188,8 @@ const matchesStatusFilter = (statusFilter: string, ...statuses: Array<string | u
 
   return candidates.includes(statusFilter);
 };
+
+const looksLikeEntityId = (value: string): boolean => /^[0-9a-f]{8}(?:-[0-9a-f]{4}){0,4}$/i.test(value.trim());
 
 const getUserInitials = (name: string): string =>
   name
@@ -212,6 +230,7 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
 
   const [feedOrders, setFeedOrders] = useState<FeedPurchaseOrderRecord[]>([]);
   const [fishOrders, setFishOrders] = useState<FishPurchaseOrderRecord[]>([]);
+  const [medicineOrders, setMedicineOrders] = useState<MedicinePurchaseOrderRecord[]>([]);
   const [suppliers, setSuppliers] = useState<ProcurementSupplierRecord[]>([]);
 
   const [foodTypes, setFoodTypes] = useState<Array<{ id: string; name: string }>>([]);
@@ -219,19 +238,26 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
 
   const [showCreateFeedOrder, setShowCreateFeedOrder] = useState(false);
   const [showCreateFishOrder, setShowCreateFishOrder] = useState(false);
+  const [showCreateMedicineOrder, setShowCreateMedicineOrder] = useState(false);
   const [showCreateSupplier, setShowCreateSupplier] = useState(false);
 
   const [feedStatusFilter, setFeedStatusFilter] = useState('ALL');
   const [fishStatusFilter, setFishStatusFilter] = useState('ALL');
+  const [medicineStatusFilter, setMedicineStatusFilter] = useState('ALL');
+  const [medicineSupplierSearchTerm, setMedicineSupplierSearchTerm] = useState('');
   const [supplierSearchTerm, setSupplierSearchTerm] = useState('');
   const [feedPage, setFeedPage] = useState(1);
   const [fishPage, setFishPage] = useState(1);
+  const [medicinePage, setMedicinePage] = useState(1);
 
   const [feedOrderSupplierId, setFeedOrderSupplierId] = useState('');
   const [feedOrderItems, setFeedOrderItems] = useState<FeedOrderFormItem[]>([createFeedOrderItem()]);
 
   const [fishOrderSupplierId, setFishOrderSupplierId] = useState('');
   const [fishOrderItems, setFishOrderItems] = useState<FishOrderFormItem[]>([createFishOrderItem()]);
+
+  const [medicineOrderSupplierId, setMedicineOrderSupplierId] = useState('');
+  const [medicineOrderItems, setMedicineOrderItems] = useState<MedicineOrderFormItem[]>([createMedicineOrderItem()]);
 
   const [supplierName, setSupplierName] = useState('');
   const [supplierEmail, setSupplierEmail] = useState('');
@@ -261,6 +287,11 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
     [fishOrderItems],
   );
 
+  const medicineOrderTotal = useMemo(
+    () => medicineOrderItems.reduce((sum, item) => sum + item.quantity * item.unitCost, 0),
+    [medicineOrderItems],
+  );
+
   const feedSuppliers = useMemo(
     () => suppliers.filter((supplier) => supplier.items.includes('FOOD') || supplier.items.includes('FEED')),
     [suppliers],
@@ -268,6 +299,11 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
 
   const fishSuppliers = useMemo(
     () => suppliers.filter((supplier) => supplier.items.includes('FISH') || supplier.items.includes('FINGERLINGS')),
+    [suppliers],
+  );
+
+  const medicineSuppliers = useMemo(
+    () => suppliers.filter((supplier) => supplier.items.includes('MEDICINE')),
     [suppliers],
   );
 
@@ -305,8 +341,29 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
     [fishOrders, fishStatusFilter],
   );
 
+  const filteredMedicineOrders = useMemo(() => {
+    const supplierQuery = medicineSupplierSearchTerm.trim().toLowerCase();
+    return medicineOrders.filter((order) => {
+      const matchesStatus = matchesStatusFilter(
+        medicineStatusFilter,
+        order.status,
+        order.deliveryStatus,
+      );
+      if (!matchesStatus) {
+        return false;
+      }
+
+      if (!supplierQuery) {
+        return true;
+      }
+
+      return order.supplierName.toLowerCase().includes(supplierQuery);
+    });
+  }, [medicineOrders, medicineStatusFilter, medicineSupplierSearchTerm]);
+
   const feedPageCount = Math.max(1, Math.ceil(filteredFeedOrders.length / PAGE_SIZE));
   const fishPageCount = Math.max(1, Math.ceil(filteredFishOrders.length / PAGE_SIZE));
+  const medicinePageCount = Math.max(1, Math.ceil(filteredMedicineOrders.length / PAGE_SIZE));
 
   const paginatedFeedOrders = useMemo(() => {
     const start = (feedPage - 1) * PAGE_SIZE;
@@ -318,6 +375,11 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
     return filteredFishOrders.slice(start, start + PAGE_SIZE);
   }, [fishPage, filteredFishOrders]);
 
+  const paginatedMedicineOrders = useMemo(() => {
+    const start = (medicinePage - 1) * PAGE_SIZE;
+    return filteredMedicineOrders.slice(start, start + PAGE_SIZE);
+  }, [medicinePage, filteredMedicineOrders]);
+
   useEffect(() => {
     setFeedPage(1);
   }, [feedStatusFilter]);
@@ -325,6 +387,10 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
   useEffect(() => {
     setFishPage(1);
   }, [fishStatusFilter]);
+
+  useEffect(() => {
+    setMedicinePage(1);
+  }, [medicineStatusFilter, medicineSupplierSearchTerm]);
 
   useEffect(() => {
     if (feedPage > feedPageCount) {
@@ -338,21 +404,47 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
     }
   }, [fishPage, fishPageCount]);
 
+  useEffect(() => {
+    if (medicinePage > medicinePageCount) {
+      setMedicinePage(medicinePageCount);
+    }
+  }, [medicinePage, medicinePageCount]);
+
   const loadProcurementData = useCallback(async () => {
     setLoading(true);
     setErrorMessage(null);
 
     try {
-      const [feedOrdersData, fishOrdersData, suppliersData, foodTypesData, fishTypesData] = await Promise.all([
+      const [feedOrdersData, fishOrdersData, medicineOrdersData, suppliersData, foodTypesData, fishTypesData] = await Promise.all([
         getFeedPurchaseOrders({ offset: 0, limit: 200 }),
         getFishPurchaseOrders({ offset: 0, limit: 200 }),
+        getMedicinePurchaseOrders({ offset: 0, limit: 200 }),
         getProcurementSuppliers(),
         getFoodTypes(),
         getFishTypes(false),
       ]);
 
-      setFeedOrders(feedOrdersData);
-      setFishOrders(fishOrdersData);
+      const supplierNamesById = new Map(suppliersData.map((supplier) => [supplier.id, supplier.name]));
+      const resolveOrderSupplierNames = <T extends { supplierId?: string; supplierName: string }>(orders: T[]): T[] =>
+        orders.map((order) => {
+          const fallbackName = order.supplierId ? supplierNamesById.get(order.supplierId) : undefined;
+          const normalizedSupplierName = order.supplierName.trim().toLowerCase();
+          const shouldFallback =
+            normalizedSupplierName === 'unknown supplier' || looksLikeEntityId(order.supplierName);
+
+          if (!fallbackName || !shouldFallback) {
+            return order;
+          }
+
+          return {
+            ...order,
+            supplierName: fallbackName,
+          };
+        });
+
+      setFeedOrders(resolveOrderSupplierNames(feedOrdersData));
+      setFishOrders(resolveOrderSupplierNames(fishOrdersData));
+      setMedicineOrders(resolveOrderSupplierNames(medicineOrdersData));
       setSuppliers(suppliersData);
       setFoodTypes(foodTypesData.map((foodType) => ({ id: foodType.id, name: foodType.name })));
       setFishTypes(fishTypesData.map((fishType) => ({ id: fishType.id, name: fishType.name })));
@@ -376,7 +468,9 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
     const items =
       detailsDialog.kind === 'feed'
         ? (detailsDialog.order as FeedPurchaseOrderRecord).items
-        : (detailsDialog.order as FishPurchaseOrderRecord).items;
+        : detailsDialog.kind === 'fish'
+          ? (detailsDialog.order as FishPurchaseOrderRecord).items
+          : (detailsDialog.order as MedicinePurchaseOrderRecord).items;
 
     const nextDrafts = items.reduce<Record<string, string>>((accumulator, item) => {
       accumulator[item.id] = normalizeProcurementUiStatus(item.status);
@@ -409,7 +503,7 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
   const submitLineItemStatus = async (
     itemId: string,
     currentStatus: string,
-    kind: 'feed' | 'fish',
+    kind: 'feed' | 'fish' | 'medicine',
     orderId: string,
   ) => {
     const nextStatus = normalizeProcurementUiStatus(lineItemStatusDrafts[itemId] || currentStatus);
@@ -423,8 +517,10 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
 
       if (kind === 'feed') {
         await updateFeedPurchaseOrderItemStatus(orderId, itemId, nextStatus);
-      } else {
+      } else if (kind === 'fish') {
         await updateFishPurchaseOrderItemStatus(orderId, itemId, nextStatus);
+      } else {
+        await updateMedicinePurchaseOrderItemStatus(orderId, itemId, nextStatus);
       }
 
       setDetailsDialog(null);
@@ -485,6 +581,11 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
   const resetFishOrderForm = () => {
     setFishOrderSupplierId('');
     setFishOrderItems([createFishOrderItem()]);
+  };
+
+  const resetMedicineOrderForm = () => {
+    setMedicineOrderSupplierId('');
+    setMedicineOrderItems([createMedicineOrderItem()]);
   };
 
   const resetSupplierForm = () => {
@@ -562,6 +663,55 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
       resetFishOrderForm();
       await loadProcurementData();
       window.alert('Fish purchase order created successfully.');
+    } catch (error) {
+      window.alert(normalizeErrorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCreateMedicineOrder = async () => {
+    if (!medicineOrderSupplierId) {
+      window.alert('Please select a supplier.');
+      return;
+    }
+
+    const validItems = medicineOrderItems.filter(
+      (item) =>
+        item.medicine.trim() &&
+        item.company.trim() &&
+        item.fishTypeIds.length > 0 &&
+        item.quantity > 0 &&
+        item.unitCost > 0,
+    );
+
+    if (validItems.length === 0) {
+      window.alert('Please add at least one valid medicine item.');
+      return;
+    }
+
+    if (validItems.length !== medicineOrderItems.length) {
+      window.alert('All medicine line items must include medicine, company, fish types, quantity, and unit cost.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await createMedicinePurchaseOrder({
+        supplierId: medicineOrderSupplierId,
+        items: validItems.map((item) => ({
+          medicine: item.medicine.trim(),
+          company: item.company.trim(),
+          fishTypeIds: item.fishTypeIds,
+          quantity: item.quantity,
+          unitCost: item.unitCost,
+        })),
+      });
+
+      setShowCreateMedicineOrder(false);
+      resetMedicineOrderForm();
+      await loadProcurementData();
+      window.alert('Medicine purchase order created successfully.');
     } catch (error) {
       window.alert(normalizeErrorMessage(error));
     } finally {
@@ -647,6 +797,31 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
         unit: 'fish',
       })),
     });
+  };
+
+  const openMedicineOrderDetails = async (order: MedicinePurchaseOrderRecord) => {
+    try {
+      setSubmitting(true);
+      const latestOrder = await getMedicinePurchaseOrderById(order.id);
+      const resolvedLatestOrder = latestOrder
+        ? {
+            ...latestOrder,
+            supplierName:
+              latestOrder.supplierName.trim().toLowerCase() === 'unknown supplier' ||
+              looksLikeEntityId(latestOrder.supplierName)
+                ? order.supplierName
+                : latestOrder.supplierName,
+          }
+        : order;
+      setDetailsDialog({
+        kind: 'medicine',
+        order: resolvedLatestOrder,
+      });
+    } catch (error) {
+      window.alert(normalizeErrorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const updateReceiveDialogItem = (itemId: string, actualQuantity: number) => {
@@ -773,6 +948,7 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
           <TabsList className="bg-white">
             <TabsTrigger value="feed-orders">Feed Orders</TabsTrigger>
             <TabsTrigger value="fish-orders">Fish Orders</TabsTrigger>
+            <TabsTrigger value="medicine-orders">Medicine Orders</TabsTrigger>
             <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
           </TabsList>
 
@@ -1196,6 +1372,194 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
             </div>
           </TabsContent>
 
+          <TabsContent value="medicine-orders" className="space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-semibold">Medicine Purchase Orders</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Showing {filteredMedicineOrders.length} order(s), page {medicinePage} of {medicinePageCount}
+                </p>
+              </div>
+
+              <div className="flex flex-col md:flex-row items-stretch md:items-end gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="medicine-supplier-search" className="text-xs text-gray-600">
+                    Search supplier
+                  </Label>
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      id="medicine-supplier-search"
+                      aria-label="Search medicine suppliers"
+                      value={medicineSupplierSearchTerm}
+                      onChange={(event) => setMedicineSupplierSearchTerm(event.target.value)}
+                      placeholder="Search by supplier name"
+                      className="pl-8 w-full md:w-64"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="medicine-status-filter" className="text-xs text-gray-600">
+                    Status filter
+                  </Label>
+                  <select
+                    id="medicine-status-filter"
+                    className="h-10 rounded-md border border-gray-300 px-3 text-sm bg-white"
+                    value={medicineStatusFilter}
+                    onChange={(event) => setMedicineStatusFilter(event.target.value)}
+                  >
+                    {ORDER_STATUS_FILTER_OPTIONS.map((option) => (
+                      <option key={`medicine-filter-${option.value}`} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <Button
+                  className="bg-[#088395] hover:bg-[#0A4D68]"
+                  onClick={() => setShowCreateMedicineOrder(true)}
+                  disabled={submitting}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Medicine Order
+                </Button>
+              </div>
+            </div>
+
+            <Card className="bg-white shadow-sm">
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Order ID</TableHead>
+                      <TableHead>Supplier</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Total Cost</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Delivery Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedMedicineOrders.map((order) => (
+                      <TableRow key={order.id}>
+                        <TableCell>
+                          <div className="font-medium">{order.orderNumber}</div>
+                          <div className="text-xs text-gray-500">ID: {toShortId(order.id)}</div>
+                        </TableCell>
+                        <TableCell>{formatNameWithId(order.supplierName, order.supplierId)}</TableCell>
+                        <TableCell>{order.orderDate ? new Date(order.orderDate).toLocaleDateString() : 'N/A'}</TableCell>
+                        <TableCell>{formatCurrencyEgp(order.totalCost)}</TableCell>
+                        <TableCell>
+                          <Badge className={getProcurementStatusColorClass(order.status)}>
+                            {formatProcurementStatusLabel(order.status)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getProcurementStatusColorClass(order.deliveryStatus || order.status)}>
+                            {formatProcurementStatusLabel(order.deliveryStatus || 'N/A')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void openMedicineOrderDetails(order)}
+                            >
+                              Details
+                            </Button>
+                            {normalizeProcurementStatus(order.status) === 'PENDING' && (
+                              <Button
+                                size="sm"
+                                className="bg-[#10B981] hover:bg-[#059669]"
+                                disabled={submitting}
+                                onClick={() =>
+                                  openConfirmationDialog(
+                                    'Approve Medicine Order',
+                                    `Approve ${order.orderNumber} for ${order.supplierName}?`,
+                                    'Medicine order approved and marked delivered.',
+                                    () => updateMedicinePurchaseOrderStatus(order.id, 'DELIVERED'),
+                                  )
+                                }
+                              >
+                                Approve
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={submitting}
+                              onClick={() =>
+                                void handleOrderAction(
+                                  () => updateMedicinePurchaseOrderDeliveryStatus(order.id, 'SHIPPED'),
+                                  'Medicine delivery status updated to shipped.',
+                                )
+                              }
+                            >
+                              Mark Shipped
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={submitting}
+                              onClick={() =>
+                                void handleOrderAction(
+                                  () => updateMedicinePurchaseOrderDeliveryStatus(order.id, 'DELIVERED'),
+                                  'Medicine delivery status updated to delivered.',
+                                )
+                              }
+                            >
+                              Mark Delivered
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+
+                    {filteredMedicineOrders.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="h-24 text-center text-gray-600">
+                          No medicine purchase orders found.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            {filteredMedicineOrders.length > 0 && (
+              <div className="flex items-center justify-between rounded-lg border bg-white p-3">
+                <p className="text-sm text-gray-600">
+                  Page {medicinePage} of {medicinePageCount}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={medicinePage <= 1}
+                    aria-label="Previous medicine page"
+                    onClick={() => setMedicinePage((previous) => Math.max(1, previous - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={medicinePage >= medicinePageCount}
+                    aria-label="Next medicine page"
+                    onClick={() => setMedicinePage((previous) => Math.min(medicinePageCount, previous + 1))}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+          </TabsContent>
+
           <TabsContent value="suppliers" className="space-y-4">
             <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
               <div>
@@ -1611,6 +1975,26 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
         </DialogContent>
       </Dialog>
 
+      <CreateMedicineOrderDialog
+        open={showCreateMedicineOrder}
+        onOpenChange={(open) => {
+          setShowCreateMedicineOrder(open);
+          if (!open) {
+            resetMedicineOrderForm();
+          }
+        }}
+        submitting={submitting}
+        supplierId={medicineOrderSupplierId}
+        suppliers={medicineSuppliers}
+        items={medicineOrderItems}
+        fishTypes={fishTypes}
+        totalCost={medicineOrderTotal}
+        onSupplierChange={setMedicineOrderSupplierId}
+        onItemsChange={setMedicineOrderItems}
+        onAddItem={() => setMedicineOrderItems((previous) => [...previous, createMedicineOrderItem()])}
+        onCreate={handleCreateMedicineOrder}
+      />
+
       <Dialog
         open={showCreateSupplier}
         onOpenChange={(open) => {
@@ -1693,7 +2077,7 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
           <DialogHeader>
             <DialogTitle>
               {detailsDialog
-                ? `${detailsDialog.kind === 'feed' ? 'Feed' : 'Fish'} Order ${detailsDialog.order.orderNumber}`
+                ? `${detailsDialog.kind === 'feed' ? 'Feed' : detailsDialog.kind === 'fish' ? 'Fish' : 'Medicine'} Order ${detailsDialog.order.orderNumber}`
                 : 'Order Details'}
             </DialogTitle>
             <DialogDescription>
@@ -1798,55 +2182,110 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
                             </TableCell>
                           </TableRow>
                         ))
-                      : (detailsDialog.order as FishPurchaseOrderRecord).items.map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell>
-                              {formatNameWithId(item.fishTypeName || 'Unknown fish type', item.fishTypeId)}
-                            </TableCell>
-                            <TableCell>{formatFishCount(item.quantity)}</TableCell>
-                            <TableCell>
-                              {item.actualQuantity !== undefined ? formatFishCount(item.actualQuantity) : '-'}
-                            </TableCell>
-                            <TableCell>
-                              <Badge className={`${getProcurementStatusColorClass(item.status)} text-xs`}>
-                                {formatProcurementStatusLabel(item.status)}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{toShortId(item.id)}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <select
-                                  aria-label={`Line item status ${item.id}`}
-                                  className="h-8 rounded-md border border-gray-300 px-2 text-xs bg-white"
-                                  value={lineItemStatusDrafts[item.id] || normalizeProcurementUiStatus(item.status)}
-                                  onChange={(event) => updateLineItemStatusDraft(item.id, event.target.value)}
-                                  disabled={submitting}
-                                >
-                                  {LINE_ITEM_STATUS_OPTIONS.map((option) => (
-                                    <option key={`${item.id}-fish-status-${option.value}`} value={option.value}>
-                                      {option.label}
-                                    </option>
-                                  ))}
-                                </select>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={
-                                    submitting ||
-                                    updatingLineItemId === item.id ||
-                                    normalizeProcurementUiStatus(lineItemStatusDrafts[item.id] || item.status) ===
-                                      normalizeProcurementUiStatus(item.status)
-                                  }
-                                  onClick={() =>
-                                    void submitLineItemStatus(item.id, item.status, 'fish', detailsDialog.order.id)
-                                  }
-                                >
-                                  {updatingLineItemId === item.id ? 'Updating...' : 'Update'}
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                      : detailsDialog.kind === 'fish'
+                        ? (detailsDialog.order as FishPurchaseOrderRecord).items.map((item) => (
+                            <TableRow key={item.id}>
+                              <TableCell>
+                                {formatNameWithId(item.fishTypeName || 'Unknown fish type', item.fishTypeId)}
+                              </TableCell>
+                              <TableCell>{formatFishCount(item.quantity)}</TableCell>
+                              <TableCell>
+                                {item.actualQuantity !== undefined ? formatFishCount(item.actualQuantity) : '-'}
+                              </TableCell>
+                              <TableCell>
+                                <Badge className={`${getProcurementStatusColorClass(item.status)} text-xs`}>
+                                  {formatProcurementStatusLabel(item.status)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{toShortId(item.id)}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <select
+                                    aria-label={`Line item status ${item.id}`}
+                                    className="h-8 rounded-md border border-gray-300 px-2 text-xs bg-white"
+                                    value={lineItemStatusDrafts[item.id] || normalizeProcurementUiStatus(item.status)}
+                                    onChange={(event) => updateLineItemStatusDraft(item.id, event.target.value)}
+                                    disabled={submitting}
+                                  >
+                                    {LINE_ITEM_STATUS_OPTIONS.map((option) => (
+                                      <option key={`${item.id}-fish-status-${option.value}`} value={option.value}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={
+                                      submitting ||
+                                      updatingLineItemId === item.id ||
+                                      normalizeProcurementUiStatus(lineItemStatusDrafts[item.id] || item.status) ===
+                                        normalizeProcurementUiStatus(item.status)
+                                    }
+                                    onClick={() =>
+                                      void submitLineItemStatus(item.id, item.status, 'fish', detailsDialog.order.id)
+                                    }
+                                  >
+                                    {updatingLineItemId === item.id ? 'Updating...' : 'Update'}
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        : (detailsDialog.order as MedicinePurchaseOrderRecord).items.map((item) => (
+                            <TableRow key={item.id}>
+                              <TableCell>
+                                <div className="font-medium">{item.medicine}</div>
+                                <div className="text-xs text-gray-500">Company: {item.company}</div>
+                                <div className="text-xs text-gray-500">
+                                  Fish Types:{' '}
+                                  {item.fishTypeNames.length > 0
+                                    ? item.fishTypeNames.join(', ')
+                                    : item.fishTypeIds.map((fishTypeId) => toShortId(fishTypeId)).join(', ') || 'N/A'}
+                                </div>
+                              </TableCell>
+                              <TableCell>{item.quantity.toLocaleString()}</TableCell>
+                              <TableCell>{item.actualQuantity !== undefined ? item.actualQuantity.toLocaleString() : '-'}</TableCell>
+                              <TableCell>
+                                <Badge className={`${getProcurementStatusColorClass(item.status)} text-xs`}>
+                                  {formatProcurementStatusLabel(item.status)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{toShortId(item.id)}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <select
+                                    aria-label={`Line item status ${item.id}`}
+                                    className="h-8 rounded-md border border-gray-300 px-2 text-xs bg-white"
+                                    value={lineItemStatusDrafts[item.id] || normalizeProcurementUiStatus(item.status)}
+                                    onChange={(event) => updateLineItemStatusDraft(item.id, event.target.value)}
+                                    disabled={submitting}
+                                  >
+                                    {LINE_ITEM_STATUS_OPTIONS.map((option) => (
+                                      <option key={`${item.id}-medicine-status-${option.value}`} value={option.value}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={
+                                      submitting ||
+                                      updatingLineItemId === item.id ||
+                                      normalizeProcurementUiStatus(lineItemStatusDrafts[item.id] || item.status) ===
+                                        normalizeProcurementUiStatus(item.status)
+                                    }
+                                    onClick={() =>
+                                      void submitLineItemStatus(item.id, item.status, 'medicine', detailsDialog.order.id)
+                                    }
+                                  >
+                                    {updatingLineItemId === item.id ? 'Updating...' : 'Update'}
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
                   </TableBody>
                 </Table>
               </div>

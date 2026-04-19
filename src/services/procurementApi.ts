@@ -63,6 +63,32 @@ export interface FishPurchaseOrderRecord {
   items: FishPurchaseOrderItemRecord[];
 }
 
+export interface MedicinePurchaseOrderItemRecord {
+  id: string;
+  medicine: string;
+  company: string;
+  fishTypeIds: string[];
+  fishTypeNames: string[];
+  quantity: number;
+  unitCost: number;
+  totalCost: number;
+  status: string;
+  actualQuantity?: number;
+}
+
+export interface MedicinePurchaseOrderRecord {
+  id: string;
+  orderNumber: string;
+  supplierId?: string;
+  supplierName: string;
+  orderDate?: string;
+  deliveryDate?: string;
+  status: string;
+  deliveryStatus?: string;
+  totalCost: number;
+  items: MedicinePurchaseOrderItemRecord[];
+}
+
 export interface FeedOrderCreatePayload {
   supplierId: string;
   items: Array<{
@@ -78,6 +104,17 @@ export interface FishOrderCreatePayload {
     fishTypeId: string;
     quantity: number;
     totalCost: number;
+  }>;
+}
+
+export interface MedicineOrderCreatePayload {
+  supplierId: string;
+  items: Array<{
+    medicine: string;
+    company: string;
+    fishTypeIds: string[];
+    quantity: number;
+    unitCost: number;
   }>;
 }
 
@@ -184,6 +221,37 @@ const normalizeSupplier = (value: unknown): ProcurementSupplierRecord | null => 
   };
 };
 
+const looksLikeEntityId = (value: string): boolean => /^[0-9a-f]{8}(?:-[0-9a-f]{4}){0,4}$/i.test(value.trim());
+
+const normalizeSupplierReference = (
+  record: Record<string, unknown>,
+): { supplierId?: string; supplierName: string } => {
+  const supplierValue = record.supplier;
+  const supplierRecord = asRecord(supplierValue);
+
+  const supplierId =
+    asString(record.supplierId) ||
+    asString(record.supplier_id) ||
+    asString(supplierRecord?.id) ||
+    asString(supplierRecord?.supplierId) ||
+    asString(supplierRecord?.supplier_id) ||
+    (typeof supplierValue === 'string' && looksLikeEntityId(supplierValue) ? supplierValue : undefined);
+
+  const supplierNameFromRaw =
+    typeof supplierValue === 'string' && !looksLikeEntityId(supplierValue) ? supplierValue : undefined;
+
+  const supplierName =
+    asString(record.supplierName) ||
+    asString(record.supplier_name) ||
+    asString(supplierRecord?.name) ||
+    asString(supplierRecord?.supplierName) ||
+    asString(supplierRecord?.supplier_name) ||
+    supplierNameFromRaw ||
+    'Unknown supplier';
+
+  return { supplierId, supplierName };
+};
+
 const normalizeFeedItem = (value: unknown, index: number): FeedPurchaseOrderItemRecord | null => {
   const record = asRecord(value);
   if (!record) {
@@ -222,7 +290,7 @@ const normalizeFeedOrder = (value: unknown): FeedPurchaseOrderRecord | null => {
     return null;
   }
 
-  const supplierRecord = asRecord(record.supplier);
+  const supplierReference = normalizeSupplierReference(record);
   const rawItems = asArray(record.items).length > 0 ? asArray(record.items) : asArray(record.lineItems);
   const items = rawItems
     .map((item, index) => normalizeFeedItem(item, index))
@@ -231,12 +299,8 @@ const normalizeFeedOrder = (value: unknown): FeedPurchaseOrderRecord | null => {
   return {
     id,
     orderNumber: asString(record.orderNumber) || asString(record.poNumber) || id,
-    supplierId: asString(record.supplierId) || asString(supplierRecord?.id),
-    supplierName:
-      asString(record.supplierName) ||
-      asString(supplierRecord?.name) ||
-      asString(record.supplier) ||
-      'Unknown supplier',
+    supplierId: supplierReference.supplierId,
+    supplierName: supplierReference.supplierName,
     orderDate: asString(record.orderDate) || asString(record.createdAt),
     deliveryDate: asString(record.deliveryDate) || asString(record.deliveredAt),
     status: toStatusKey(record.status),
@@ -286,7 +350,7 @@ const normalizeFishOrder = (value: unknown): FishPurchaseOrderRecord | null => {
     return null;
   }
 
-  const supplierRecord = asRecord(record.supplier);
+  const supplierReference = normalizeSupplierReference(record);
   const rawItems = asArray(record.items).length > 0 ? asArray(record.items) : asArray(record.lineItems);
   const items = rawItems
     .map((item, index) => normalizeFishItem(item, index))
@@ -295,15 +359,98 @@ const normalizeFishOrder = (value: unknown): FishPurchaseOrderRecord | null => {
   return {
     id,
     orderNumber: asString(record.orderNumber) || asString(record.poNumber) || id,
-    supplierId: asString(record.supplierId) || asString(supplierRecord?.id),
-    supplierName:
-      asString(record.supplierName) ||
-      asString(supplierRecord?.name) ||
-      asString(record.supplier) ||
-      'Unknown supplier',
+    supplierId: supplierReference.supplierId,
+    supplierName: supplierReference.supplierName,
     orderDate: asString(record.orderDate) || asString(record.createdAt),
     deliveryDate: asString(record.deliveryDate) || asString(record.deliveredAt),
     status: toStatusKey(record.status),
+    totalCost:
+      asNumber(record.totalCost) ??
+      asNumber(record.totalAmount) ??
+      items.reduce((sum, item) => sum + item.totalCost, 0),
+    items,
+  };
+};
+
+const normalizeMedicineItem = (value: unknown, index: number): MedicinePurchaseOrderItemRecord | null => {
+  const record = asRecord(value);
+  if (!record) {
+    return null;
+  }
+
+  const id = asString(record.id) || asString(record.itemId) || `medicine-item-${index}`;
+  const medicineRecord = asRecord(record.medicine);
+  const companyRecord = asRecord(record.company);
+  const fishTypeRefs = asArray(record.fishTypes);
+
+  const fishTypeIds = [
+    ...asArray(record.fishTypeIds),
+    ...fishTypeRefs.map((entry) => asString(asRecord(entry)?.id) || (typeof entry === 'string' ? entry : undefined)),
+  ]
+    .map((entry) => asString(entry))
+    .filter((entry): entry is string => Boolean(entry));
+
+  const fishTypeNames = [
+    ...asArray(record.fishTypeNames),
+    ...fishTypeRefs.map((entry) => asString(asRecord(entry)?.name) || (typeof entry === 'string' ? entry : undefined)),
+  ]
+    .map((entry) => asString(entry))
+    .filter((entry): entry is string => Boolean(entry));
+
+  const quantity = asNumber(record.quantity) ?? asNumber(record.quantityKg) ?? asNumber(record.amount) ?? 0;
+  const unitCost = asNumber(record.unitCost) ?? asNumber(record.pricePerUnit) ?? asNumber(record.price) ?? 0;
+
+  return {
+    id,
+    medicine:
+      asString(record.medicineName) ||
+      asString(record.medicine) ||
+      asString(medicineRecord?.name) ||
+      asString(record.name) ||
+      'Unknown medicine',
+    company:
+      asString(record.company) ||
+      asString(record.manufacturer) ||
+      asString(record.medicineCompany) ||
+      asString(companyRecord?.name) ||
+      asString(medicineRecord?.company) ||
+      'Unknown company',
+    fishTypeIds,
+    fishTypeNames,
+    quantity,
+    unitCost,
+    totalCost: asNumber(record.totalCost) ?? asNumber(record.subtotal) ?? quantity * unitCost,
+    status: toStatusKey(record.status),
+    actualQuantity: asNumber(record.actualQuantity) ?? asNumber(record.receivedQuantity),
+  };
+};
+
+const normalizeMedicineOrder = (value: unknown): MedicinePurchaseOrderRecord | null => {
+  const record = asRecord(value);
+  if (!record) {
+    return null;
+  }
+
+  const id = asString(record.id);
+  if (!id) {
+    return null;
+  }
+
+  const supplierReference = normalizeSupplierReference(record);
+  const rawItems = asArray(record.items).length > 0 ? asArray(record.items) : asArray(record.lineItems);
+  const items = rawItems
+    .map((item, index) => normalizeMedicineItem(item, index))
+    .filter((entry): entry is MedicinePurchaseOrderItemRecord => entry !== null);
+
+  return {
+    id,
+    orderNumber: asString(record.orderNumber) || asString(record.poNumber) || id,
+    supplierId: supplierReference.supplierId,
+    supplierName: supplierReference.supplierName,
+    orderDate: asString(record.orderDate) || asString(record.createdAt),
+    deliveryDate: asString(record.deliveryDate) || asString(record.deliveredAt),
+    status: toStatusKey(record.status),
+    deliveryStatus: record.deliveryStatus ? toStatusKey(record.deliveryStatus) : undefined,
     totalCost:
       asNumber(record.totalCost) ??
       asNumber(record.totalAmount) ??
@@ -459,6 +606,79 @@ export const updateFishPurchaseOrderItemStatus = async (
   }
 
   await requestJson(`/procurement/fish-orders/${orderId}/items/${itemId}/status`, {
+    method: 'PATCH',
+    body,
+  });
+};
+
+export const getMedicinePurchaseOrders = async (params?: {
+  offset?: number;
+  limit?: number;
+}): Promise<MedicinePurchaseOrderRecord[]> => {
+  const payload = await requestJson(`/procurement/medicine-orders${toQueryString(params)}`);
+  return extractArrayPayload(payload, ['orders', 'medicineOrders', 'items', 'rows', 'data'])
+    .map(normalizeMedicineOrder)
+    .filter((entry): entry is MedicinePurchaseOrderRecord => entry !== null);
+};
+
+export const getMedicinePurchaseOrderById = async (
+  orderId: string,
+): Promise<MedicinePurchaseOrderRecord | null> => {
+  const payload = await requestJson(`/procurement/medicine-orders/${orderId}`);
+  const record = extractObjectPayload(payload);
+  return record ? normalizeMedicineOrder(record) : null;
+};
+
+export const createMedicinePurchaseOrder = async (
+  payload: MedicineOrderCreatePayload,
+): Promise<MedicinePurchaseOrderRecord | null> => {
+  const response = await requestJson('/procurement/medicine-orders', {
+    method: 'POST',
+    body: payload,
+  });
+  const record = extractObjectPayload(response);
+  return record ? normalizeMedicineOrder(record) : null;
+};
+
+export const updateMedicinePurchaseOrderStatus = async (orderId: string, status: string): Promise<void> => {
+  await requestJson(`/procurement/medicine-orders/${orderId}/status`, {
+    method: 'PATCH',
+    body: {
+      status: toBackendWordStatus(status),
+    },
+  });
+};
+
+export const updateMedicinePurchaseOrderDeliveryStatus = async (
+  orderId: string,
+  status: string,
+): Promise<void> => {
+  await requestJson(`/procurement/medicine-orders/${orderId}/delivery-status`, {
+    method: 'PATCH',
+    body: {
+      status: toBackendWordStatus(status),
+    },
+  });
+};
+
+export const updateMedicinePurchaseOrderItemStatus = async (
+  orderId: string,
+  itemId: string,
+  status?: string,
+  options?: {
+    actualQuantity?: number;
+    receiptLocation?: string;
+  },
+): Promise<void> => {
+  const body: Record<string, unknown> = status ? { status: toBackendWordStatus(status) } : {};
+  if (options?.actualQuantity !== undefined && Number.isFinite(options.actualQuantity)) {
+    body.actualQuantity = options.actualQuantity;
+  }
+  if (options?.receiptLocation) {
+    body.receiptLocation = options.receiptLocation;
+  }
+
+  await requestJson(`/procurement/medicine-orders/${orderId}/line-items/${itemId}/status`, {
     method: 'PATCH',
     body,
   });

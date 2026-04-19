@@ -13,15 +13,20 @@ vi.mock('../services/procurementApi', async () => {
     ...actual,
     createFeedPurchaseOrder: vi.fn(),
     createFishPurchaseOrder: vi.fn(),
+    createMedicinePurchaseOrder: vi.fn(),
     createProcurementSupplier: vi.fn(),
     getFeedPurchaseOrders: vi.fn(),
     getFishPurchaseOrders: vi.fn(),
+    getMedicinePurchaseOrders: vi.fn(),
     getProcurementSuppliers: vi.fn(),
     updateFeedPurchaseOrderDeliveryStatus: vi.fn(),
     updateFeedPurchaseOrderItemStatus: vi.fn(),
     updateFeedPurchaseOrderStatus: vi.fn(),
     updateFishPurchaseOrderItemStatus: vi.fn(),
     updateFishPurchaseOrderStatus: vi.fn(),
+    updateMedicinePurchaseOrderDeliveryStatus: vi.fn(),
+    updateMedicinePurchaseOrderItemStatus: vi.fn(),
+    updateMedicinePurchaseOrderStatus: vi.fn(),
   };
 });
 
@@ -43,6 +48,7 @@ vi.mock('../services/foodTypesApi', async () => {
 
 const getFeedPurchaseOrdersMock = vi.mocked(procurementApi.getFeedPurchaseOrders);
 const getFishPurchaseOrdersMock = vi.mocked(procurementApi.getFishPurchaseOrders);
+const getMedicinePurchaseOrdersMock = vi.mocked(procurementApi.getMedicinePurchaseOrders);
 const getProcurementSuppliersMock = vi.mocked(procurementApi.getProcurementSuppliers);
 const updateFeedPurchaseOrderItemStatusMock = vi.mocked(procurementApi.updateFeedPurchaseOrderItemStatus);
 const getFishTypesMock = vi.mocked(fishTypesApi.getFishTypes);
@@ -68,6 +74,7 @@ describe('Procurement component', () => {
 
     getFeedPurchaseOrdersMock.mockResolvedValue([]);
     getFishPurchaseOrdersMock.mockResolvedValue([]);
+    getMedicinePurchaseOrdersMock.mockResolvedValue([]);
     getProcurementSuppliersMock.mockResolvedValue([]);
     getFishTypesMock.mockResolvedValue([]);
     getFoodTypesMock.mockResolvedValue([]);

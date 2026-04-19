@@ -3,6 +3,7 @@ import {
   getProcurementSuppliers,
   updateFeedPurchaseOrderItemStatus,
   updateFishPurchaseOrderItemStatus,
+  updateMedicinePurchaseOrderItemStatus,
 } from '../services/procurementApi';
 
 const jsonResponse = (body: unknown, status = 200): Response =>
@@ -87,6 +88,27 @@ describe('procurementApi', () => {
         body: JSON.stringify({
           status: 'Received',
           actualQuantity: 500,
+          receiptLocation: 'RECEIVING_AREA',
+        }),
+      }),
+    );
+  });
+
+  it('sends medicine line-item receipt payload to line-items endpoint', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ success: true }));
+
+    await updateMedicinePurchaseOrderItemStatus('medicine-order-1', 'medicine-item-1', 'RECEIVED', {
+      actualQuantity: 25,
+      receiptLocation: 'RECEIVING_AREA',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/procurement/medicine-orders/medicine-order-1/line-items/medicine-item-1/status'),
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({
+          status: 'Received',
+          actualQuantity: 25,
           receiptLocation: 'RECEIVING_AREA',
         }),
       }),
