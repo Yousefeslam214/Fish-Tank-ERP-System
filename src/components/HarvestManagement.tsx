@@ -145,10 +145,6 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
     () => harvestEvents.filter((event) => event.status === 'COMPLETED').length,
     [harvestEvents],
   );
-  const totalRevenue = useMemo(
-    () => harvestEvents.reduce((sum, event) => sum + (event.totalRevenue || 0), 0),
-    [harvestEvents],
-  );
   const totalGradedWeight = useMemo(
     () => currentGradings.reduce((sum, grading) => sum + grading.weightKg, 0),
     [currentGradings],
@@ -581,7 +577,7 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm text-gray-600">Active Harvests</CardTitle>
@@ -596,14 +592,6 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                 </CardHeader>
                 <CardContent>
                   <p className="text-2xl font-semibold">{completedEventCount}</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-gray-600">Total Revenue</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-semibold text-green-700">{formatNumber(totalRevenue)} EGP</p>
                 </CardContent>
               </Card>
               <Card>
@@ -634,8 +622,6 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                         </div>
                         <div className="text-right">
                           <Badge variant="outline">{event.harvestTypeLabel}</Badge>
-                          <p className="text-sm mt-1">Estimated: {formatNumber(event.estimatedWeight)} kg</p>
-                          <p className="text-sm">Revenue: {formatNumber(event.totalRevenue)} EGP</p>
                           <Badge className="mt-1">{event.status}</Badge>
                         </div>
                       </div>
@@ -743,7 +729,6 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                         ) : prediction ? (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                             <p>Predicted Weight: {formatNumber(prediction.predictedWeightKg)} kg</p>
-                            <p>Predicted Revenue: {formatNumber(prediction.predictedRevenue)} EGP</p>
                             <p>Days To Harvest: {prediction.daysToHarvest}</p>
                             <p>Recommendation: {prediction.recommendation}</p>
                           </div>
@@ -905,7 +890,6 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                         <p>Harvest Event: {currentEvent?.id}</p>
                         <p>Graded Weight: {formatNumber(totalGradedWeight)} kg</p>
                         <p>Graded Count: {formatNumber(totalGradedCount)} fish</p>
-                        <p>Expected Revenue: {formatNumber(totalGradingRevenue)} EGP</p>
                       </CardContent>
                     </Card>
 
@@ -951,7 +935,6 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                         <p>Status: {completedEvent?.status || 'COMPLETED'}</p>
                         <p>Total Graded Weight: {formatNumber(totalGradedWeight)} kg</p>
                         <p>Total Graded Count: {formatNumber(totalGradedCount)} fish</p>
-                        <p>Total Revenue: {formatNumber(totalGradingRevenue)} EGP</p>
                         {completionPayload.notes?.trim() ? <p>Notes: {completionPayload.notes}</p> : null}
                       </CardContent>
                     </Card>
@@ -1182,8 +1165,6 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                         </div>
                         <div className="text-right text-sm">
                           <Badge variant="outline">{event.harvestTypeLabel}</Badge>
-                          <p className="mt-1">Estimated: {formatNumber(event.estimatedWeight)} kg</p>
-                          <p>Revenue: {formatNumber(event.totalRevenue)} EGP</p>
                           <p>Status: {event.status}</p>
                         </div>
                       </div>
@@ -1204,7 +1185,6 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                 <p>Total events loaded: {harvestEvents.length}</p>
                 <p>Active events: {activeEventCount}</p>
                 <p>Completed events: {completedEventCount}</p>
-                <p>Aggregate revenue: {formatNumber(totalRevenue)} EGP</p>
               </CardContent>
             </Card>
           </TabsContent>
