@@ -3,7 +3,7 @@ name: Sync to Hugging Face Space
 on:
   push:
     branches:
-      - code
+      - graduation
 
 jobs:
   sync-to-hub:
@@ -47,7 +47,7 @@ jobs:
 
       - name: Push to Hugging Face
         env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_TOKEN_FRONT: ${{ secrets.HF_TOKEN_FRONT }}
         run: |
-          git remote add hf https://fouadkhalid1212:$HF_TOKEN@huggingface.co/spaces/fouadkhalid1212/Asd
+          git remote add hf https://fouad12344321:$HF_TOKEN_FRONT@huggingface.co/spaces/fouad12344321/front
           git push hf deploy:main --force
