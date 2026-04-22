@@ -6,10 +6,10 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Card, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
-import { 
-  TrendingUp, 
-  Scale, 
-  AlertCircle, 
+import {
+  TrendingUp,
+  Scale,
+  AlertCircle,
   AlertTriangle,
   CheckCircle,
   Activity,
@@ -39,9 +39,9 @@ interface RecordGrowthMeasurementProps {
   measurement?: any; // To support editing
 }
 
-export default function RecordGrowthMeasurement({ 
-  open, 
-  onClose, 
+export default function RecordGrowthMeasurement({
+  open,
+  onClose,
   batch,
   language = 'en',
   onSuccess,
@@ -55,7 +55,7 @@ export default function RecordGrowthMeasurement({
   const [successData, setSuccessData] = useState<any>(null);
   const [detailedEntry, setDetailedEntry] = useState(false);
   const [bulkInput, setBulkInput] = useState('');
-  
+
   const [formData, setFormData] = useState({
     measuredAt: new Date().toISOString().split('T')[0],
     sampleSize: 30,
@@ -67,7 +67,7 @@ export default function RecordGrowthMeasurement({
     measuredBy: measuredBy,
     individualWeights: [] as number[]
   });
-  
+
   const [showNegativeGrowthWarning, setShowNegativeGrowthWarning] = useState(false);
 
   // Load measurement data if editing
@@ -117,16 +117,16 @@ export default function RecordGrowthMeasurement({
   }, [open, batch.lastWeight]);
 
   // Calculate metrics
-  const averageWeight = formData.sampleSize > 0 
-    ? formData.totalSampleWeight / formData.sampleSize 
+  const averageWeight = formData.sampleSize > 0
+    ? formData.totalSampleWeight / formData.sampleSize
     : 0;
 
-  const weightGain = batch.lastWeight 
-    ? averageWeight - batch.lastWeight 
+  const weightGain = batch.lastWeight
+    ? averageWeight - batch.lastWeight
     : 0;
 
-  const weightGainPercentage = batch.lastWeight 
-    ? (weightGain / batch.lastWeight) * 100 
+  const weightGainPercentage = batch.lastWeight
+    ? (weightGain / batch.lastWeight) * 100
     : 0;
 
   // Calculate SGR (Specific Growth Rate)
@@ -152,13 +152,13 @@ export default function RecordGrowthMeasurement({
   // Calculate statistics from individual weights
   const calculateStats = () => {
     if (formData.individualWeights.length === 0) return null;
-    
+
     const weights = formData.individualWeights;
     const sum = weights.reduce((a, b) => a + b, 0);
     const avg = sum / weights.length;
     const min = Math.min(...weights);
     const max = Math.max(...weights);
-    
+
     // Standard deviation
     const variance = weights.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / weights.length;
     const stdDev = Math.sqrt(variance);
@@ -214,7 +214,7 @@ export default function RecordGrowthMeasurement({
 
     // Check for significant weight decrease to warn user
     const isNegativeGrowth = batch.lastWeight && averageWeight < batch.lastWeight;
-    
+
     if (isNegativeGrowth && !showNegativeGrowthWarning) {
       setShowNegativeGrowthWarning(true);
       return;
@@ -249,7 +249,7 @@ export default function RecordGrowthMeasurement({
         // Verified Swagger Path: /tanks/growth/{batchId}
         await apiPost(`/tanks/growth/${batch.id}`, payload);
       }
-      
+
       const res = {
         id: measurement?.id || 'growth-' + Date.now(),
         ...payload,
@@ -272,29 +272,29 @@ export default function RecordGrowthMeasurement({
 
       setSuccessData(res);
       setShowSuccess(true);
-      
+
       if (onSuccess) {
         onSuccess(res);
       }
     } catch (err) {
       console.error('Failed to save growth:', err);
       let errorMessage = (err as Error).message;
-      
+
       // Try to extract a clean message from the API error string
       try {
         if (errorMessage.includes(']: ')) {
           const jsonStr = errorMessage.split(']: ')[1];
           const errorObj = JSON.parse(jsonStr);
           if (errorObj.message) {
-            errorMessage = Array.isArray(errorObj.message) 
-              ? errorObj.message.join(', ') 
+            errorMessage = Array.isArray(errorObj.message)
+              ? errorObj.message.join(', ')
               : errorObj.message;
           }
         }
       } catch (e) {
         // Just use the original message if parsing fails
       }
-      
+
       toast.error('Failed to save growth: ' + errorMessage);
     }
   };
@@ -315,7 +315,7 @@ export default function RecordGrowthMeasurement({
               {t('growthMeasurement.title')}
             </DialogTitle>
             <p className="text-sm text-gray-600 mt-1">
-              {batch.batchNumber} - {batch.tankName} - {batch.fishType}
+              {batch.batchNumber} - {batch.tankName}
             </p>
           </DialogHeader>
 
@@ -355,26 +355,26 @@ export default function RecordGrowthMeasurement({
               <h3 className="font-semibold text-gray-900 border-b pb-2">
                 {t('growthMeasurement.samplingDetails')}
               </h3>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>{t('growthMeasurement.measurementDate')} *</Label>
-                  <Input 
+                  <Input
                     type="date"
                     value={formData.measuredAt}
-                    onChange={(e) => setFormData({...formData, measuredAt: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, measuredAt: e.target.value })}
                     max={new Date().toISOString().split('T')[0]}
                   />
                 </div>
 
                 <div>
                   <Label>{t('growthMeasurement.numberOfFishSampled')} *</Label>
-                  <Input 
+                  <Input
                     type="number"
                     min="10"
                     max="100"
                     value={formData.sampleSize}
-                    onChange={(e) => setFormData({...formData, sampleSize: parseInt(e.target.value) || 0})}
+                    onChange={(e) => setFormData({ ...formData, sampleSize: parseInt(e.target.value) || 0 })}
                   />
                   <p className="text-xs text-gray-500 mt-1">{t('growthMeasurement.recommended')}</p>
                 </div>
@@ -389,11 +389,11 @@ export default function RecordGrowthMeasurement({
 
               <div>
                 <Label>{t('growthMeasurement.totalSampleWeight')} *</Label>
-                <Input 
+                <Input
                   type="number"
                   step="0.1"
                   value={formData.totalSampleWeight}
-                  onChange={(e) => setFormData({...formData, totalSampleWeight: parseFloat(e.target.value) || 0})}
+                  onChange={(e) => setFormData({ ...formData, totalSampleWeight: parseFloat(e.target.value) || 0 })}
                   disabled={detailedEntry && stats !== null}
                 />
               </div>
@@ -423,8 +423,8 @@ export default function RecordGrowthMeasurement({
                       rows={4}
                       className="font-mono text-sm"
                     />
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       className="mt-2"
                       onClick={handleParseBulkInput}
                     >
@@ -471,20 +471,20 @@ export default function RecordGrowthMeasurement({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>{t('growthMeasurement.smallestFish')} *</Label>
-                    <Input 
+                    <Input
                       type="number"
                       step="0.1"
                       value={formData.minWeight}
-                      onChange={(e) => setFormData({...formData, minWeight: parseFloat(e.target.value) || 0})}
+                      onChange={(e) => setFormData({ ...formData, minWeight: parseFloat(e.target.value) || 0 })}
                     />
                   </div>
                   <div>
                     <Label>{t('growthMeasurement.largestFish')} *</Label>
-                    <Input 
+                    <Input
                       type="number"
                       step="0.1"
                       value={formData.maxWeight}
-                      onChange={(e) => setFormData({...formData, maxWeight: parseFloat(e.target.value) || 0})}
+                      onChange={(e) => setFormData({ ...formData, maxWeight: parseFloat(e.target.value) || 0 })}
                     />
                   </div>
                 </div>
@@ -499,11 +499,11 @@ export default function RecordGrowthMeasurement({
               <div>
                 <Label>{t('growthMeasurement.averageLength')}</Label>
                 <div className="flex items-center gap-2">
-                  <Input 
+                  <Input
                     type="number"
                     step="0.1"
                     value={formData.averageLength}
-                    onChange={(e) => setFormData({...formData, averageLength: parseFloat(e.target.value) || 0})}
+                    onChange={(e) => setFormData({ ...formData, averageLength: parseFloat(e.target.value) || 0 })}
                     className="max-w-xs"
                   />
                   <Ruler className="w-5 h-5 text-gray-400" />
@@ -557,15 +557,15 @@ export default function RecordGrowthMeasurement({
                 <Textarea
                   placeholder="Fish looking healthy, good color..."
                   value={formData.notes}
-                  onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   rows={3}
                 />
               </div>
               <div>
                 <Label>{t('growthMeasurement.measuredBy')}</Label>
-                <Input 
+                <Input
                   value={formData.measuredBy}
-                  onChange={(e) => setFormData({...formData, measuredBy: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, measuredBy: e.target.value })}
                 />
               </div>
             </div>
@@ -580,7 +580,7 @@ export default function RecordGrowthMeasurement({
                     The calculated average weight (<strong>{averageWeight.toFixed(1)}g</strong>) is lower than the last recorded weight (<strong>{batch.lastWeight}g</strong>).
                   </p>
                   <p className="text-amber-700 mt-2 text-xs">
-                    Please verify that <strong>Total Sample Weight</strong> is entered in <strong>grams</strong> (not kg) and <strong>Sample Size</strong> is correct. 
+                    Please verify that <strong>Total Sample Weight</strong> is entered in <strong>grams</strong> (not kg) and <strong>Sample Size</strong> is correct.
                     If you are sure, click "Save Measurement" again to proceed.
                   </p>
                 </div>
@@ -589,14 +589,14 @@ export default function RecordGrowthMeasurement({
 
             {/* Action Buttons */}
             <div className="flex gap-3 pt-4 border-t">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="flex-1"
                 onClick={onClose}
               >
                 {t('growthMeasurement.cancel')}
               </Button>
-              <Button 
+              <Button
                 className="flex-1 bg-[#088395] hover:bg-[#0A4D68]"
                 onClick={handleSubmit}
               >
@@ -629,8 +629,8 @@ export default function RecordGrowthMeasurement({
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">{t('growthMeasurement.averageWeight')}:</span>
                       <span className="font-bold text-lg">
-                        {successData.averageWeightGrams.toFixed(1)}g 
-                        {successData.weightGainPercentage > 0 && 
+                        {successData.averageWeightGrams.toFixed(1)}g
+                        {successData.weightGainPercentage > 0 &&
                           <span className="text-[#10B981] ml-2">
                             (+{successData.weightGainPercentage.toFixed(1)}%)
                           </span>
@@ -686,14 +686,14 @@ export default function RecordGrowthMeasurement({
               )}
 
               <div className="flex gap-3">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="flex-1"
                   onClick={handleSuccessClose}
                 >
                   {t('growthMeasurement.close')}
                 </Button>
-                <Button 
+                <Button
                   className="flex-1 bg-[#088395] hover:bg-[#0A4D68]"
                   onClick={handleSuccessClose}
                 >
