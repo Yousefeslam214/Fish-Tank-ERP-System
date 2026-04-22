@@ -848,7 +848,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           </TabsTrigger>
           <TabsTrigger value="supplies">
             <Package className="w-4 h-4 mr-2" />
-            Supplies
+            Feed
           </TabsTrigger>
           <TabsTrigger value="medicine">
             <Pill className="w-4 h-4 mr-2" />

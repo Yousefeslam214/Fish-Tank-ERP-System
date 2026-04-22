@@ -7,6 +7,7 @@ export const MODULE_BACKED_PAGE_ORDER = [
   'harvest',
   'inventory',
   'sales',
+  'user-management',
   'accounting',
   'analytics',
   'fish-types',
