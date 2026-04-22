@@ -97,29 +97,25 @@ export function FeedingDetailsModal({ open, onOpenChange, record, onDeleteSucces
               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Achievement</p>
               <p className="text-lg font-bold text-gray-900">{record.achievement || `${recommended > 0 ? Math.round((fed / recommended) * 100) : 0}%`}</p>
             </div>
-            <div className="space-y-1.5">
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Meal</p>
-              <p className="text-lg font-bold text-gray-900">{record.mealLabel || `Meal #${record.mealNumber || record.numMeals || 'N/A'}`}</p>
-            </div>
           </div>
 
           <div className="mt-8 bg-gray-50 p-4 rounded-xl space-y-3">
-             <div className="flex justify-between text-sm">
-                <span className="text-gray-500 font-medium">Food Product:</span>
-                <span className="text-gray-900 font-bold">
-                  {typeof record.foodType === 'object' ? (record.foodType?.name || record.foodType?.brand || 'Standard Feed') : (record.foodType || record.feedType || 'N/A')}
-                </span>
-             </div>
-             <div className="flex justify-between text-sm">
-                <span className="text-gray-500 font-medium">Recorded By:</span>
-                <span className="text-gray-900 font-bold">{record.fedBy || record.recordedBy || 'Operator'}</span>
-             </div>
-             {record.notes && (
-               <div className="pt-2 border-t border-gray-200">
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Notes & Observations</p>
-                  <p className="text-sm text-gray-700 italic">"{record.notes}"</p>
-               </div>
-             )}
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500 font-medium">Food Product:</span>
+              <span className="text-gray-900 font-bold">
+                {typeof record.foodType === 'object' ? (record.foodType?.name || record.foodType?.brand || 'Standard Feed') : (record.foodType || record.feedType || 'N/A')}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500 font-medium">Recorded By:</span>
+              <span className="text-gray-900 font-bold">{record.fedBy || record.recordedBy || 'Operator'}</span>
+            </div>
+            {record.notes && (
+              <div className="pt-2 border-t border-gray-200">
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Notes & Observations</p>
+                <p className="text-sm text-gray-700 italic">"{record.notes}"</p>
+              </div>
+            )}
           </div>
 
           <div className="mt-8 flex items-center justify-between gap-3">

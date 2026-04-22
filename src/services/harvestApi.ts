@@ -417,7 +417,7 @@ export const addHarvestGradingRecord = async (
   };
 
   const response = await postWithFallback(
-    `/aquaculture-system/harvest/events/${eventId}/grading`,
+    `/harvest/events/${eventId}/grading`,
     `/harvest/events/${eventId}/grading`,
     primaryBody,
     fallbackBody,
@@ -449,7 +449,7 @@ export const completeHarvestEvent = async (
   payload: CompleteHarvestPayload,
 ): Promise<HarvestEventRecord> => {
   const response = await postWithFallback(
-    `/aquaculture-system/harvest/events/${eventId}/complete`,
+    `/harvest/events/${eventId}/complete`,
     `/harvest/events/${eventId}/complete`,
     { notes: payload.notes || '' },
     {},

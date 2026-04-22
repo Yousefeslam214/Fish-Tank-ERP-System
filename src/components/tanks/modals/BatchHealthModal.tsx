@@ -23,19 +23,19 @@ export function BatchHealthModal({ open, onOpenChange, batch, mode, onSuccess }:
 
   const handleSave = async () => {
     if (!batch?.id) return;
-    
+
     setIsSaving(true);
     try {
-      const endpoint = mode === 'health' 
+      const endpoint = mode === 'health'
         ? `/inventory/batches/${batch.id}/health-check`
         : `/inventory/batches/${batch.id}/quarantine`;
-      
-      const payload = mode === 'health' 
+
+      const payload = mode === 'health'
         ? { status, notes, timestamp: new Date().toISOString() }
         : { reason: notes, status: 'QUARANTINED', timestamp: new Date().toISOString() };
 
       await apiPatch(endpoint, payload);
-      
+
       toast.success(mode === 'health' ? 'Health check recorded' : 'Batch moved to quarantine');
       if (onSuccess) onSuccess();
       onOpenChange(false);
@@ -64,7 +64,7 @@ export function BatchHealthModal({ open, onOpenChange, batch, mode, onSuccess }:
             )}
           </DialogTitle>
           <p className="text-sm text-gray-500">
-            Batch #{batch?.batchNumber || batch?.id?.substring(0, 8)} • {batch?.species || 'Fish'}
+            Batch #{batch?.batchNumber || batch?.id?.substring(0, 8)}
           </p>
         </DialogHeader>
 
@@ -108,9 +108,9 @@ export function BatchHealthModal({ open, onOpenChange, batch, mode, onSuccess }:
 
           <div className="grid gap-2">
             <Label htmlFor="notes">{mode === 'health' ? 'Observations & Notes' : 'Reason for Quarantine'}</Label>
-            <Textarea 
-              id="notes" 
-              placeholder={mode === 'health' ? "e.g. Activity level good, no visible spots..." : "e.g. Suspected parasite infection, separating for observation..."} 
+            <Textarea
+              id="notes"
+              placeholder={mode === 'health' ? "e.g. Activity level good, no visible spots..." : "e.g. Suspected parasite infection, separating for observation..."}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="h-24"
@@ -128,7 +128,7 @@ export function BatchHealthModal({ open, onOpenChange, batch, mode, onSuccess }:
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button 
+          <Button
             className={mode === 'health' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-orange-600 hover:bg-orange-700'}
             onClick={handleSave}
             disabled={isSaving}

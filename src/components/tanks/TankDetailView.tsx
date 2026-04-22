@@ -127,13 +127,13 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
               if (fd.status === 'fulfilled') allBatchFd.push(...(fd.value.data ?? fd.value ?? []));
               if (growth.status === 'fulfilled') {
                 const growthVal = growth.value;
-                const history = Array.isArray(growthVal) 
-                  ? growthVal 
-                  : (Array.isArray(growthVal.data) 
-                      ? growthVal.data 
-                      : (Array.isArray(growthVal.history) 
-                          ? growthVal.history 
-                          : (growthVal.data?.history || [])));
+                const history = Array.isArray(growthVal)
+                  ? growthVal
+                  : (Array.isArray(growthVal.data)
+                    ? growthVal.data
+                    : (Array.isArray(growthVal.history)
+                      ? growthVal.history
+                      : (growthVal.data?.history || [])));
                 setSelectedBatchGrowthHistory(prev => ({ ...prev, [batchId]: history }));
               }
               if (analysis.status === 'fulfilled') {
@@ -209,7 +209,7 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
       const finalBatches = btData.length > 0 ? btData : tank.batches || [];
       setTankBatches(finalBatches);
       setBatchesSummary(btSummary);
-      
+
       if (finalBatches.length > 0 && !selectedBatchId) {
         setSelectedBatchId(finalBatches[0].id);
       }
@@ -337,7 +337,6 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
         const recommended = parseWeight(r.recommendedAmount ?? r.targetWeight ?? 0);
         return {
           time: r.time || (r.timestamp || r.fedAt || r.createdAt ? new Date(r.timestamp || r.fedAt || r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '–'),
-          meal: r.mealLabel || (r.mealNumber ?? r.numMeals ?? 0),
           fed,
           recommended,
           foodName: r.foodType?.name || r.foodType || r.foodTypeName || 'Standard Feed',
@@ -393,10 +392,10 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
                 <p className="text-red-700 text-sm font-medium">{actionReason}</p>
               </div>
             </div>
-            <Button 
-               size="sm" 
-               className="bg-red-600 hover:bg-red-700 text-white font-bold h-10 px-6"
-               onClick={() => setActiveTab('water')}
+            <Button
+              size="sm"
+              className="bg-red-600 hover:bg-red-700 text-white font-bold h-10 px-6"
+              onClick={() => setActiveTab('water')}
             >
               Take Action
             </Button>
@@ -426,19 +425,19 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
           </TabsList>
 
           <TabsContent value="overview">
-            <OverviewTab 
-              dashboardData={dashboardData} 
-              tankBatches={tankBatches} 
-              currentTank={currentTank} 
+            <OverviewTab
+              dashboardData={dashboardData}
+              tankBatches={tankBatches}
+              currentTank={currentTank}
               batchGrowthAnalysis={batchGrowthAnalysis}
               batchAssessments={batchAssessments}
             />
           </TabsContent>
 
           <TabsContent value="batches">
-            <BatchesTab 
-              batchesSummary={batchesSummary} 
-              tankBatches={tankBatches} 
+            <BatchesTab
+              batchesSummary={batchesSummary}
+              tankBatches={tankBatches}
               currentTank={currentTank}
               handleViewGrowthHistory={handleViewGrowthHistory}
               handleUpdateBatchData={handleUpdateBatchData}
@@ -449,7 +448,7 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
           </TabsContent>
 
           <TabsContent value="water">
-            <WaterQualityTab 
+            <WaterQualityTab
               batchAssessments={batchAssessments}
               tankBatches={tankBatches}
               waterQualityHistory={waterQualityHistory}
@@ -461,7 +460,7 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
           </TabsContent>
 
           <TabsContent value="feeding">
-            <FeedingHistoryTab 
+            <FeedingHistoryTab
               tankFeedingCalculation={tankFeedingCalculation}
               feedingHistory={feedingHistory}
               feedingRecords={feedingRecords}
@@ -474,7 +473,7 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
           </TabsContent>
 
           <TabsContent value="growth">
-            <GrowthMeasurementsTab 
+            <GrowthMeasurementsTab
               tankBatches={tankBatches}
               selectedBatchId={selectedBatchId}
               setSelectedBatchId={setSelectedBatchId}
@@ -488,7 +487,7 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
           </TabsContent>
 
           <TabsContent value="predictions">
-            <PredictionsTab 
+            <PredictionsTab
               predictionData={predictionData}
               loadingDetails={loadingDetails}
               tankBatches={tankBatches}
@@ -580,16 +579,16 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
         onDeleteSuccess={() => setTimeout(fetchTankDetails, 1000)}
       />
 
-      <FeedingDetailsModal 
-        open={showFeedingDetailsModal} 
-        onOpenChange={setShowFeedingDetailsModal} 
+      <FeedingDetailsModal
+        open={showFeedingDetailsModal}
+        onOpenChange={setShowFeedingDetailsModal}
         record={selectedFeedingRecord}
         onDeleteSuccess={() => setTimeout(fetchTankDetails, 1000)}
       />
 
-      <GrowthDetailsModal 
-        open={showGrowthDetailsModal} 
-        onOpenChange={setShowGrowthDetailsModal} 
+      <GrowthDetailsModal
+        open={showGrowthDetailsModal}
+        onOpenChange={setShowGrowthDetailsModal}
         record={selectedGrowthRecord}
         onDeleteSuccess={() => setTimeout(fetchTankDetails, 1000)}
       />
@@ -619,7 +618,7 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
         />
       )}
 
-      <BatchHealthModal 
+      <BatchHealthModal
         open={showHealthModal}
         onOpenChange={setShowHealthModal}
         batch={selectedBatchForHealth}

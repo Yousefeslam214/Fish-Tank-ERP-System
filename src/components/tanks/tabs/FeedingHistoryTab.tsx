@@ -64,8 +64,8 @@ export function FeedingHistoryTab({
                 <h4 className="text-xl font-black">{tankFeedingCalculation.recommendedAmount || tankFeedingCalculation.totalRecommended || '0'} kg/day</h4>
               </div>
               <div className="text-right">
-                 <p className="text-[10px] uppercase font-bold tracking-widest text-[#088395] mb-1">FCR Estimate</p>
-                 <p className="font-bold">{tankFeedingCalculation.currentFcr || '1.52'}</p>
+                <p className="text-[10px] uppercase font-bold tracking-widest text-[#088395] mb-1">FCR Estimate</p>
+                <p className="font-bold">{tankFeedingCalculation.currentFcr || '1.52'}</p>
               </div>
             </div>
           )}
@@ -77,7 +77,7 @@ export function FeedingHistoryTab({
               feedingHistory.map((feeding, idx) => (
                 <div key={idx} className="border-l-4 border-[#088395] pl-4 py-2 bg-gray-50/50 rounded-r-lg">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-medium">{feeding.time} - Meal #{feeding.meal}</span>
+                    <span className="font-medium">{feeding.time} - Feeding Session</span>
                     <Badge className={feeding.status === 'on-target' ? 'bg-[#10B981]' : 'bg-[#F59E0B]'}>
                       {feeding.status === 'on-target' ? '✅ On target' : '⚠️ Below recommendation'}
                     </Badge>
@@ -115,7 +115,6 @@ export function FeedingHistoryTab({
                 <tr>
                   <th className="px-4 py-3">Batch</th>
                   <th className="px-4 py-3">Daily Feed (kg)</th>
-                  <th className="px-4 py-3">Per Meal (kg)</th>
                   <th className="px-4 py-3">Fed Today</th>
                   <th className="px-4 py-3">Remaining</th>
                   <th className="px-4 py-3 text-right">Safety Status</th>
@@ -124,13 +123,11 @@ export function FeedingHistoryTab({
               <tbody className="divide-y divide-gray-100">
                 {tankBatches.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500 italic">No active batches to calculate feeding for.</td>
+                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500 italic">No active batches to calculate feeding for.</td>
                   </tr>
                 ) : (
                   tankBatches.map((batch) => {
                     const daily = parseVal(batch.feedingPlan?.dailyFeedingAmount || batch.dailyFeedKg || '0');
-                    const meals = batch.feedingPlan?.mealsPerDay || 4;
-                    const perMeal = daily / (meals || 1);
                     const fed = batch.feedingPlan?.todayFed || 0;
                     const remaining = Math.max(0, daily - fed);
                     const status = fed >= daily ? 'OK' : fed > 0 ? 'WARNING' : 'STOPPED';
@@ -142,12 +139,11 @@ export function FeedingHistoryTab({
                           <div className="text-[10px] text-gray-400 font-mono">ID: {batch.id.split('-')[0]}</div>
                         </td>
                         <td className="px-4 py-4 font-medium">{daily} kg</td>
-                        <td className="px-4 py-4 text-gray-600">{perMeal.toFixed(2)} kg <span className="text-[10px]">({meals} meals)</span></td>
                         <td className="px-4 py-4 font-bold text-blue-600">{fed} kg</td>
                         <td className="px-4 py-4 font-bold text-orange-600">{remaining.toFixed(1)} kg</td>
                         <td className="px-4 py-4 text-right">
                           <Badge className={`${status === 'OK' ? 'bg-green-100 text-green-700' : status === 'WARNING' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'} border-none font-black text-[9px] uppercase tracking-tighter`}>
-                             {status === 'OK' ? '● Optimal' : status === 'WARNING' ? '● Partial' : '● No Feed'}
+                            {status === 'OK' ? '● Optimal' : status === 'WARNING' ? '● Partial' : '● No Feed'}
                           </Badge>
                         </td>
                       </tr>
@@ -193,9 +189,6 @@ export function FeedingHistoryTab({
                               <span className="font-bold text-gray-900 text-lg tracking-tight">
                                 {record.formattedDate || `${new Date(record.timestamp || record.fedAt || record.createdAt).toLocaleDateString()} at ${record.time || new Date(record.timestamp || record.fedAt || record.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
                               </span>
-                              <Badge variant="outline" className="border-gray-200 text-gray-600 font-bold px-2 py-0.5 uppercase text-[10px]">
-                                {record.mealLabel || `Meal #${record.mealNumber || record.numMeals || 'N/A'}`}
-                              </Badge>
                               <Badge className={`${getStatusColor(status)} font-bold px-3 py-1 uppercase text-[10px] tracking-widest border-none shadow-sm`}>
                                 {status.toUpperCase()}
                               </Badge>

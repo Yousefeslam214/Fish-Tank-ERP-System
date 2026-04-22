@@ -9,7 +9,7 @@ import { Progress } from '../../ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Textarea } from '../../ui/textarea';
 import { Switch } from '../../ui/switch';
-import { Droplet, Fish, TrendingUp, Activity, AlertTriangle, RefreshCw, Save } from 'lucide-react';
+import { Droplet, Fish, TrendingUp, Activity, AlertTriangle, RefreshCw, Save, History } from 'lucide-react';
 import { apiPost, apiGet } from '../../../api';
 import { getFoodTypesBySpecies, FoodType } from '../../../services/foodTypesApi';
 import { createTask } from '../../../services/taskApi';
@@ -28,7 +28,6 @@ interface FeedingModalProps {
 
 export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = [], onSuccess, user }: FeedingModalProps) {
   const [selectedBatchId, setSelectedBatchId] = useState<string>('');
-  const [meals, setMeals] = useState(1);
   const [weightFed, setWeightFed] = useState(0);
   const [foodTypeId, setFoodTypeId] = useState<string>('');
   const [availableFoodTypes, setAvailableFoodTypes] = useState<FoodType[]>([]);
@@ -42,7 +41,6 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
 
   useEffect(() => {
     if (open) {
-      setMeals(1);
       setWeightFed(0);
       setNotes('');
       setSkipReason(false);
@@ -91,7 +89,7 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
           setBatchRequirement(res.data ?? res);
         } catch (err) {
           console.error('Failed to fetch batch requirement from API:', err);
-          
+
           // Fallback to batch data from props if API fails
           const selectedBatch = tankBatches.find(b => b.id.toString() === selectedBatchId);
           if (selectedBatch?.feedingPlan) {
@@ -115,14 +113,13 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
     }
   }, [selectedBatchId, open, tankBatches]);
 
-  const dailyRecommended = 
-    batchRequirement?.totalDailyFeedKg || 
-    batchRequirement?.recommendedAmount || 
-    batchRequirement?.totalRecommended || 
-    tank?.feeding?.recommended || 
+  const dailyRecommended =
+    batchRequirement?.totalDailyFeedKg ||
+    batchRequirement?.recommendedAmount ||
+    batchRequirement?.totalRecommended ||
+    tank?.feeding?.recommended ||
     90;
 
-  const perMeal = batchRequirement?.feedPerMealKg || (dailyRecommended / (batchRequirement?.mealsPerDay || 4));
   const currentTotalFed = batchRequirement?.fedTodayKg ?? (tank?.feeding?.todayFed ?? 0);
   const totalWithNewMeal = currentTotalFed + weightFed;
 
@@ -141,12 +138,13 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
     }
   }, [batchRequirement, availableFoodTypes]);
 
-  // Auto-populate weight fed based on recommended amount and number of meals
+  // Auto-populate weight fed based on remaining recommendation
   useEffect(() => {
-    if (open && perMeal > 0 && weightFed === 0) {
-      setWeightFed(Number((perMeal * meals).toFixed(2)));
+    if (open && dailyRecommended > 0 && weightFed === 0) {
+      const remaining = Math.max(0, dailyRecommended - currentTotalFed);
+      setWeightFed(Number(remaining.toFixed(2)));
     }
-  }, [open, perMeal, meals, weightFed]);
+  }, [open, dailyRecommended, currentTotalFed, weightFed]);
 
   const handleSave = async () => {
     if (!foodTypeId) {
@@ -163,7 +161,6 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
       const payload = {
         foodTypeId: foodTypeId,
         fedAt: new Date().toISOString(),
-        numMeals: meals,
         weightKg: weightFed,
         notes: notes,
         skipReason: skipReason,
@@ -173,7 +170,7 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
       if (!selectedBatchId) {
         throw new Error('Please select a batch to record feeding for.');
       }
-      
+
       const res = await apiPost<any>(`/tanks/feeding-records/${selectedBatchId}`, payload);
       console.log('Feeding record creation response:', res);
 
@@ -182,21 +179,21 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
         setIsSaving(false);
         return;
       }
-      
+
       const createdTasks: any[] = [];
       // Auto-create tasks for this feeding
       try {
         const assignedUserIds = await getTankAssignedUserIds(tank.id);
         console.log('Assigned user IDs for tank tasks:', assignedUserIds);
         const targetUserIds = assignedUserIds.length > 0 ? assignedUserIds : [user.id];
-        
-        const taskPromises = targetUserIds.map(userId => 
+
+        const taskPromises = targetUserIds.map(userId =>
           createTask({
             taskType: 'FEED_FISH',
             assignedToUserId: userId,
             tankId: tank.id,
             title: `Feeding Record: ${tank.name}`,
-            description: `Recorded ${meals} meal(s) of ${weightFed}kg ${availableFoodTypes.find(f => f.id === foodTypeId)?.name || 'feed'}.`,
+            description: `Recorded ${weightFed}kg of ${availableFoodTypes.find(f => f.id === foodTypeId)?.name || 'feed'}.`,
             dueAt: new Date().toISOString()
           })
         );
@@ -213,9 +210,9 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
         action: {
           label: 'View Tasks',
           onClick: () => {
-             // We can't easily change the global page state from here without a prop,
-             // but we can at least show the success message.
-             // If we want to support this, we'd need to pass a 'onNavigate' prop.
+            // We can't easily change the global page state from here without a prop,
+            // but we can at least show the success message.
+            // If we want to support this, we'd need to pass a 'onNavigate' prop.
           }
         }
       });
@@ -241,7 +238,12 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto p-0 border-none shadow-2xl">
         <div className="bg-gradient-to-r from-[#0A4D68] to-[#088395] p-6 text-white">
           <DialogHeader className="text-left">
-            <DialogTitle className="text-2xl font-bold text-white leading-tight">Record Feeding</DialogTitle>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <div className="bg-white/20 p-1.5 rounded-lg">
+                <History className="w-5 h-5" />
+              </div>
+              Record Feeding - {tank?.name}
+            </DialogTitle>
             <div className="flex flex-wrap items-center gap-2 mt-2 opacity-90">
               <span className="flex items-center gap-1 bg-white/20 px-2 py-0.5 rounded text-xs font-medium">
                 <Droplet className="w-3 h-3" /> {tank?.name}
@@ -249,10 +251,6 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
               <span className="text-xs text-white/70">·</span>
               <span className="flex items-center gap-1 bg-white/20 px-2 py-0.5 rounded text-xs font-medium">
                 <Fish className="w-3 h-3" /> Batch #{selectedBatchId?.slice(-6).toUpperCase() || '---'}
-              </span>
-              <span className="text-xs text-white/70">·</span>
-              <span className="flex items-center gap-1 bg-white/20 px-2 py-0.5 rounded text-xs font-medium">
-                {tank?.species || 'Nile Tilapia'}
               </span>
             </div>
           </DialogHeader>
@@ -269,10 +267,9 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
                 <span className="tracking-tight">Feeding Recommendation</span>
               </div>
               {batchRequirement?.safetyStatus && batchRequirement.safetyStatus !== 'SAFE' && (
-                <Badge variant="outline" className={`text-[10px] uppercase font-bold py-0 h-5 ${
-                  batchRequirement.safetyStatus === 'WARNING' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' : 
+                <Badge variant="outline" className={`text-[10px] uppercase font-bold py-0 h-5 ${batchRequirement.safetyStatus === 'WARNING' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' :
                   'bg-red-500/10 text-red-600 border-red-500/20'
-                }`}>
+                  }`}>
                   {batchRequirement.safetyStatus}
                 </Badge>
               )}
@@ -292,21 +289,16 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
                   )}
                 </div>
               </div>
-              <div className="space-y-1 border-l pl-6 border-[#088395]/10">
+              <div className="space-y-1 pl-6">
                 <div className="flex justify-between items-center">
-                  <p className="text-[#0A4D68]/60 text-[10px] uppercase font-bold tracking-wider">Per Meal</p>
-                  {batchRequirement?.mealsPerDay && (
-                    <span className="text-[10px] font-bold text-[#088395] bg-[#088395]/10 px-1.5 py-0.5 rounded">
-                      Target: {batchRequirement.mealsPerDay}
-                    </span>
-                  )}
+                  <p className="text-[#0A4D68]/60 text-[10px] uppercase font-bold tracking-wider">Already Fed</p>
                 </div>
                 <div className="flex items-baseline gap-1">
                   {isLoadingRequirement ? (
                     <RefreshCw className="w-5 h-5 animate-spin text-[#0A4D68]/40" />
                   ) : (
                     <>
-                      <span className="text-xl font-bold text-[#0A4D68]">{perMeal.toFixed(1)}</span>
+                      <span className="text-xl font-bold text-[#0A4D68]">{currentTotalFed.toFixed(1)}</span>
                       <span className="text-sm font-medium text-[#0A4D68]/70">kg</span>
                     </>
                   )}
@@ -315,11 +307,11 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
               <div className="col-span-2 pt-2 border-t border-[#088395]/10">
                 <p className="text-[#0A4D68]/60 text-[10px] uppercase font-bold tracking-wider mb-1">Recommended Feed Type</p>
                 <p className="text-[#0A4D68] font-semibold text-sm">
-                  {batchRequirement?.assignedFeedType || 
-                   (typeof batchRequirement?.recommendedFoodType === 'object' 
-                     ? batchRequirement?.recommendedFoodType?.name 
-                     : batchRequirement?.recommendedFoodType) || 
-                   'Grower 30% 3mm Floating'}
+                  {batchRequirement?.assignedFeedType ||
+                    (typeof batchRequirement?.recommendedFoodType === 'object'
+                      ? batchRequirement?.recommendedFoodType?.name
+                      : batchRequirement?.recommendedFoodType) ||
+                    'Grower 30% 3mm Floating'}
                 </p>
               </div>
             </div>
@@ -372,29 +364,6 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
               </Select>
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Number of Meals</Label>
-                <div className="text-lg font-bold text-[#0A4D68]">{meals} <span className="text-[10px] font-medium text-gray-400">Meals</span></div>
-              </div>
-              <div className="flex items-center gap-6 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                <Slider
-                  value={[meals]}
-                  onValueChange={(value: number[]) => setMeals(value[0])}
-                  min={0.5}
-                  max={batchRequirement?.mealsPerDay || 4}
-                  step={0.5}
-                  className="flex-1"
-                />
-                <Input
-                  type="number"
-                  value={meals}
-                  onChange={(e) => setMeals(parseFloat(e.target.value) || 0)}
-                  className="w-14 h-9 text-center font-bold border-none shadow-none bg-transparent"
-                  step={0.5}
-                />
-              </div>
-            </div>
 
             <div className="space-y-2">
               <Label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Total Weight Fed Today</Label>
@@ -425,23 +394,19 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
                 <div className="flex justify-between text-[11px] font-medium text-gray-400">
                   <div className="flex items-center gap-1.5">
                     <Droplet className="w-3 h-3" />
-                    <span>Weight: {totalWithNewMeal.toFixed(1)} / {dailyRecommended.toFixed(1)} kg</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Fish className="w-3 h-3" />
-                    <span>Meals: {batchRequirement?.mealsFedToday ?? 0} fed</span>
+                    <span>Progression: {totalWithNewMeal.toFixed(1)} / {dailyRecommended.toFixed(1)} kg</span>
                   </div>
                 </div>
-                <Progress 
-                  value={Math.min(progress.weight * 100, 100)} 
+                <Progress
+                  value={Math.min(progress.weight * 100, 100)}
                   className="h-2 bg-gray-800"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-white/5 border border-white/10 p-3 rounded-xl flex items-center justify-between">
-                  <span className="text-[10px] text-gray-500 font-bold uppercase">Meals</span>
-                  <span className="text-sm font-bold text-white">{meals} <span className="text-[10px] text-gray-600">/ {batchRequirement?.mealsPerDay || 4}</span></span>
+                  <span className="text-[10px] text-gray-500 font-bold uppercase">Daily Total</span>
+                  <span className="text-sm font-bold text-white">{totalWithNewMeal.toFixed(1)} <span className="text-[10px] text-gray-600">KG</span></span>
                 </div>
                 <div className="bg-white/5 border border-white/10 p-3 rounded-xl flex items-center justify-between">
                   <span className="text-[10px] text-gray-500 font-bold uppercase">Diff</span>
