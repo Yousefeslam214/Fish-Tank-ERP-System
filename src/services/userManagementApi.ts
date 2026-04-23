@@ -20,7 +20,6 @@ export interface ManagedUserRecord {
   lastName?: string;
   name: string;
   role: string;
-  status: string;
   gender?: string;
   farmIds: string[];
   farmNames: string[];
@@ -156,7 +155,6 @@ const normalizeUser = (entry: unknown): ManagedUserRecord | null => {
     lastName: asString(record.lastName),
     name: normalizeName(record, email),
     role: role.toUpperCase(),
-    status: status.toUpperCase(),
     gender: asString(record.gender),
     farmIds: farmInfo.ids,
     farmNames: farmInfo.names,

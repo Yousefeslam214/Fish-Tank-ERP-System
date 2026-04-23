@@ -151,7 +151,6 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
         userEntry.name,
         userEntry.email,
         userEntry.role,
-        userEntry.status,
         ...userEntry.farmIds,
         ...userEntry.modules,
       ]
@@ -614,7 +613,6 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                 <TableRow>
                   <TableHead>User</TableHead>
                   <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead>Farms</TableHead>
                   <TableHead>Modules</TableHead>
                   <TableHead>Actions</TableHead>
@@ -629,9 +627,6 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{userEntry.role}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={toStatusClassName(userEntry.status)}>{userEntry.status}</Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
