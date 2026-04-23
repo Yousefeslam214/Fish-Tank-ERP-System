@@ -1000,16 +1000,6 @@ export default function Procurement({ user, selectedFarm }: ProcurementProps) {
                         <div className="flex items-center gap-2 flex-wrap">
                           <CardTitle className="text-lg">{order.orderNumber}</CardTitle>
                           <Badge variant="outline" className="text-xs">ID: {toShortId(order.id)}</Badge>
-                          <Badge className={getProcurementStatusColorClass(order.status)}>
-                            {getStatusIcon(order.status)}
-                            <span className="ml-1">{formatProcurementStatusLabel(order.status)}</span>
-                          </Badge>
-                          {order.deliveryStatus && (
-                            <Badge className={getProcurementStatusColorClass(order.deliveryStatus)}>
-                              <Truck className="w-3 h-3 mr-1" />
-                              {formatProcurementStatusLabel(order.deliveryStatus)}
-                            </Badge>
-                          )}
                         </div>
                         <p className="text-sm text-gray-600 mt-2">
                           Supplier: {formatNameWithId(order.supplierName, order.supplierId)}

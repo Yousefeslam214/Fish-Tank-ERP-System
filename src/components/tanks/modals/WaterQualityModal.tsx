@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { apiPost, apiPatch } from '../../../api';
 import { toast } from 'sonner';
 import { User } from '../../../types';
+import { subscribeToTankSensorStream } from '../../../services/iotApi';
 
 interface WaterQualityModalProps {
   open: boolean;
@@ -39,9 +40,28 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
   const [notes, setNotes] = useState('');
   const [actionTaken, setActionTaken] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [sensorConnected, setSensorConnected] = useState(false);
+  const [sensorLastReadingAt, setSensorLastReadingAt] = useState<string | null>(null);
+  const [sensorDeviceId, setSensorDeviceId] = useState<string | null>(null);
+  const [sensorStreamError, setSensorStreamError] = useState<string | null>(null);
+
+  const resolvedTankId = useMemo(() => {
+    const selectedBatch = tankBatches.find((entry) => String(entry.id) === String(selectedBatchId));
+    const batchTankId =
+      selectedBatch?.tankId ||
+      selectedBatch?.tank?.id ||
+      selectedBatch?.tank_uuid ||
+      selectedBatch?.tankUUID;
+    return String(batchTankId || tank?.id || '');
+  }, [selectedBatchId, tankBatches, tank?.id]);
 
   useEffect(() => {
     if (open) {
+      setSensorConnected(false);
+      setSensorLastReadingAt(null);
+      setSensorDeviceId(null);
+      setSensorStreamError(null);
+
       if (initialRecord) {
         setTemp(initialRecord.temperature ?? initialRecord.temp ?? 28.5);
         setDoValue(initialRecord.dissolvedOxygen ?? initialRecord.do ?? 4.2);
@@ -82,8 +102,42 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
       } else {
         setSelectedBatchId('');
       }
+    } else {
+      setSensorConnected(false);
+      setSensorLastReadingAt(null);
+      setSensorDeviceId(null);
+      setSensorStreamError(null);
     }
   }, [open, initialRecord, user?.name, batchId, tankBatches]);
+
+  useEffect(() => {
+    if (!open || !selectedBatchId || !resolvedTankId || Boolean(initialRecord)) {
+      return;
+    }
+
+    const unsubscribe = subscribeToTankSensorStream({
+      tankId: resolvedTankId,
+      onSensorReading: (reading) => {
+        setTemp(reading.temperature.toString());
+        setTurbidity(reading.turbidity_ntu.toString());
+        setSensorConnected(true);
+        setSensorLastReadingAt(reading.timestamp);
+        setSensorDeviceId(reading.device_id);
+        setSensorStreamError(null);
+      },
+      onConnectionStatusChange: (isConnected) => {
+        setSensorConnected(isConnected);
+      },
+      onError: () => {
+        setSensorConnected(false);
+        setSensorStreamError('Live sensor stream is currently unavailable.');
+      },
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [open, selectedBatchId, resolvedTankId, initialRecord]);
 
   const getStatus = (param: string, value: number) => {
     if (param === 'temp') {
@@ -200,6 +254,38 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {!initialRecord && selectedBatchId && (
+            <div
+              className={`rounded-lg border p-3 text-sm ${
+                sensorConnected
+                  ? 'border-green-200 bg-green-50 text-green-800'
+                  : 'border-yellow-200 bg-yellow-50 text-yellow-800'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-block h-2.5 w-2.5 rounded-full ${
+                      sensorConnected ? 'bg-green-500' : 'bg-yellow-500'
+                    }`}
+                  />
+                  <span className="font-medium">
+                    {sensorConnected ? 'Live sensor connected' : 'Waiting for live sensor reading'}
+                  </span>
+                </div>
+                {sensorDeviceId && (
+                  <span className="text-xs font-mono">Device: {sensorDeviceId}</span>
+                )}
+              </div>
+              <p className="mt-1 text-xs">
+                {sensorLastReadingAt
+                  ? `Last reading: ${new Date(sensorLastReadingAt).toLocaleString()}`
+                  : `Streaming from tank ${resolvedTankId}`}
+              </p>
+              {sensorStreamError && <p className="mt-1 text-xs">{sensorStreamError}</p>}
             </div>
           )}
 
