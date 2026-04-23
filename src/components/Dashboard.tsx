@@ -32,6 +32,7 @@ import {
   Clock,
   Calendar,
   RefreshCw,
+  CheckCircle2,
 } from 'lucide-react';
 import { User, Farm } from '../types';
 import { mockFarms } from '../mockData';
@@ -61,7 +62,7 @@ interface DashboardUpcomingHarvest {
   estimatedWeight?: number;
   projectedRevenue?: number;
   earliestHarvestDate?: string;
-  batches?: { fishType?: string; daysToHarvest?: number }[];
+  batches?: { fishType?: string; daysToHarvest?: number; status?: string }[];
 }
 interface DashboardWaterAlert {
   tankName?: string;
@@ -163,6 +164,7 @@ export default function Dashboard({ user, selectedFarm }: DashboardProps) {
 
   const upcomingHarvests = dashData?.upcomingHarvests ?? [];
   const waterAlerts = dashData?.waterQualityAlerts ?? [];
+  const nextHarvestStatus = upcomingHarvests[0]?.batches?.[0]?.status;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -328,8 +330,17 @@ export default function Dashboard({ user, selectedFarm }: DashboardProps) {
                     </p>
                     <p className="text-sm text-gray-500 mt-1">At next harvest</p>
                     <div className="flex items-center gap-1 mt-2">
-                      <Calendar className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm text-gray-600">{nextHarvestDateFormatted}</span>
+                      {nextHarvestStatus ? (
+                        <>
+                          <div className={`w-2 h-2 rounded-full ${nextHarvestStatus === 'READY' ? 'bg-green-500 animate-pulse' : 'bg-[#088395]'}`} />
+                          <span className="text-sm font-semibold text-gray-700">{nextHarvestStatus}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Calendar className="w-4 h-4 text-gray-500" />
+                          <span className="text-sm text-gray-600">{nextHarvestDateFormatted}</span>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="w-12 h-12 rounded-lg bg-[#ECFDF5] flex items-center justify-center">
@@ -432,10 +443,15 @@ export default function Dashboard({ user, selectedFarm }: DashboardProps) {
                             <p className="text-xs text-gray-600">{harvest.estimatedWeight.toLocaleString()} kg est.</p>
                           )}
                         </div>
-                        {harvest.batches?.[0]?.daysToHarvest != null && (
-                          <Badge className="bg-[#088395] text-white text-xs flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {harvest.batches[0].daysToHarvest}d
+                        {harvest.batches?.[0] && (
+                          <Badge className={`${harvest.batches[0].status === 'READY' ? 'bg-green-600' : 'bg-[#088395]'} text-white text-xs flex items-center gap-1`}>
+                            {harvest.batches[0].status === 'READY' ? (
+                              <CheckCircle2 className="w-3 h-3" />
+                            ) : (
+                              <Clock className="w-3 h-3" />
+                            )}
+                            {harvest.batches[0].status || `${harvest.batches[0].daysToHarvest}d`}
+                            {harvest.batches[0].status && harvest.batches[0].status !== 'READY' && harvest.batches[0].daysToHarvest != null && ` (${harvest.batches[0].daysToHarvest}d)`}
                           </Badge>
                         )}
                       </div>

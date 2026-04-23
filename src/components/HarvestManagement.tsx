@@ -38,6 +38,8 @@ import {
 import { HarvestTypeValue } from '../services/harvestConstants';
 import { getMetadata, resolveHarvestTypeOptions } from '../services/metaApi';
 import { FishTypeRecord, getFishTypes } from '../services/fishTypesApi';
+import { HarvestDashboard } from './harvest/HarvestDashboard';
+import { apiGet } from '../api';
 
 interface HarvestManagementProps {
   farmId: string;
@@ -137,6 +139,8 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
   const [pricingError, setPricingError] = useState<string | null>(null);
   const [isSavingPricing, setIsSavingPricing] = useState(false);
   const [isLoadingPricing, setIsLoadingPricing] = useState(false);
+  const [dashSummary, setDashSummary] = useState<any>(null);
+  const [isDashLoading, setIsDashLoading] = useState(false);
 
   const activeEventCount = useMemo(
     () => harvestEvents.filter((event) => event.status !== 'COMPLETED' && event.status !== 'CANCELLED').length,
@@ -179,12 +183,13 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
     }
 
     try {
-      const [events, activeTankList, tankList, fishTypeList, metadata] = await Promise.all([
+      const [events, activeTankList, tankList, fishTypeList, metadata, dashRes] = await Promise.all([
         getHarvestEvents(),
         getActiveHarvestTanks(),
         getHarvestTanks(),
         getFishTypes(false),
         getMetadata(),
+        apiGet<any>('/dashboard'),
       ]);
 
       setHarvestEvents(events);
@@ -192,6 +197,7 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
       setAvailableTanks(tankList);
       setFishTypes(fishTypeList);
       setHarvestTypeOptions(resolveHarvestTypeOptions(metadata));
+      setDashSummary(dashRes?.data || null);
 
       if (!historyTankId && tankList.length > 0) {
         setHistoryTankId(tankList[0].id);
@@ -647,82 +653,50 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-gray-600">Active Harvests</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-semibold text-[#0A4D68]">{activeEventCount}</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-gray-600">Completed Harvests</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-semibold">{completedEventCount}</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-gray-600">Active Tanks</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-semibold">{activeTanks.length}</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Live Harvest Events</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {currentFarmEvents.length === 0 ? (
-                  <p className="text-sm text-gray-600">No harvest events found for this farm context.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {currentFarmEvents.map((event) => (
-                      <div key={event.id} className="border rounded-lg p-3 flex flex-wrap gap-3 items-center justify-between">
-                        <div>
-                          <p className="font-medium">{event.id}</p>
-                          <p className="text-sm text-gray-600">Tank: {event.tankId}</p>
-                          <p className="text-xs text-gray-500">{formatDate(event.harvestDate)}</p>
-                        </div>
-                        <div className="text-right">
-                          <Badge variant="outline">{event.harvestTypeLabel}</Badge>
-                          <Badge className="mt-1">{event.status}</Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Active Tanks Snapshot</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {activeTanks.length === 0 ? (
-                  <p className="text-sm text-gray-600">No tanks currently in draft harvest state.</p>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {activeTanks.map((tank) => (
-                      <div key={tank.harvestEventId} className="border rounded-md p-3">
-                        <p className="font-medium">Tank {tank.tankId}</p>
-                        <p className="text-sm text-gray-600">
-                          {tank.harvestTypeLabel} harvest, status: {tank.status}
-                        </p>
-                        <p className="text-xs text-gray-500">{formatDate(tank.harvestDate)}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <HarvestDashboard
+              farmId={farmId}
+              onStartHarvest={() => setActiveTab('workflow')}
+              onViewHistory={() => setActiveTab('history')}
+              onViewTankPerformance={(tid) => {
+                setHistoryTankId(tid);
+                setActiveTab('history');
+              }}
+              loading={isBootstrapping}
+              kpis={{
+                activeHarvests: activeEventCount,
+                thisMonthHarvested: dashSummary?.fishSummary?.totalBiomassKg || 0,
+                thisMonthRevenue: dashSummary?.predictedRevenue?.totalProjectedRevenue || 0,
+                avgFCR: prediction?.avgFCR || 1.6,
+                readyToHarvest: dashSummary?.upcomingHarvests?.filter((h: any) => h.batches?.[0]?.status === 'READY').length || 0,
+                avgSurvivalRate: 92,
+                nextRecommended: dashSummary?.upcomingHarvests?.[0] ? {
+                  tankId: dashSummary.upcomingHarvests[0].tankName,
+                  tankName: dashSummary.upcomingHarvests[0].tankName,
+                  daysUntil: dashSummary.upcomingHarvests[0].batches?.[0]?.daysToHarvest || 0
+                } : undefined
+              }}
+              activeHarvests={harvestEvents.filter(e => e.status !== 'COMPLETED' && e.status !== 'CANCELLED').map(e => ({
+                id: e.id,
+                tankId: e.tankId,
+                tankName: availableTanks.find(t => t.id === e.tankId)?.name || e.tankId,
+                batchNumber: e.harvestTypeLabel,
+                type: e.harvestType,
+                started: formatDate(e.harvestDate),
+                status: e.status,
+                progress: e.status === 'GRADING' ? 70 : 10,
+                estimatedWeight: e.estimatedWeight,
+                gradedWeight: e.actualTotalWeight || 0
+              }))}
+              completedHarvests={harvestEvents.filter(e => e.status === 'COMPLETED').slice(0, 5).map(e => ({
+                id: e.id,
+                tankName: availableTanks.find(t => t.id === e.tankId)?.name || e.tankId,
+                date: formatDate(e.harvestDate),
+                type: e.harvestType,
+                weight: e.actualTotalWeight,
+                revenue: e.totalRevenue,
+                status: '✅'
+              }))}
+            />
           </TabsContent>
 
           <TabsContent value="workflow" className="space-y-4">
