@@ -6,7 +6,8 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
-import { Fish, Loader2, Plus, RefreshCcw, Scissors, TrendingUp } from 'lucide-react';
+import { Fish, Loader2, Plus, RefreshCcw, Scissors, TrendingUp, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   AddHarvestGradingPayload,
   CompleteHarvestPayload,
@@ -331,13 +332,36 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
   }, [selectedBatchId]);
 
   useEffect(() => {
-    const inferredFishTypeId = selectedBatch?.fishType
-      ? fishTypes.find((fishType) => fishType.name.toLowerCase() === selectedBatch.fishType?.toLowerCase())?.id
-      : undefined;
-    if (inferredFishTypeId) {
-      setSelectedFishTypeId(inferredFishTypeId);
+    if (selectedBatch?.fishType) {
+      console.log('[SyncFishType] Selected Batch FishType:', selectedBatch.fishType);
+      const ft = fishTypes.find((f) => f.name.toLowerCase() === selectedBatch.fishType?.toLowerCase());
+      if (ft) {
+        console.log('[SyncFishType] Found matching fishType ID:', ft.id);
+        if (ft.id !== selectedFishTypeId) {
+          setSelectedFishTypeId(ft.id);
+        }
+      } else {
+        console.warn('[SyncFishType] No matching fishType found for name:', selectedBatch.fishType);
+      }
     }
   }, [selectedBatch, fishTypes]);
+
+  // Sync fish type from tank if no batch is selected or batch has no type
+  useEffect(() => {
+    if (selectedTankId && !selectedBatch?.fishType) {
+      const tank = availableTanks.find(t => t.id === selectedTankId);
+      console.log('[SyncFishType] Selected Tank:', tank?.name, 'FishType:', tank?.fishType);
+      if (tank?.fishType) {
+        const ft = fishTypes.find(f => f.name.toLowerCase() === tank.fishType?.toLowerCase());
+        if (ft) {
+           console.log('[SyncFishType] Found matching fishType ID from tank:', ft.id);
+           if (ft.id !== selectedFishTypeId) {
+             setSelectedFishTypeId(ft.id);
+           }
+        }
+      }
+    }
+  }, [selectedTankId, selectedBatch, availableTanks, fishTypes]);
 
   useEffect(() => {
     if (!selectedFishTypeId) {
@@ -354,7 +378,8 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
         const pricing = await getPricingByFishType(selectedFishTypeId);
         if (!cancelled) {
           setPricingList(pricing);
-          setSelectedPricingId((previous) => previous || pricing[0]?.id || '');
+          // Always reset or pick the first one when fish type changes
+          setSelectedPricingId(pricing[0]?.id || '');
         }
       } catch (error) {
         if (!cancelled) {
@@ -397,9 +422,40 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
 
       setCurrentEvent(event);
       setCurrentGradings([]);
+      
+      const tank = availableTanks.find(t => t.id === selectedTankId);
+      if (tank?.fishType) {
+        const ft = fishTypes.find(f => f.name.toLowerCase() === tank.fishType?.toLowerCase());
+        if (ft) setSelectedFishTypeId(ft.id);
+      }
+      
       setWorkflowStep(2);
       await refreshEventsAndActiveTanks();
-    } catch (error) {
+    } catch (error: any) {
+      // Handle 409 Conflict: If a harvest is already started for this tank, find it and resume
+      if (error?.status === 409 || (error?.message && error.message.includes('409'))) {
+        const existingEvent = harvestEvents.find(e => 
+          e.tankId === selectedTankId && 
+          e.status !== 'COMPLETED' && 
+          e.status !== 'CANCELLED'
+        );
+        
+        if (existingEvent) {
+          setCurrentEvent(existingEvent);
+          const gradings = await getHarvestGradings(existingEvent.id);
+          setCurrentGradings(gradings);
+          
+          // Set fish type based on tank if available
+          const tank = availableTanks.find(t => t.id === selectedTankId);
+          if (tank?.fishType) {
+            const ft = fishTypes.find(f => f.name.toLowerCase() === tank.fishType?.toLowerCase());
+            if (ft) setSelectedFishTypeId(ft.id);
+          }
+          
+          setWorkflowStep(2);
+          return;
+        }
+      }
       setGlobalError(error instanceof Error ? error.message : 'Failed to start harvest.');
     } finally {
       setIsSubmittingStepAction(false);
@@ -432,16 +488,27 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
       condition: gradingCondition,
     };
 
+    console.log('[handleAddGrading] Submitting grading', {
+      selectedFishTypeId,
+      selectedPricingId,
+      selectedBatchId,
+      payload
+    });
+
     setIsSubmittingStepAction(true);
     setGlobalError(null);
     try {
       await addHarvestGradingRecord(currentEvent.id, payload);
+      toast.success('Grading record added successfully');
+      await refreshEventsAndActiveTanks();
       const gradings = await getHarvestGradings(currentEvent.id);
       setCurrentGradings(gradings);
       setGradingWeightKg('');
       setGradingCount('');
     } catch (error) {
-      setGlobalError(error instanceof Error ? error.message : 'Failed to add grading record.');
+      const msg = error instanceof Error ? error.message : 'Failed to add grading record.';
+      setGlobalError(msg);
+      toast.error(msg);
     } finally {
       setIsSubmittingStepAction(false);
     }
@@ -457,11 +524,14 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
     setGlobalError(null);
     try {
       const completed = await completeHarvestEvent(currentEvent.id, completionPayload);
+      toast.success('Harvest event completed successfully');
       setCompletedEvent(completed);
       setWorkflowStep(4);
       await refreshEventsAndActiveTanks();
     } catch (error) {
-      setGlobalError(error instanceof Error ? error.message : 'Failed to complete harvest.');
+      const msg = error instanceof Error ? error.message : 'Failed to complete harvest.';
+      setGlobalError(msg);
+      toast.error(msg);
     } finally {
       setIsSubmittingStepAction(false);
     }
@@ -745,10 +815,14 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                     >
                       {isSubmittingStepAction ? (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : activeTanks.some(t => t.tankId === selectedTankId) ? (
+                        <TrendingUp className="w-4 h-4 mr-2" />
                       ) : (
                         <Plus className="w-4 h-4 mr-2" />
                       )}
-                      Start Harvest Event
+                      {activeTanks.some(t => t.tankId === selectedTankId) 
+                        ? 'Resume Active Harvest' 
+                        : 'Start Harvest Event'}
                     </Button>
                   </div>
                 )}
@@ -760,9 +834,10 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                         <Label htmlFor="workflow-fish-type">Fish Type</Label>
                         <select
                           id="workflow-fish-type"
-                          className="mt-1 w-full h-9 border rounded-md px-3 bg-white"
+                          className="mt-1 w-full h-9 border rounded-md px-3 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
                           value={selectedFishTypeId}
                           onChange={(event) => setSelectedFishTypeId(event.target.value)}
+                          disabled={!!currentEvent}
                         >
                           <option value="">Select fish type</option>
                           {fishTypes.map((fishType) => (
