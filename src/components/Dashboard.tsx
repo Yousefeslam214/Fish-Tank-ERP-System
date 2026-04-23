@@ -94,6 +94,7 @@ export default function Dashboard({ user, selectedFarm }: DashboardProps) {
 
   // ── API state ──
   const [dashData, setDashData] = useState<DashboardData | null>(null);
+  const [tanks, setTanks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
@@ -103,9 +104,13 @@ export default function Dashboard({ user, selectedFarm }: DashboardProps) {
     if (isManual) setLoading(true);
     setError(null);
     try {
-      // API returns: { success: true, data: { fishSummary, feedStock, predictedRevenue, ... } }
-      const res = await apiGet<{ success: boolean; data: DashboardData }>('/dashboard');
-      setDashData(res.data);
+      const [dashRes, tanksRes] = await Promise.all([
+        apiGet<{ success: boolean; data: DashboardData }>('/dashboard'),
+        apiGet<{ success: boolean; data: any[] } | any[]>('/tanks')
+      ]);
+      setDashData(dashRes.data);
+      const tanksData = Array.isArray(tanksRes) ? tanksRes : tanksRes.data;
+      setTanks(tanksData);
       setLastRefreshed(new Date());
     } catch (err) {
       setError((err as Error).message);
@@ -122,9 +127,14 @@ export default function Dashboard({ user, selectedFarm }: DashboardProps) {
       setLoading(true);
       setError(null);
       try {
-        const res = await apiGet<{ success: boolean; data: DashboardData }>('/dashboard');
+        const [dashRes, tanksRes] = await Promise.all([
+          apiGet<{ success: boolean; data: DashboardData }>('/dashboard'),
+          apiGet<{ success: boolean; data: any[] } | any[]>('/tanks')
+        ]);
         if (!cancelled) {
-          setDashData(res.data);
+          setDashData(dashRes.data);
+          const tanksData = Array.isArray(tanksRes) ? tanksRes : tanksRes.data;
+          setTanks(tanksData);
           setLastRefreshed(new Date());
         }
       } catch (err) {
@@ -264,12 +274,6 @@ export default function Dashboard({ user, selectedFarm }: DashboardProps) {
                     <p className="text-sm text-gray-600 mb-1">Total Active Fish</p>
                     <p className="text-3xl font-bold text-gray-900">{totalFish.toLocaleString()}</p>
                     <p className="text-sm text-gray-500 mt-1">Across {dashData?.fishSummary?.activeTanks ?? 0} tanks</p>
-                    {totalFish > 0 && (
-                      <div className="flex items-center gap-1 mt-2">
-                        <TrendingUp className="w-4 h-4 text-green-600" />
-                        <span className="text-sm text-green-600 font-medium">Live from API</span>
-                      </div>
-                    )}
                   </div>
                   <div className="w-12 h-12 rounded-lg bg-[#E0F4F5] flex items-center justify-center">
                     <Fish className="w-6 h-6 text-[#088395]" />
@@ -287,13 +291,6 @@ export default function Dashboard({ user, selectedFarm }: DashboardProps) {
                     <p className="text-3xl font-bold text-gray-900">
                       {totalBiomass.toLocaleString()} kg
                     </p>
-                    <p className="text-sm text-gray-500 mt-1">Current farm biomass</p>
-                    <div className="mt-2">
-                      <Progress value={biomassCapacityPct} className="h-2" />
-                      <p className="text-xs text-gray-500 mt-1">
-                        {biomassCapacityPct}% of capacity
-                      </p>
-                    </div>
                   </div>
                   <div className="w-12 h-12 rounded-lg bg-[#E0F4F5] flex items-center justify-center">
                     <Scale className="w-6 h-6 text-[#088395]" />
@@ -312,12 +309,6 @@ export default function Dashboard({ user, selectedFarm }: DashboardProps) {
                       {feedStock.toLocaleString()} kg
                     </p>
                     <p className="text-sm text-gray-500 mt-1">Current inventory</p>
-                    {feedStock > 0 && feedStock < 500 && (
-                      <Badge className="mt-2 bg-[#F59E0B]">Low Stock</Badge>
-                    )}
-                    {feedDaysRemaining >= 0 && (
-                      <p className="text-sm text-gray-500 mt-1">{feedDaysRemaining} days remaining</p>
-                    )}
                   </div>
                   <div className="w-12 h-12 rounded-lg bg-[#FEF3C7] flex items-center justify-center">
                     <Wheat className="w-6 h-6 text-[#F59E0B]" />
@@ -351,7 +342,7 @@ export default function Dashboard({ user, selectedFarm }: DashboardProps) {
         )}
 
         {/* ── Second Row – Water Alerts + Tanks + Upcoming Harvests ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Water Quality Alerts */}
           <Card className="bg-white shadow-sm">
             <CardHeader>
@@ -364,56 +355,55 @@ export default function Dashboard({ user, selectedFarm }: DashboardProps) {
                     <div key={i} className="h-12 bg-gray-100 rounded-lg" />
                   ))}
                 </div>
-              ) : waterAlerts.length === 0 ? (
-                <div className="text-center py-6">
-                  <span className="text-3xl">🟢</span>
-                  <p className="text-sm text-gray-600 mt-2">All parameters optimal</p>
-                </div>
               ) : (
-                <div className="space-y-3">
-                  {waterAlerts.map((alert, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{getStatusIcon((alert as any).status ?? 'unknown')}</span>
-                        <div>
-                          <p className="font-medium text-sm">{(alert as any).tankName ?? 'Tank'}</p>
-                          <p className="text-xs text-gray-600">{(alert as any).parameter ?? 'Water Quality'}</p>
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                  {(() => {
+                    const criticalTanks = tanks.filter(tank => {
+                      const alert = waterAlerts.find(a => (a as any).tankName === tank.name);
+                      const tankStatus = tank.waterQuality?.overallStatus || tank.waterQuality?.overall || (alert as any)?.status || 'optimal';
+                      return tankStatus.toLowerCase() === 'critical';
+                    });
+
+                    if (criticalTanks.length === 0) {
+                      return (
+                        <div className="text-center py-6 bg-green-50/50 rounded-lg border border-dashed border-green-200">
+                          <span className="text-3xl">🟢</span>
+                          <p className="text-sm text-green-700 font-medium mt-2">All parameters optimal</p>
+                          <p className="text-xs text-green-600 mt-0.5">No critical alerts detected</p>
                         </div>
-                      </div>
-                      <Badge className={getStatusColor((alert as any).status ?? 'unknown') + ' text-xs'}>
-                        {((alert as any).status ?? 'UNKNOWN').toUpperCase()}
-                      </Badge>
-                    </div>
-                  ))}
+                      );
+                    }
+
+                    return criticalTanks.map((tank, idx) => {
+                      const alert = waterAlerts.find(a => (a as any).tankName === tank.name);
+                      const tankStatus = tank.waterQuality?.overallStatus || tank.waterQuality?.overall || (alert as any)?.status || 'critical';
+                      const status = tankStatus.toLowerCase();
+
+                      return (
+                        <div key={tank.id || idx} className="flex items-center justify-between p-3 rounded-lg bg-red-50 border border-red-100">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{getStatusIcon(status)}</span>
+                            <div>
+                              <p className="font-medium text-sm text-red-900">{tank.name}</p>
+                              <p className="text-xs text-red-700">
+                                {(tank.waterQuality?.temperature != null || tank.waterQuality?.ph != null)
+                                  ? `Temp: ${tank.waterQuality.temperature}°C | DO: ${tank.waterQuality.dissolvedOxygen}mg/L | pH: ${tank.waterQuality.ph}`
+                                  : alert ? (alert as any).parameter : 'Critical water quality alert'}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge className={getStatusColor(status) + ' text-xs'}>
+                            {status.toUpperCase()}
+                          </Badge>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Active Tanks Summary */}
-          <Card className="bg-white shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg">Active Tanks</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="space-y-2 animate-pulse">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="h-10 bg-gray-100 rounded" />
-                  ))}
-                </div>
-              ) : (dashData?.fishSummary?.totalTanks ?? 0) === 0 ? (
-                <p className="text-sm text-gray-500 py-4 text-center">No active tanks</p>
-              ) : (
-                <div className="text-center py-4">
-                  <Fish className="w-8 h-8 text-[#088395] mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-gray-900">{dashData?.fishSummary?.activeTanks ?? 0}</p>
-                  <p className="text-sm text-gray-500">active tanks</p>
-                  <p className="text-xs text-gray-400 mt-1">out of {dashData?.fishSummary?.totalTanks ?? 0} total</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
 
           {/* Upcoming Harvests */}
           <Card className="bg-white shadow-sm">
