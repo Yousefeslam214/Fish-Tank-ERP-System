@@ -15,10 +15,12 @@ import {
   Scissors,
   ShieldUser,
   ListChecks,
-} from 'lucide-react';
-import { Button } from './ui/button';
-import { Avatar, AvatarFallback } from './ui/avatar';
-import { User } from '../types';
+  Cpu,
+  Tractor,
+} from "lucide-react";
+import { Button } from "./ui/button";
+import { Avatar, AvatarFallback } from "./ui/avatar";
+import { User } from "../types";
 
 interface SidebarProps {
   currentPage: string;
@@ -39,30 +41,68 @@ export default function Sidebar({
   allowedPages,
   moduleLabelMap,
 }: SidebarProps) {
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'tanks', label: 'Tank Management', icon: Droplet },
-    { id: 'procurement', label: 'Procurement', icon: ShoppingCart },
-    { id: 'harvest', label: 'Harvest', icon: Scissors },
-    { id: 'inventory', label: 'Inventory', icon: Package },
-    { id: 'sales', label: 'Sales', icon: ShoppingBag },
-    { id: 'accounting', label: 'Accounting', icon: DollarSign },
-    { id: 'analytics', label: 'Analytics', icon: TrendingUp },
-    { id: 'fish-types', label: 'Fish Types', icon: Fish },
-    { id: 'food-types', label: 'Food Types', icon: Wheat },
-    { id: 'users', label: 'User Management', icon: ShieldUser },
-    { id: 'ai-assistant', label: 'AI Assistant', icon: Bot },
-    { id: 'health', label: 'Health Library', icon: Heart },
-    { id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadCount > 0 ? unreadCount : null },
-    { id: 'tasks', label: 'Tasks', icon: ListChecks },
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { id: "tanks", label: "Tank Management", icon: Droplet },
+    { id: "inventory", label: "Inventory", icon: Package },
+    { id: "harvest", label: "Harvest", icon: Scissors },
+    { id: "fish-types", label: "Fish Types", icon: Fish },
+    { id: "food-types", label: "Food Types", icon: Wheat },
+    { id: "ai-assistant", label: "AI Assistant", icon: Bot },
+    { id: "iot-management", label: "Sensors readings", icon: Cpu },
+    { id: "farms", label: "Farms", icon: Tractor },
+    { id: "users", label: "User Management", icon: ShieldUser },
+    {
+      id: "notifications",
+      label: "Notifications",
+      icon: Bell,
+      badge: unreadCount > 0 ? unreadCount : null,
+    },
+    { id: "tasks", label: "Tasks", icon: ListChecks },
+    {
+      id: "sales",
+      label: "Sales",
+      icon: ShoppingBag,
+      comingSoon: true,
+    },
+    {
+      id: "accounting",
+      label: "Accounting",
+      icon: DollarSign,
+      comingSoon: true,
+    },
+    {
+      id: "analytics",
+      label: "Analytics",
+      icon: TrendingUp,
+      comingSoon: true,
+    },
+    {
+      id: "procurement",
+      label: "Procurement",
+      icon: ShoppingCart,
+      comingSoon: true,
+    },
+    {
+      id: "health",
+      label: "Health Library",
+      icon: Heart,
+      comingSoon: true,
+    },
   ];
 
-  const visibleMenuItems = menuItems.filter((item) => allowedPages.includes(item.id));
+  const visibleMenuItems = menuItems.filter(
+    (item) => allowedPages.includes(item.id) || item.comingSoon,
+  );
 
   const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase();
   };
 
   return (
@@ -100,16 +140,22 @@ export default function Sidebar({
           const Icon = item.icon;
           const isActive = currentPage === item.id;
           const normalizedId = item.id.toLowerCase();
-          const label = moduleLabelMap[normalizedId] || item.label;
+          const baseLabel = moduleLabelMap[normalizedId] || item.label;
+          const label = item.comingSoon
+            ? `${baseLabel} (Coming Soon)`
+            : baseLabel;
 
           return (
             <button
               key={item.id}
-              onClick={() => onPageChange(item.id)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg mb-1 transition-colors ${isActive
-                  ? 'bg-[#088395] text-white'
-                  : 'text-gray-200 hover:bg-white/10'
-                }`}
+              onClick={() => {
+                if (!item.comingSoon) onPageChange(item.id);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg mb-1 transition-colors ${item.comingSoon ? "opacity-50 cursor-not-allowed" : ""} ${
+                isActive
+                  ? "bg-[#088395] text-white"
+                  : "text-gray-200 hover:bg-white/10"
+              }`}
             >
               <div className="flex items-center gap-3">
                 <Icon className="w-5 h-5" />
