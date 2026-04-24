@@ -969,125 +969,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         </Button>
       </div>
 
-      {/* Feed Consumption Forecast - Farm-wide */}
-      <Card className="bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-200">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Package className="w-5 h-5 text-yellow-700" />
-            Feed Consumption Forecast - All Tanks
-          </CardTitle>
-          <p className="text-sm text-gray-600 mt-1">
-            Farm-wide feed stock analysis and predictions
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div className="bg-white p-4 rounded-lg border shadow-sm">
-              <p className="text-xs text-gray-600 mb-1 font-medium uppercase tracking-wider">Current Feed Stock</p>
-              <p className="text-2xl font-bold text-[#0A4D68]">{totalFeedStock.toLocaleString()} kg</p>
-              <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                <CheckCircle className="w-3 h-3 text-green-500" />
-                Live from inventory
-              </p>
-            </div>
-            <div className="bg-white p-4 rounded-lg border">
-              <p className="text-xs text-gray-600 mb-1">
-                Predicted Need (30 days)
-              </p>
-              <p className="text-2xl font-bold text-gray-900">3,200 kg</p>
-              <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" />
-                Insufficient stock
-              </p>
-            </div>
-            <div className="bg-white p-4 rounded-lg border">
-              <p className="text-xs text-gray-600 mb-1">Stockout Date</p>
-              <p className="text-2xl font-bold text-red-600">March 8</p>
-              <p className="text-xs text-gray-500 mt-1">20 days remaining</p>
-            </div>
-          </div>
-
-          <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-            <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
-              <ShoppingCart className="w-4 h-4" />
-              Recommendation
-            </h4>
-            <div className="text-sm space-y-1">
-              <p className="text-blue-800">
-                Order <span className="font-bold">850 kg</span> of feed (with
-                20% safety buffer)
-              </p>
-              <p className="text-blue-700">
-                Order By: <span className="font-bold">Feb 18, 2026</span> to
-                avoid stockout
-              </p>
-              <p className="text-xs text-blue-600 mt-2">
-                Based on current consumption rates across all active tanks
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="bg-white p-3 rounded-lg border text-sm">
-              <p className="text-gray-600 mb-1">Daily Consumption Rate</p>
-              <p className="font-semibold">~107 kg/day</p>
-            </div>
-            <div className="bg-white p-3 rounded-lg border text-sm">
-              <p className="text-gray-600 mb-1">Average FCR (All Tanks)</p>
-              <p className="font-semibold">1.48</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Alerts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {lowStockItems.length > 0 && (
-          <Card className="border-orange-200 bg-orange-50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-orange-600" />
-                Low Stock Alert
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-700">
-                {lowStockItems.length} item(s) flagged by stock status
-              </p>
-              <div className="mt-2 space-y-1">
-                {lowStockItems.slice(0, 3).map((item) => (
-                  <p key={item.id} className="text-xs text-gray-600">
-                    * {item.name} ({item.quantity} {item.unit})
-                  </p>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {expiringItems.length > 0 && (
-          <Card className="border-red-200 bg-red-50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-red-600" />
-                Expiring Soon
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-700">
-                {expiringItems.length} item(s) expiring within 90 days
-              </p>
-              <div className="mt-2 space-y-1">
-                {expiringItems.slice(0, 3).map((item) => (
-                  <p key={item.id} className="text-xs text-gray-600">
-                    * {item.name} ({getDaysUntilExpiry(item.expiryDate)} days)
-                  </p>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+     
 
       {/* Main Tabs */}
       <Tabs defaultValue="fish-stock" className="w-full">
@@ -1780,9 +1662,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
               <Input
                 id="quantityKg"
                 type="number"
-                min="0"
-                step="0.01"
-                placeholder="0"
+                min="1"
+                step="1"
+                placeholder="1"
                 value={newResourceData.quantityKg}
                 onChange={(event) =>
                   setNewResourceData((previous) => ({
