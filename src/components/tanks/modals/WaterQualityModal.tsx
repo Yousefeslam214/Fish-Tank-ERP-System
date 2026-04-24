@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { apiPost, apiPatch } from '../../../api';
 import { toast } from 'sonner';
 import { User } from '../../../types';
-import { subscribeToTankSensorStream } from '../../../services/iotApi';
+import { listIotDevices, subscribeToTankSensorStream } from '../../../services/iotApi';
 
 interface WaterQualityModalProps {
   open: boolean;
@@ -41,6 +41,9 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
   const [actionTaken, setActionTaken] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [sensorConnected, setSensorConnected] = useState(false);
+  const [sensorRegistered, setSensorRegistered] = useState(false);
+  const [sensorRegistrationLoading, setSensorRegistrationLoading] = useState(false);
+  const [sensorStreamConnected, setSensorStreamConnected] = useState(false);
   const [sensorLastReadingAt, setSensorLastReadingAt] = useState<string | null>(null);
   const [sensorDeviceId, setSensorDeviceId] = useState<string | null>(null);
   const [sensorStreamError, setSensorStreamError] = useState<string | null>(null);
@@ -55,9 +58,20 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
     return String(batchTankId || tank?.id || '');
   }, [selectedBatchId, tankBatches, tank?.id]);
 
+  const hasFreshReading = useMemo(() => {
+    if (!sensorLastReadingAt) return false;
+    const readingTime = new Date(sensorLastReadingAt).getTime();
+    return Number.isFinite(readingTime) && Date.now() - readingTime <= 5 * 60 * 1000;
+  }, [sensorLastReadingAt]);
+
+  const isLiveSensorConnected = sensorRegistered && sensorConnected && sensorStreamConnected && hasFreshReading;
+
   useEffect(() => {
     if (open) {
       setSensorConnected(false);
+      setSensorRegistered(false);
+      setSensorRegistrationLoading(false);
+      setSensorStreamConnected(false);
       setSensorLastReadingAt(null);
       setSensorDeviceId(null);
       setSensorStreamError(null);
@@ -104,6 +118,9 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
       }
     } else {
       setSensorConnected(false);
+      setSensorRegistered(false);
+      setSensorRegistrationLoading(false);
+      setSensorStreamConnected(false);
       setSensorLastReadingAt(null);
       setSensorDeviceId(null);
       setSensorStreamError(null);
@@ -115,21 +132,61 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
       return;
     }
 
+    let cancelled = false;
+    setSensorRegistrationLoading(true);
+    setSensorRegistered(false);
+    setSensorConnected(false);
+    setSensorStreamConnected(false);
+    setSensorLastReadingAt(null);
+    setSensorDeviceId(null);
+    setSensorStreamError(null);
+
+    void listIotDevices()
+      .then((devices) => {
+        if (cancelled) return;
+        const hasRegisteredDevice = devices.some((entry) => String(entry.tank_id) === String(resolvedTankId));
+        setSensorRegistered(hasRegisteredDevice);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSensorRegistered(false);
+        setSensorStreamError('Unable to verify registered sensors for this tank.');
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setSensorRegistrationLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, selectedBatchId, resolvedTankId, initialRecord]);
+
+  useEffect(() => {
+    if (!open || !selectedBatchId || !resolvedTankId || Boolean(initialRecord) || sensorRegistrationLoading || !sensorRegistered) {
+      return;
+    }
+
     const unsubscribe = subscribeToTankSensorStream({
       tankId: resolvedTankId,
       onSensorReading: (reading) => {
         setTemp(reading.temperature.toString());
         setTurbidity(reading.turbidity_ntu.toString());
         setSensorConnected(true);
+        setSensorStreamConnected(true);
         setSensorLastReadingAt(reading.timestamp);
         setSensorDeviceId(reading.device_id);
         setSensorStreamError(null);
       },
       onConnectionStatusChange: (isConnected) => {
-        setSensorConnected(isConnected);
+        setSensorStreamConnected(isConnected);
+        if (!isConnected) {
+          setSensorConnected(false);
+        }
       },
       onError: () => {
         setSensorConnected(false);
+        setSensorStreamConnected(false);
         setSensorStreamError('Live sensor stream is currently unavailable.');
       },
     });
@@ -137,7 +194,7 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
     return () => {
       unsubscribe();
     };
-  }, [open, selectedBatchId, resolvedTankId, initialRecord]);
+  }, [open, selectedBatchId, resolvedTankId, initialRecord, sensorRegistrationLoading, sensorRegistered]);
 
   const getStatus = (param: string, value: number) => {
     if (param === 'temp') {
@@ -165,8 +222,15 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
       const numAmmonia = typeof totalAmmonia === 'string' ? parseFloat(totalAmmonia) : totalAmmonia;
       const numNitrite = typeof nitrite === 'string' ? parseFloat(nitrite) : nitrite;
       const numNitrate = typeof nitrate === 'string' ? parseFloat(nitrate) : nitrate;
+      const numTurbidity = typeof turbidity === 'string' ? parseFloat(turbidity) : turbidity;
 
-      if (isNaN(numTemp as number) || isNaN(numDo as number) || isNaN(numPh as number) || isNaN(numAmmonia as number)) {
+      if (
+        isNaN(numTemp as number) ||
+        isNaN(numDo as number) ||
+        isNaN(numPh as number) ||
+        isNaN(numAmmonia as number) ||
+        isNaN(numTurbidity as number)
+      ) {
         toast.error('Please fill in all required measurement fields with valid numbers.');
         setIsSaving(false);
         return;
@@ -183,7 +247,7 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
           salinity: salinity ? parseFloat(salinity.toString()) : 0,
           alkalinity: alkalinity ? parseFloat(alkalinity.toString()) : 0,
           hardness: hardness ? parseFloat(hardness.toString()) : 0,
-          turbidity: turbidity ? parseFloat(turbidity.toString()) : 0,
+          turbidity: numTurbidity,
           co2: co2 ? parseFloat(co2.toString()) : 0,
           actionTaken: actionTaken,
           actionNotes: notes || ''
@@ -202,7 +266,7 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
           salinity: salinity ? parseFloat(salinity.toString()) : 0,
           alkalinity: alkalinity ? parseFloat(alkalinity.toString()) : 0,
           hardness: hardness ? parseFloat(hardness.toString()) : 0,
-          turbidity: turbidity ? parseFloat(turbidity.toString()) : 0,
+          turbidity: numTurbidity,
           co2: co2 ? parseFloat(co2.toString()) : 0,
         };
         if (!selectedBatchId) {
@@ -260,20 +324,28 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
           {!initialRecord && selectedBatchId && (
             <div
               className={`rounded-lg border p-3 text-sm ${
-                sensorConnected
+                isLiveSensorConnected
                   ? 'border-green-200 bg-green-50 text-green-800'
-                  : 'border-yellow-200 bg-yellow-50 text-yellow-800'
+                  : sensorRegistered
+                    ? 'border-yellow-200 bg-yellow-50 text-yellow-800'
+                    : 'border-gray-200 bg-gray-50 text-gray-700'
               }`}
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <span
                     className={`inline-block h-2.5 w-2.5 rounded-full ${
-                      sensorConnected ? 'bg-green-500' : 'bg-yellow-500'
+                      isLiveSensorConnected ? 'bg-green-500' : sensorRegistered ? 'bg-yellow-500' : 'bg-gray-400'
                     }`}
                   />
                   <span className="font-medium">
-                    {sensorConnected ? 'Live sensor connected' : 'Waiting for live sensor reading'}
+                    {sensorRegistrationLoading
+                      ? 'Checking sensor registration'
+                      : isLiveSensorConnected
+                        ? 'Live sensor connected'
+                        : sensorRegistered
+                          ? 'Sensor registered, waiting for live reading'
+                          : 'No sensor registered for this tank'}
                   </span>
                 </div>
                 {sensorDeviceId && (
@@ -283,7 +355,11 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
               <p className="mt-1 text-xs">
                 {sensorLastReadingAt
                   ? `Last reading: ${new Date(sensorLastReadingAt).toLocaleString()}`
-                  : `Streaming from tank ${resolvedTankId}`}
+                  : sensorRegistered
+                    ? sensorStreamConnected
+                      ? 'Stream connected. Waiting for device data.'
+                      : `No active sensor stream for tank ${resolvedTankId}`
+                    : 'Register and activate a sensor to receive live readings.'}
               </p>
               {sensorStreamError && <p className="mt-1 text-xs">{sensorStreamError}</p>}
             </div>
@@ -295,10 +371,10 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
                 <Label className="text-sm font-medium">Temperature *</Label>
                 <Input type="number" value={temp} onChange={(e) => setTemp(e.target.value)} step={0.1} />
-                <p className="text-xs text-gray-600">°C</p>
+                <p className="text-xs text-gray-600">Â°C</p>
                 {temp !== '' && (
                   <div className={`text-xs px-2 py-1 rounded ${getStatus('temp', typeof temp === 'string' ? parseFloat(temp) : temp).color}`}>
-                    {parseFloat(temp.toString()) >= 26 && parseFloat(temp.toString()) <= 30 ? '✅' : '🟡'} {getStatus('temp', typeof temp === 'string' ? parseFloat(temp) : temp).status.toUpperCase()}
+                    {parseFloat(temp.toString()) >= 26 && parseFloat(temp.toString()) <= 30 ? 'âœ…' : 'ðŸŸ¡'} {getStatus('temp', typeof temp === 'string' ? parseFloat(temp) : temp).status.toUpperCase()}
                   </div>
                 )}
               </div>
@@ -309,7 +385,7 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
                 <p className="text-xs text-gray-600">mg/L</p>
                 {doValue !== '' && (
                   <div className={`text-xs px-2 py-1 rounded ${getStatus('do', typeof doValue === 'string' ? parseFloat(doValue) : doValue).color}`}>
-                    {parseFloat(doValue.toString()) >= 5 ? '✅' : parseFloat(doValue.toString()) >= 4 ? '🟡' : '🔴'} {getStatus('do', typeof doValue === 'string' ? parseFloat(doValue) : doValue).status.toUpperCase()}
+                    {parseFloat(doValue.toString()) >= 5 ? 'âœ…' : parseFloat(doValue.toString()) >= 4 ? 'ðŸŸ¡' : 'ðŸ”´'} {getStatus('do', typeof doValue === 'string' ? parseFloat(doValue) : doValue).status.toUpperCase()}
                   </div>
                 )}
               </div>
@@ -320,7 +396,7 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
                 <p className="text-xs text-gray-600">-</p>
                 {phValue !== '' && (
                   <div className={`text-xs px-2 py-1 rounded ${getStatus('ph', typeof phValue === 'string' ? parseFloat(phValue) : phValue).color}`}>
-                    {parseFloat(phValue.toString()) >= 7 && parseFloat(phValue.toString()) <= 8.5 ? '✅' : '🟡'} {getStatus('ph', typeof phValue === 'string' ? parseFloat(phValue) : phValue).status.toUpperCase()}
+                    {parseFloat(phValue.toString()) >= 7 && parseFloat(phValue.toString()) <= 8.5 ? 'âœ…' : 'ðŸŸ¡'} {getStatus('ph', typeof phValue === 'string' ? parseFloat(phValue) : phValue).status.toUpperCase()}
                   </div>
                 )}
               </div>
@@ -331,35 +407,46 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
                 <p className="text-xs text-gray-600">mg/L</p>
                 {totalAmmonia !== '' && (
                   <div className={`text-xs px-2 py-1 rounded ${parseFloat(totalAmmonia.toString()) < 0.5 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                    {parseFloat(totalAmmonia.toString()) < 0.5 ? '✅ SAFE' : '🔴 HIGH'}
+                    {parseFloat(totalAmmonia.toString()) < 0.5 ? 'âœ… SAFE' : 'ðŸ”´ HIGH'}
                   </div>
                 )}
               </div>
 
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
-                <Label className="text-sm font-medium">Nitrite (NO₂) *</Label>
+                <Label className="text-sm font-medium">Nitrite (NOâ‚‚) *</Label>
                 <Input type="number" value={nitrite} onChange={(e) => setNitrite(e.target.value)} step={0.01} />
                 <p className="text-xs text-gray-600">mg/L</p>
                 {nitrite !== '' && (
                   <div className={`text-xs px-2 py-1 rounded ${parseFloat(nitrite.toString()) < 0.2 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                    {parseFloat(nitrite.toString()) < 0.2 ? '✅ SAFE' : '🟡 ELEVATED'}
+                    {parseFloat(nitrite.toString()) < 0.2 ? 'âœ… SAFE' : 'ðŸŸ¡ ELEVATED'}
                   </div>
                 )}
               </div>
 
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
-                <Label className="text-sm font-medium">Nitrate (NO₃) *</Label>
+                <Label className="text-sm font-medium">Nitrate (NOâ‚ƒ) *</Label>
                 <Input type="number" value={nitrate} onChange={(e) => setNitrate(e.target.value)} step={0.1} />
                 <p className="text-xs text-gray-600">mg/L</p>
                 {nitrate !== '' && (
                   <div className={`text-xs px-2 py-1 rounded ${parseFloat(nitrate.toString()) < 50 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                    {parseFloat(nitrate.toString()) < 50 ? '✅ SAFE' : '🟡 HIGH'}
+                    {parseFloat(nitrate.toString()) < 50 ? 'âœ… SAFE' : 'ðŸŸ¡ HIGH'}
+                  </div>
+                )}
+              </div>
+
+              <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
+                <Label className="text-sm font-medium">Turbidity *</Label>
+                <Input type="number" value={turbidity} onChange={(e) => setTurbidity(e.target.value)} step={0.1} />
+                <p className="text-xs text-gray-600">NTU</p>
+                {turbidity !== '' && (
+                  <div className={`text-xs px-2 py-1 rounded ${parseFloat(turbidity.toString()) < 50 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                    {parseFloat(turbidity.toString()) < 50 ? 'âœ… SAFE' : 'ðŸŸ¡ HIGH'}
                   </div>
                 )}
               </div>
             </div>
             <div className="mt-3 bg-blue-50 border border-blue-200 p-3 rounded-lg text-xs">
-              <p><strong>Note:</strong> Toxic Ammonia (NH₃), DO Saturation %, and CO₂ Content will be calculated automatically by the system based on temperature, pH, and TAN values.</p>
+              <p><strong>Note:</strong> Toxic Ammonia (NHâ‚ƒ), DO Saturation %, and COâ‚‚ Content will be calculated automatically by the system based on temperature, pH, and TAN values.</p>
             </div>
           </div>
 
@@ -375,23 +462,17 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
               <div className="border rounded-lg p-3 space-y-2">
                 <Label className="text-sm">Alkalinity</Label>
                 <Input type="number" placeholder="Optional" value={alkalinity} onChange={(e) => setAlkalinity(e.target.value)} step={1} />
-                <p className="text-xs text-gray-600">mg/L CaCO₃</p>
+                <p className="text-xs text-gray-600">mg/L CaCOâ‚ƒ</p>
               </div>
 
               <div className="border rounded-lg p-3 space-y-2">
                 <Label className="text-sm">Hardness</Label>
                 <Input type="number" placeholder="Optional" value={hardness} onChange={(e) => setHardness(e.target.value)} step={1} />
-                <p className="text-xs text-gray-600">mg/L CaCO₃</p>
+                <p className="text-xs text-gray-600">mg/L CaCOâ‚ƒ</p>
               </div>
 
               <div className="border rounded-lg p-3 space-y-2">
-                <Label className="text-sm">Turbidity</Label>
-                <Input type="number" placeholder="Optional" value={turbidity} onChange={(e) => setTurbidity(e.target.value)} step={0.1} />
-                <p className="text-xs text-gray-600">NTU</p>
-              </div>
-
-              <div className="border rounded-lg p-3 space-y-2">
-                <Label className="text-sm">CO₂ (Direct)</Label>
+                <Label className="text-sm">COâ‚‚ (Direct)</Label>
                 <Input type="number" placeholder="Optional" value={co2} onChange={(e) => setCo2(e.target.value)} step={0.1} />
                 <p className="text-xs text-gray-600">mg/L</p>
               </div>
@@ -420,7 +501,7 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
           <div className="flex gap-3 pt-2">
             <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button className="flex-1 bg-[#088395] hover:bg-[#0A4D68]" disabled={isSaving || tankBatches.length === 0} onClick={handleSave}>
-              {isSaving ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : (initialRecord ? <Save className="w-4 h-4 mr-2" /> : '💾')}
+              {isSaving ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : (initialRecord ? <Save className="w-4 h-4 mr-2" /> : 'ðŸ’¾')}
               {initialRecord ? 'Update Reading' : 'Save Water Quality Reading'}
             </Button>
           </div>
@@ -429,3 +510,4 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
     </Dialog>
   );
 }
+

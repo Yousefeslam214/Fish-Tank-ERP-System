@@ -32,14 +32,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { BatchHealthModal } from "./tanks/modals/BatchHealthModal";
 import HarvestedInventoryView from "./sales/HarvestedInventoryView";
 import { getFishTypes } from "../services/fishTypesApi";
-import { findHarvestedInventory, HarvestedStockItemRecord } from "../services/salesApi";
 
 import {
   getFeedInventory,
   createFeed,
   createMedicine,
   createFishBatch,
-  createHarvestedFish,
   getFeedByFoodType,
   getBatches,
   getBatchById,
@@ -87,7 +85,7 @@ interface InventoryProps {
   selectedFarm: Farm | null;
 }
 
-type ResourceType = "feed" | "medicine" | "fish_batch" | "harvested_fish";
+type ResourceType = "feed" | "medicine" | "fish_batch";
 
 // Component
 
@@ -119,13 +117,11 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     feedItemId: "",
     medicineItemId: "",
     fishBatchItemId: "",
-    harvestedFishItemId: "",
     quantityKg: "",
     receiveDate: new Date().toISOString().split("T")[0],
     expiryDate: "",
   });
   const [fishTypeOptions, setFishTypeOptions] = useState<Array<{ id: string; name: string }>>([]);
-  const [harvestedFishOptions, setHarvestedFishOptions] = useState<HarvestedStockItemRecord[]>([]);
 
   // Health modal state
   const [healthModalOpen, setHealthModalOpen] = useState(false);
@@ -371,16 +367,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     }
   };
 
-  const loadHarvestedFishOptions = async () => {
-    try {
-      const rows = await findHarvestedInventory();
-      setHarvestedFishOptions(rows);
-    } catch (error) {
-      console.error("Error loading harvested fish options", error);
-      setHarvestedFishOptions([]);
-    }
-  };
-
   // GET /api/v1/tanks
   const loadTanks = async () => {
     setIsTanksLoading(true);
@@ -427,7 +413,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     loadTanks();
     loadFoodTypes();
     loadFishTypeOptions();
-    loadHarvestedFishOptions();
   }, []);
 
   // Handlers
@@ -486,7 +471,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       feedItemId: "",
       medicineItemId: "",
       fishBatchItemId: "",
-      harvestedFishItemId: "",
       quantityKg: "",
       receiveDate: new Date().toISOString().split("T")[0],
       expiryDate: "",
@@ -512,9 +496,15 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   };
 
   const handleAddResourceSubmit = async () => {
+    const expectsFishCount = newResourceData.resourceType === "fish_batch";
     const quantity = Number(newResourceData.quantityKg);
     if (!Number.isFinite(quantity) || quantity <= 0) {
-      toast.error("Please enter a valid quantity in Kg");
+      toast.error(expectsFishCount ? "Please enter a valid fish count" : "Please enter a valid quantity in Kg");
+      return;
+    }
+
+    if (expectsFishCount && !Number.isInteger(quantity)) {
+      toast.error("Fish batch quantity must be a whole number");
       return;
     }
 
@@ -601,27 +591,8 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         }
         response = await createFishBatch(payload);
       } else {
-        const selectedHarvestedFish = harvestedFishOptions.find(
-          (entry) => String(entry.id) === String(newResourceData.harvestedFishItemId || ""),
-        );
-        if (!selectedHarvestedFish) {
-          toast.error("Please select a harvested fish item");
-          return;
-        }
-
-        const payload: Record<string, unknown> = {
-          harvestedInventoryId: selectedHarvestedFish.id,
-          fishType: selectedHarvestedFish.fishType,
-          grade: selectedHarvestedFish.grade,
-          storageType: selectedHarvestedFish.storageType,
-          quantityKg: quantity,
-          quantity,
-          receivedDate: receivedDateIso,
-        };
-        if (expiryDateIso) {
-          payload.expiryDate = expiryDateIso;
-        }
-        response = await createHarvestedFish(payload);
+        toast.error("Unsupported resource type selected");
+        return;
       }
 
       ensureMutationSucceeded(response);
@@ -1516,7 +1487,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                     feedItemId: "",
                     medicineItemId: "",
                     fishBatchItemId: "",
-                    harvestedFishItemId: "",
                   }))
                 }
               >
@@ -1527,7 +1497,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                   <SelectItem value="feed">Feed</SelectItem>
                   <SelectItem value="medicine">Medicine</SelectItem>
                   <SelectItem value="fish_batch">Fish Batch</SelectItem>
-                  <SelectItem value="harvested_fish">Harvested Fish</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1628,43 +1597,16 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
               </div>
             )}
 
-            {newResourceData.resourceType === "harvested_fish" && (
-              <div className="grid gap-2">
-                <Label htmlFor="harvestedFishItemId">Harvested Fish Item</Label>
-                <Select
-                  value={newResourceData.harvestedFishItemId}
-                  onValueChange={(value) =>
-                    setNewResourceData((previous) => ({
-                      ...previous,
-                      harvestedFishItemId: value,
-                    }))
-                  }
-                >
-                  <SelectTrigger id="harvestedFishItemId">
-                    <SelectValue placeholder="Select harvested fish item" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {harvestedFishOptions.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        {item.fishType} - {item.grade} ({item.id.slice(0, 8)})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {harvestedFishOptions.length === 0 && (
-                  <p className="text-xs text-red-600">No harvested fish items available from API.</p>
-                )}
-              </div>
-            )}
-
             <div className="grid gap-2">
-              <Label htmlFor="quantityKg">Quantity (Kg)</Label>
+              <Label htmlFor="quantityKg">
+                {newResourceData.resourceType === "fish_batch" ? "Quantity (Fish Count)" : "Quantity (Kg)"}
+              </Label>
               <Input
                 id="quantityKg"
                 type="number"
                 min="1"
-                step="1"
-                placeholder="1"
+                step={newResourceData.resourceType === "fish_batch" ? "1" : "0.01"}
+                placeholder={newResourceData.resourceType === "fish_batch" ? "100" : "1"}
                 value={newResourceData.quantityKg}
                 onChange={(event) =>
                   setNewResourceData((previous) => ({
