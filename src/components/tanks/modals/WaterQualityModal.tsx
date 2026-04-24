@@ -381,7 +381,7 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
                 <p className="text-xs text-gray-600">deg C</p>
                 {temp !== '' && (
                   <div className={`text-xs px-2 py-1 rounded ${getStatus('temp', typeof temp === 'string' ? parseFloat(temp) : temp).color}`}>
-                    {parseFloat(temp.toString()) >= 26 && parseFloat(temp.toString()) <= 30 ? 'OK' : 'WARNING'} {getStatus('temp', typeof temp === 'string' ? parseFloat(temp) : temp).status.toUpperCase()}
+                    {getStatus('temp', typeof temp === 'string' ? parseFloat(temp) : temp).status.toUpperCase()}
                   </div>
                 )}
               </div>
@@ -392,7 +392,7 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
                 <p className="text-xs text-gray-600">mg/L</p>
                 {doValue !== '' && (
                   <div className={`text-xs px-2 py-1 rounded ${getStatus('do', typeof doValue === 'string' ? parseFloat(doValue) : doValue).color}`}>
-                    {parseFloat(doValue.toString()) >= 5 ? 'OK' : parseFloat(doValue.toString()) >= 4 ? 'WARNING' : 'CRITICAL'} {getStatus('do', typeof doValue === 'string' ? parseFloat(doValue) : doValue).status.toUpperCase()}
+                    {getStatus('do', typeof doValue === 'string' ? parseFloat(doValue) : doValue).status.toUpperCase()}
                   </div>
                 )}
               </div>
@@ -403,7 +403,7 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
                 <p className="text-xs text-gray-600">-</p>
                 {phValue !== '' && (
                   <div className={`text-xs px-2 py-1 rounded ${getStatus('ph', typeof phValue === 'string' ? parseFloat(phValue) : phValue).color}`}>
-                    {parseFloat(phValue.toString()) >= 7 && parseFloat(phValue.toString()) <= 8.5 ? 'OK' : 'WARNING'} {getStatus('ph', typeof phValue === 'string' ? parseFloat(phValue) : phValue).status.toUpperCase()}
+                    {getStatus('ph', typeof phValue === 'string' ? parseFloat(phValue) : phValue).status.toUpperCase()}
                   </div>
                 )}
               </div>
