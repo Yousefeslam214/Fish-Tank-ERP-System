@@ -65,6 +65,7 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
   }, [sensorLastReadingAt]);
 
   const isLiveSensorConnected = sensorRegistered && sensorConnected && sensorStreamConnected && hasFreshReading;
+  const isLiveSensorMode = !Boolean(initialRecord) && isLiveSensorConnected;
 
   useEffect(() => {
     if (open) {
@@ -370,11 +371,17 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
                 <Label className="text-sm font-medium">Temperature *</Label>
-                <Input type="number" value={temp} onChange={(e) => setTemp(e.target.value)} step={0.1} />
-                <p className="text-xs text-gray-600">Â°C</p>
+                <Input
+                  type="number"
+                  value={temp}
+                  onChange={(e) => setTemp(e.target.value)}
+                  step={0.1}
+                  disabled={isLiveSensorMode}
+                />
+                <p className="text-xs text-gray-600">deg C</p>
                 {temp !== '' && (
                   <div className={`text-xs px-2 py-1 rounded ${getStatus('temp', typeof temp === 'string' ? parseFloat(temp) : temp).color}`}>
-                    {parseFloat(temp.toString()) >= 26 && parseFloat(temp.toString()) <= 30 ? 'âœ…' : 'ðŸŸ¡'} {getStatus('temp', typeof temp === 'string' ? parseFloat(temp) : temp).status.toUpperCase()}
+                    {parseFloat(temp.toString()) >= 26 && parseFloat(temp.toString()) <= 30 ? 'OK' : 'WARNING'} {getStatus('temp', typeof temp === 'string' ? parseFloat(temp) : temp).status.toUpperCase()}
                   </div>
                 )}
               </div>
@@ -385,7 +392,7 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
                 <p className="text-xs text-gray-600">mg/L</p>
                 {doValue !== '' && (
                   <div className={`text-xs px-2 py-1 rounded ${getStatus('do', typeof doValue === 'string' ? parseFloat(doValue) : doValue).color}`}>
-                    {parseFloat(doValue.toString()) >= 5 ? 'âœ…' : parseFloat(doValue.toString()) >= 4 ? 'ðŸŸ¡' : 'ðŸ”´'} {getStatus('do', typeof doValue === 'string' ? parseFloat(doValue) : doValue).status.toUpperCase()}
+                    {parseFloat(doValue.toString()) >= 5 ? 'OK' : parseFloat(doValue.toString()) >= 4 ? 'WARNING' : 'CRITICAL'} {getStatus('do', typeof doValue === 'string' ? parseFloat(doValue) : doValue).status.toUpperCase()}
                   </div>
                 )}
               </div>
@@ -396,7 +403,7 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
                 <p className="text-xs text-gray-600">-</p>
                 {phValue !== '' && (
                   <div className={`text-xs px-2 py-1 rounded ${getStatus('ph', typeof phValue === 'string' ? parseFloat(phValue) : phValue).color}`}>
-                    {parseFloat(phValue.toString()) >= 7 && parseFloat(phValue.toString()) <= 8.5 ? 'âœ…' : 'ðŸŸ¡'} {getStatus('ph', typeof phValue === 'string' ? parseFloat(phValue) : phValue).status.toUpperCase()}
+                    {parseFloat(phValue.toString()) >= 7 && parseFloat(phValue.toString()) <= 8.5 ? 'OK' : 'WARNING'} {getStatus('ph', typeof phValue === 'string' ? parseFloat(phValue) : phValue).status.toUpperCase()}
                   </div>
                 )}
               </div>
@@ -407,46 +414,52 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
                 <p className="text-xs text-gray-600">mg/L</p>
                 {totalAmmonia !== '' && (
                   <div className={`text-xs px-2 py-1 rounded ${parseFloat(totalAmmonia.toString()) < 0.5 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                    {parseFloat(totalAmmonia.toString()) < 0.5 ? 'âœ… SAFE' : 'ðŸ”´ HIGH'}
+                    {parseFloat(totalAmmonia.toString()) < 0.5 ? 'SAFE' : 'HIGH'}
                   </div>
                 )}
               </div>
 
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
-                <Label className="text-sm font-medium">Nitrite (NOâ‚‚) *</Label>
+                <Label className="text-sm font-medium">Nitrite (NO2) *</Label>
                 <Input type="number" value={nitrite} onChange={(e) => setNitrite(e.target.value)} step={0.01} />
                 <p className="text-xs text-gray-600">mg/L</p>
                 {nitrite !== '' && (
                   <div className={`text-xs px-2 py-1 rounded ${parseFloat(nitrite.toString()) < 0.2 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                    {parseFloat(nitrite.toString()) < 0.2 ? 'âœ… SAFE' : 'ðŸŸ¡ ELEVATED'}
+                    {parseFloat(nitrite.toString()) < 0.2 ? 'SAFE' : 'ELEVATED'}
                   </div>
                 )}
               </div>
 
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
-                <Label className="text-sm font-medium">Nitrate (NOâ‚ƒ) *</Label>
+                <Label className="text-sm font-medium">Nitrate (NO3) *</Label>
                 <Input type="number" value={nitrate} onChange={(e) => setNitrate(e.target.value)} step={0.1} />
                 <p className="text-xs text-gray-600">mg/L</p>
                 {nitrate !== '' && (
                   <div className={`text-xs px-2 py-1 rounded ${parseFloat(nitrate.toString()) < 50 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                    {parseFloat(nitrate.toString()) < 50 ? 'âœ… SAFE' : 'ðŸŸ¡ HIGH'}
+                    {parseFloat(nitrate.toString()) < 50 ? 'SAFE' : 'HIGH'}
                   </div>
                 )}
               </div>
 
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
                 <Label className="text-sm font-medium">Turbidity *</Label>
-                <Input type="number" value={turbidity} onChange={(e) => setTurbidity(e.target.value)} step={0.1} />
+                <Input
+                  type="number"
+                  value={turbidity}
+                  onChange={(e) => setTurbidity(e.target.value)}
+                  step={0.1}
+                  disabled={isLiveSensorMode}
+                />
                 <p className="text-xs text-gray-600">NTU</p>
                 {turbidity !== '' && (
                   <div className={`text-xs px-2 py-1 rounded ${parseFloat(turbidity.toString()) < 50 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                    {parseFloat(turbidity.toString()) < 50 ? 'âœ… SAFE' : 'ðŸŸ¡ HIGH'}
+                    {parseFloat(turbidity.toString()) < 50 ? 'SAFE' : 'HIGH'}
                   </div>
                 )}
               </div>
             </div>
             <div className="mt-3 bg-blue-50 border border-blue-200 p-3 rounded-lg text-xs">
-              <p><strong>Note:</strong> Toxic Ammonia (NHâ‚ƒ), DO Saturation %, and COâ‚‚ Content will be calculated automatically by the system based on temperature, pH, and TAN values.</p>
+              <p><strong>Note:</strong> Toxic Ammonia (NH3), DO Saturation %, and CO2 Content will be calculated automatically by the system based on temperature, pH, and TAN values.</p>
             </div>
           </div>
 
@@ -462,17 +475,17 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
               <div className="border rounded-lg p-3 space-y-2">
                 <Label className="text-sm">Alkalinity</Label>
                 <Input type="number" placeholder="Optional" value={alkalinity} onChange={(e) => setAlkalinity(e.target.value)} step={1} />
-                <p className="text-xs text-gray-600">mg/L CaCOâ‚ƒ</p>
+                <p className="text-xs text-gray-600">mg/L CaCO3</p>
               </div>
 
               <div className="border rounded-lg p-3 space-y-2">
                 <Label className="text-sm">Hardness</Label>
                 <Input type="number" placeholder="Optional" value={hardness} onChange={(e) => setHardness(e.target.value)} step={1} />
-                <p className="text-xs text-gray-600">mg/L CaCOâ‚ƒ</p>
+                <p className="text-xs text-gray-600">mg/L CaCO3</p>
               </div>
 
               <div className="border rounded-lg p-3 space-y-2">
-                <Label className="text-sm">COâ‚‚ (Direct)</Label>
+                <Label className="text-sm">CO2 (Direct)</Label>
                 <Input type="number" placeholder="Optional" value={co2} onChange={(e) => setCo2(e.target.value)} step={0.1} />
                 <p className="text-xs text-gray-600">mg/L</p>
               </div>
@@ -501,7 +514,7 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
           <div className="flex gap-3 pt-2">
             <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button className="flex-1 bg-[#088395] hover:bg-[#0A4D68]" disabled={isSaving || tankBatches.length === 0} onClick={handleSave}>
-              {isSaving ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : (initialRecord ? <Save className="w-4 h-4 mr-2" /> : 'ðŸ’¾')}
+              {isSaving ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
               {initialRecord ? 'Update Reading' : 'Save Water Quality Reading'}
             </Button>
           </div>
