@@ -44,7 +44,6 @@ import {
   getFeedInventory,
   createFeed,
   createMedicine,
-  createFishBatch,
   getFeedByFoodType,
   getBatches,
   getBatchById,
@@ -364,8 +363,8 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       setFishTypeOptions(
         fishTypes
           .map((entry) => ({
-            id: String(entry.id || ""),
-            name: String(entry.name || "Unknown Fish Type"),
+            id: String(entry?.id || entry?._id || ""),
+            name: String(entry?.name || entry?.species || "Unknown Fish Type"),
           }))
           .filter((entry) => entry.id),
       );
@@ -487,8 +486,17 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   };
 
   const ensureMutationSucceeded = (response: any) => {
-    if (response && typeof response === "object" && "success" in response && response.success === false) {
-      throw new Error(String(response.message || "Request failed"));
+    if (!response || typeof response !== "object") {
+      return;
+    }
+
+    const hasSuccessFlag = Object.prototype.hasOwnProperty.call(response, "success");
+    if (hasSuccessFlag && response.success === false) {
+      const message =
+        typeof response.message === "string" && response.message.trim().length > 0
+          ? response.message
+          : "Request failed";
+      throw new Error(message);
     }
   };
 
@@ -502,6 +510,11 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       return error.message;
     }
     return "Failed to add resource. Please check your input and try again.";
+  };
+
+  const isMissingEntityIdError = (value: unknown): boolean => {
+    const message = typeof value === "string" ? value : String(value ?? "");
+    return /cannot read properties of undefined \(reading 'id'\)/i.test(message);
   };
 
   const resolveUnitCost = (...values: Array<unknown>): number => {
@@ -531,7 +544,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
     const suppliers = await getProcurementSuppliers();
     const existing = suppliers.find((supplier) =>
-      supplier.items.some((item) => requiredItemTypes.includes(item.toUpperCase())),
+      (Array.isArray(supplier.items) ? supplier.items : []).some((item) => requiredItemTypes.includes(String(item).toUpperCase())),
     );
     if (existing?.id) {
       return existing.id;
@@ -546,7 +559,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     if (!created?.id) {
       const refreshed = await getProcurementSuppliers();
       const fallbackSupplier = refreshed.find((supplier) =>
-        supplier.items.some((item) => requiredItemTypes.includes(item.toUpperCase())),
+        (Array.isArray(supplier.items) ? supplier.items : []).some((item) => requiredItemTypes.includes(String(item).toUpperCase())),
       );
       if (fallbackSupplier?.id) {
         return fallbackSupplier.id;
@@ -608,6 +621,14 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         }
 
         const selectedFoodType = foodTypes.find((entry) => String(entry?.id || entry?._id || "") === foodTypeId);
+        const selectedFoodTypeMeta = (selectedFoodType ?? {}) as Record<string, unknown>;
+        const resolvedFoodTypeId = String(
+          selectedFoodTypeMeta?.id || selectedFoodTypeMeta?._id || foodTypeId,
+        ).trim();
+        if (!resolvedFoodTypeId) {
+          toast.error("Selected feed item has no valid ID");
+          return;
+        }
         const supplierId = await ensureSupplierForResource("feed");
         const feedUnitCost = resolveUnitCost(
           selectedFoodType?.unitCost,
@@ -615,31 +636,67 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           selectedFoodType?.pricePerKg,
           selectedFoodType?.purchasePrice,
         );
+        const feedTotalCost = Number((quantity * feedUnitCost).toFixed(2));
+
         await createFeedPurchaseOrder({
           supplierId,
           items: [
             {
-              foodTypeId,
+              foodTypeId: resolvedFoodTypeId,
               quantityKg: quantity,
               unitCost: feedUnitCost,
             },
           ],
         });
 
-        const payload: Record<string, unknown> = {
-          foodTypeId,
-          quantityKg: quantity,
-          receivedDate: receivedDateIso,
-          packagingUnit: "KG",
-          unitsReceived: Math.max(1, Math.ceil(quantity)),
+        const buildFeedPayload = (withNestedFoodType: boolean): Record<string, unknown> => {
+          const payload: Record<string, unknown> = {
+            foodTypeId: resolvedFoodTypeId,
+            quantityKg: quantity,
+            quantity,
+            initialQuantityKg: quantity,
+            receivedDate: receivedDateIso,
+            packagingUnit: "KG",
+            unitsReceived: Math.max(1, Math.ceil(quantity)),
+            costPerKg: feedUnitCost,
+            costPerUnit: feedUnitCost,
+            totalCost: feedTotalCost,
+            name: String(selectedFoodTypeMeta?.name || selectedFoodTypeMeta?.foodName || "Unknown Feed"),
+            supplier: String(
+              selectedFoodTypeMeta?.supplier ||
+                selectedFoodTypeMeta?.manufacturer ||
+                selectedFoodTypeMeta?.company ||
+                "PO Supplier",
+            ),
+          };
+          if (withNestedFoodType) {
+            payload.foodType = { id: resolvedFoodTypeId };
+          }
+          if (expiryDateIso) {
+            payload.expiryDate = expiryDateIso;
+          }
+          return payload;
         };
-        if (expiryDateIso) {
-          payload.expiryDate = expiryDateIso;
-        }
-        response = await createFeed(payload);
+
+        response = await createFeed(buildFeedPayload(false));
+        if (
+          response &&
+          typeof response === "object" &&
+          response.success === false &&
+          isMissingEntityIdError(response.message)
+        ) {
+          // Some backend deployments expect nested `foodType.id` instead of only `foodTypeId`.
+          response = await createFeed(buildFeedPayload(true));
+        };
       } else if (resourceType === "medicine") {
+        const selectedMedicineId = String(newResourceData.medicineItemId || "").trim();
+        if (!selectedMedicineId) {
+          toast.error("Please select a medicine item");
+          return;
+        }
+
         const selectedMedicineItem = medicineInventory.find(
-          (entry) => String(entry.id) === String(newResourceData.medicineItemId || ""),
+          (entry) => Boolean(entry) && String((entry as MedicineInventoryBatch).id || "").trim() === selectedMedicineId,
         );
         if (!selectedMedicineItem) {
           toast.error("Please select a medicine item");
@@ -649,6 +706,8 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         const medicineQuantity = Math.max(1, Math.round(quantity));
         const supplierId = await ensureSupplierForResource("medicine");
         const selectedMedicineMeta = selectedMedicineItem as MedicineInventoryBatch & Record<string, unknown>;
+        const medicineName = String(selectedMedicineItem.medicineName || "").trim() || "Unknown Medicine";
+        const medicineCompany = String(selectedMedicineItem.company || "").trim() || "Unknown Company";
         const medicineFishTypeId = String(
           selectedMedicineMeta?.fishTypeId ||
             (selectedMedicineMeta?.fishType as any)?.id ||
@@ -664,8 +723,8 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           supplierId,
           items: [
             {
-              medicine: selectedMedicineItem.medicineName,
-              company: selectedMedicineItem.company,
+              medicine: medicineName,
+              company: medicineCompany,
               fishTypeIds: medicineFishTypeId ? [medicineFishTypeId] : [],
               quantity: medicineQuantity,
               unitCost: medicineUnitCost,
@@ -673,10 +732,14 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           ],
         });
 
+        const medicineTotalCost = Number((medicineUnitCost * medicineQuantity).toFixed(2));
         const payload: Record<string, unknown> = {
-          medicine: selectedMedicineItem.medicineName,
-          company: selectedMedicineItem.company,
+          medicine: medicineName,
+          company: medicineCompany,
           quantity: medicineQuantity,
+          initialQuantity: medicineQuantity,
+          costPerUnit: medicineUnitCost,
+          totalCost: medicineTotalCost,
           unitsReceived: medicineQuantity,
           receivedDate: receivedDateIso,
           packagingUnit: "unit",
@@ -708,17 +771,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           ],
         });
 
-        const payload: Record<string, unknown> = {
-          fishTypeId: selectedFishType.id,
-          species: selectedFishType.name,
-          quantity: batchQuantity,
-          initialQuantity: batchQuantity,
-          receivedDate: receivedDateIso,
-        };
-        if (expiryDateIso) {
-          payload.expiryDate = expiryDateIso;
-        }
-        response = await createFishBatch(payload);
+        // Backend currently supports GET (not POST) on /inventory/batches.
+        // Fish add-resource flow should create a procurement fish order only.
+        response = { success: true };
       } else {
         toast.error("Unsupported resource type selected");
         return;
@@ -726,7 +781,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
       ensureMutationSucceeded(response);
 
-      toast.success("Resource added successfully");
+      toast.success(resourceType === "fish_batch" ? "Fish purchase order created successfully" : "Resource added successfully");
       setIsAddResourcesOpen(false);
       resetAddResourcesForm();
       await Promise.all([loadFeed(), loadMedicine(), loadMedicineTotals(), loadBatches()]);
