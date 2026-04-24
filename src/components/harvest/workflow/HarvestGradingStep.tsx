@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -31,6 +31,14 @@ export const HarvestGradingStep: React.FC<HarvestGradingStepProps> = ({
   const [weight, setWeight] = useState<string>('');
   const [condition, setCondition] = useState<HarvestCondition>('EXCELLENT');
   const [notes, setNotes] = useState<string>('');
+
+  // Log state changes to the console for the user
+  useEffect(() => {
+    console.log('--- Current Harvest Gradings State ---');
+    console.log(gradings);
+    console.log('Total weight graded:', gradings.reduce((sum, g) => sum + g.weightKg, 0), 'kg');
+    console.log('--------------------------------------');
+  }, [gradings]);
 
   // Mock grade pricing data
   const gradePricings: FishGradePricing[] = [
@@ -129,6 +137,7 @@ export const HarvestGradingStep: React.FC<HarvestGradingStepProps> = ({
       notes: notes || undefined
     };
 
+    console.log('Adding new grading record:', newGrading);
     setGradings([...gradings, newGrading]);
     
     // Reset form

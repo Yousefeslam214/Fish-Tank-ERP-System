@@ -23,111 +23,51 @@ interface HarvestDashboardProps {
   onStartHarvest: () => void;
   onViewHistory: () => void;
   onViewTankPerformance: (tankId: string) => void;
+  kpis?: {
+    activeHarvests: number;
+    thisMonthHarvested: number;
+    thisMonthRevenue: number;
+    avgFCR: number;
+    readyToHarvest: number;
+    avgSurvivalRate: number;
+    nextRecommended?: {
+      tankId: string;
+      tankName: string;
+      daysUntil: number;
+    }
+  };
+  activeHarvests?: any[];
+  completedHarvests?: any[];
+  loading?: boolean;
 }
 
 export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({
   farmId,
   onStartHarvest,
   onViewHistory,
-  onViewTankPerformance
+  onViewTankPerformance,
+  kpis,
+  activeHarvests = [],
+  completedHarvests = [],
+  loading = false
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Mock data - في التطبيق الحقيقي سيتم جلبه من context
-  const kpis = {
-    activeHarvests: 3,
-    thisMonthHarvested: 2450,
-    thisMonthRevenue: 110250,
-    avgFCR: 1.65,
-    readyToHarvest: 5,
-    avgSurvivalRate: 92.5,
-    nextRecommended: {
-      tankId: 'tank-a03',
-      tankName: 'A-03',
-      daysUntil: 5
-    }
-  };
-
-  const activeHarvests = [
-    {
-      id: 'hrv-1',
-      tankId: 'tank-a03',
-      tankName: 'A-03',
-      batchNumber: '#123',
-      type: 'FULL',
-      started: '2hr ago',
-      fishCount: 850,
-      avgWeight: 420,
-      estimatedWeight: 357,
-      gradedWeight: 232,
-      progress: 65,
-      status: 'GRADING'
-    },
-    {
-      id: 'hrv-2',
-      tankId: 'tank-b05',
-      tankName: 'B-05',
-      batchNumber: '#145',
-      type: 'PARTIAL',
-      started: '45min ago',
-      fishCount: 1200,
-      percentage: 50,
-      avgWeight: 380,
-      estimatedWeight: 228,
-      gradedWeight: 80,
-      progress: 35,
-      status: 'DRAFT'
-    },
-    {
-      id: 'hrv-3',
-      tankId: 'tank-c02',
-      tankName: 'C-02',
-      batchNumber: '#178',
-      type: 'SELECTIVE',
-      started: '3hr ago',
-      minWeight: 450,
-      estimatedWeight: 145,
-      gradedWeight: 123,
-      progress: 85,
-      status: 'GRADING'
-    }
-  ];
-
-  const completedHarvests = [
-    {
-      id: 'hrv-c1',
-      tankName: 'A-01',
-      date: 'Feb 28',
-      type: 'FULL',
-      weight: 485,
-      revenue: 21825,
-      fcr: 1.62,
-      status: '✅'
-    },
-    {
-      id: 'hrv-c2',
-      tankName: 'B-03',
-      date: 'Feb 26',
-      type: 'FULL',
-      weight: 520,
-      revenue: 23400,
-      fcr: 1.58,
-      status: '✅'
-    },
-    {
-      id: 'hrv-c3',
-      tankName: 'C-05',
-      date: 'Feb 25',
-      type: 'PARTIAL',
-      weight: 240,
-      revenue: 10800,
-      fcr: 1.71,
-      status: '⚠️'
-    }
-  ];
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <Card key={i}><CardContent className="h-24" /></Card>
+          ))}
+        </div>
+        <Card><CardContent className="h-64" /></Card>
+      </div>
+    );
+  }
 
   const getTypeColor = (type: string) => {
-    switch (type) {
+    switch (type?.toUpperCase()) {
       case 'FULL': return 'bg-purple-100 text-purple-700 border-purple-300';
       case 'PARTIAL': return 'bg-orange-100 text-orange-700 border-orange-300';
       case 'SELECTIVE': return 'bg-pink-100 text-pink-700 border-pink-300';
@@ -136,7 +76,7 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({
   };
 
   const getTypeIcon = (type: string) => {
-    switch (type) {
+    switch (type?.toUpperCase()) {
       case 'FULL': return '🟣';
       case 'PARTIAL': return '🟠';
       case 'SELECTIVE': return '🩷';
@@ -154,7 +94,7 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({
               <div>
                 <p className="text-sm text-gray-600 mb-1">Active Harvests</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-3xl font-bold text-[#0A4D68]">{kpis.activeHarvests}</p>
+                  <p className="text-3xl font-bold text-[#0A4D68]">{kpis?.activeHarvests ?? 0}</p>
                   <span className="text-sm text-blue-600">🔵 In Progress</span>
                 </div>
               </div>
@@ -169,9 +109,9 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({
               <div>
                 <p className="text-sm text-gray-600 mb-1">This Month Harvested</p>
                 <div className="space-y-1">
-                  <p className="text-3xl font-bold text-[#0A4D68]">{kpis.thisMonthHarvested} kg</p>
+                  <p className="text-3xl font-bold text-[#0A4D68]">{kpis?.thisMonthHarvested ?? 0} kg</p>
                   <p className="text-sm text-gray-600">
-                    Value: <span className="font-semibold text-green-600">{kpis.thisMonthRevenue.toLocaleString()} EGP</span>
+                    Value: <span className="font-semibold text-green-600">{(kpis?.thisMonthRevenue ?? 0).toLocaleString()} EGP</span>
                   </p>
                 </div>
               </div>
@@ -186,7 +126,7 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({
               <div>
                 <p className="text-sm text-gray-600 mb-1">Avg FCR (Last 3)</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-3xl font-bold text-[#0A4D68]">{kpis.avgFCR}</p>
+                  <p className="text-3xl font-bold text-[#0A4D68]">{kpis?.avgFCR ?? 0}</p>
                   <span className="text-sm text-green-600">⭐ Excellent</span>
                 </div>
               </div>
@@ -201,7 +141,7 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({
               <div>
                 <p className="text-sm text-gray-600 mb-1">Ready to Harvest</p>
                 <div className="space-y-1">
-                  <p className="text-3xl font-bold text-green-600">🟢 {kpis.readyToHarvest} Tanks</p>
+                  <p className="text-3xl font-bold text-green-600">🟢 {kpis?.readyToHarvest ?? 0} Tanks</p>
                   <p className="text-sm text-gray-600">&gt;400g avg</p>
                 </div>
                 <Button variant="link" className="px-0 h-auto text-[#0A4D68]" size="sm">
@@ -219,7 +159,7 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({
               <div>
                 <p className="text-sm text-gray-600 mb-1">Avg Survival Rate</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-3xl font-bold text-[#0A4D68]">{kpis.avgSurvivalRate}%</p>
+                  <p className="text-3xl font-bold text-[#0A4D68]">{kpis?.avgSurvivalRate ?? 0}%</p>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">Last 10 harvests</p>
               </div>
@@ -234,8 +174,8 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({
               <div>
                 <p className="text-sm text-gray-600 mb-1">Next Recommended</p>
                 <div className="space-y-1">
-                  <p className="text-2xl font-bold text-[#0A4D68]">{kpis.nextRecommended.tankName}</p>
-                  <p className="text-sm text-gray-600">In {kpis.nextRecommended.daysUntil} days</p>
+                  <p className="text-2xl font-bold text-[#0A4D68]">{kpis?.nextRecommended?.tankName ?? 'None'}</p>
+                  <p className="text-sm text-gray-600">In {kpis?.nextRecommended?.daysUntil ?? '--'} days</p>
                 </div>
                 <Button variant="link" className="px-0 h-auto text-[#0A4D68]" size="sm">
                   Predict →
@@ -271,7 +211,13 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {activeHarvests.map((harvest) => (
+            {activeHarvests
+              .filter(h => 
+                h.tankName?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                h.batchNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                h.id?.toLowerCase().includes(searchQuery.toLowerCase())
+              )
+              .map((harvest) => (
               <div key={harvest.id} className="border rounded-lg p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">

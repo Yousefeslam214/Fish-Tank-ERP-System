@@ -18,8 +18,6 @@ import {
   FishTypeRecord,
   FishTypeUpsertPayload,
   FoodTypeOption,
-  MealFrequencyResult,
-  MealFrequencyRule,
   ProteinRequirementResult,
   ProteinRequirementRule,
   createFishType,
@@ -27,7 +25,6 @@ import {
   getFishTypeById,
   getFishTypes,
   getFoodTypes,
-  getMealFrequency,
   getProteinRequirement,
   updateFishType,
 } from '../services/fishTypesApi';
@@ -67,7 +64,6 @@ interface FishTypeFormState {
   defaultMarketPrice: number;
   criticalParameters: string[];
   feedingRateMatrix: FeedingRateMatrix;
-  mealFrequencyRules: MealFrequencyRule[];
   proteinRequirements: ProteinRequirementRule[];
   expectedGradeDistribution: ExpectedGradeDistributionEntry[];
   notes: string;
@@ -91,13 +87,7 @@ const createDefaultFeedingRateMatrix = (): FeedingRateMatrix => ({
   ],
 });
 
-const createDefaultMealFrequencyRules = (): MealFrequencyRule[] => [
-  { maxWeight: 5, mealsPerDay: 6 },
-  { maxWeight: 10, mealsPerDay: 5 },
-  { maxWeight: 25, mealsPerDay: 4 },
-  { maxWeight: 50, mealsPerDay: 3 },
-  { maxWeight: null, mealsPerDay: 2 },
-];
+// Meal defaults removed
 
 const createDefaultProteinRequirements = (): ProteinRequirementRule[] => [
   { minWeight: 0, maxWeight: 10, proteinPercentage: 35 },
@@ -161,7 +151,6 @@ const getDefaultFormState = (): FishTypeFormState => ({
   defaultMarketPrice: 0,
   criticalParameters: ['DO', 'NH3', 'Temperature'],
   feedingRateMatrix: createDefaultFeedingRateMatrix(),
-  mealFrequencyRules: createDefaultMealFrequencyRules(),
   proteinRequirements: createDefaultProteinRequirements(),
   expectedGradeDistribution: [],
   notes: '',
@@ -197,17 +186,13 @@ const toFormState = (fishType: FishTypeRecord): FishTypeFormState => ({
   defaultMarketPrice: fishType.defaultMarketPrice ?? 0,
   criticalParameters: fishType.criticalParameters,
   feedingRateMatrix: normalizeFeedingRateMatrix(fishType.feedingRateMatrix),
-  mealFrequencyRules:
-    fishType.mealFrequencyRules.length > 0
-      ? fishType.mealFrequencyRules.map((rule) => ({ maxWeight: rule.maxWeight, mealsPerDay: rule.mealsPerDay }))
-      : createDefaultMealFrequencyRules(),
   proteinRequirements:
     fishType.proteinRequirements.length > 0
       ? fishType.proteinRequirements.map((rule) => ({
-          minWeight: rule.minWeight,
-          maxWeight: rule.maxWeight,
-          proteinPercentage: rule.proteinPercentage,
-        }))
+        minWeight: rule.minWeight,
+        maxWeight: rule.maxWeight,
+        proteinPercentage: rule.proteinPercentage,
+      }))
       : createDefaultProteinRequirements(),
   expectedGradeDistribution: fishType.expectedGradeDistribution || [],
   notes: fishType.notes || '',
@@ -260,10 +245,7 @@ const validateForm = (form: FishTypeFormState): string | null => {
     return 'Feeding matrix rates must align with all weight ranges and temperatures.';
   }
 
-  const invalidMeals = form.mealFrequencyRules.some((rule) => !Number.isFinite(rule.mealsPerDay) || rule.mealsPerDay <= 0);
-  if (invalidMeals) {
-    return 'Each meal frequency rule must have meals per day greater than 0.';
-  }
+  // Meal validation removed
 
   const invalidProtein = form.proteinRequirements.some(
     (rule) => !Number.isFinite(rule.proteinPercentage) || rule.proteinPercentage <= 0,
@@ -316,10 +298,6 @@ const toUpsertPayload = (form: FishTypeFormState): FishTypeUpsertPayload => ({
   targetWeightForHarvest: form.targetWeightForHarvest,
   defaultMarketPrice: form.defaultMarketPrice,
   feedingRateMatrix: cloneFeedingRateMatrix(form.feedingRateMatrix),
-  mealFrequencyRules: form.mealFrequencyRules.map((rule) => ({
-    maxWeight: rule.maxWeight,
-    mealsPerDay: rule.mealsPerDay,
-  })),
   proteinRequirements: form.proteinRequirements.map((rule) => ({
     minWeight: rule.minWeight,
     maxWeight: rule.maxWeight,
@@ -329,9 +307,9 @@ const toUpsertPayload = (form: FishTypeFormState): FishTypeUpsertPayload => ({
   expectedGradeDistribution:
     form.expectedGradeDistribution.length > 0
       ? form.expectedGradeDistribution.map((row) => ({
-          gradePricingId: row.gradePricingId.trim(),
-          percentage: row.percentage,
-        }))
+        gradePricingId: row.gradePricingId.trim(),
+        percentage: row.percentage,
+      }))
       : undefined,
   notes: form.notes.trim() || undefined,
   allowedFoodTypeIds: form.allowedFoodTypeIds.length > 0 ? form.allowedFoodTypeIds : undefined,
@@ -362,7 +340,7 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
   const [isRunningCalculator, setIsRunningCalculator] = useState(false);
   const [calculatorError, setCalculatorError] = useState<string | null>(null);
   const [feedingRateResult, setFeedingRateResult] = useState<FeedingRateResult | null>(null);
-  const [mealFrequencyResult, setMealFrequencyResult] = useState<MealFrequencyResult | null>(null);
+  // Meal frequency state removed
   const [proteinRequirementResult, setProteinRequirementResult] = useState<ProteinRequirementResult | null>(null);
 
   const currentFarmLabel = selectedFarm?.name || 'Current Farm';
@@ -518,31 +496,7 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
     });
   };
 
-  const updateMealFrequencyRule = (index: number, field: keyof MealFrequencyRule, value: number | null) => {
-    setFormState((previous) => ({
-      ...previous,
-      mealFrequencyRules: previous.mealFrequencyRules.map((rule, ruleIndex) =>
-        ruleIndex === index ? { ...rule, [field]: value } : rule,
-      ),
-    }));
-  };
-
-  const addMealFrequencyRule = () => {
-    setFormState((previous) => ({
-      ...previous,
-      mealFrequencyRules: [...previous.mealFrequencyRules, { maxWeight: null, mealsPerDay: 2 }],
-    }));
-  };
-
-  const removeMealFrequencyRule = (index: number) => {
-    setFormState((previous) => ({
-      ...previous,
-      mealFrequencyRules:
-        previous.mealFrequencyRules.length === 1
-          ? previous.mealFrequencyRules
-          : previous.mealFrequencyRules.filter((_, ruleIndex) => ruleIndex !== index),
-    }));
-  };
+  // Meal frequency handlers removed
 
   const updateProteinRequirement = (index: number, field: keyof ProteinRequirementRule, value: number | null) => {
     setFormState((previous) => ({
@@ -633,14 +587,12 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
     setCalculatorError(null);
     setIsRunningCalculator(true);
     try {
-      const [feedingRate, mealFrequency, proteinRequirement] = await Promise.all([
+      const [feedingRate, proteinRequirement] = await Promise.all([
         getFeedingRate(calculatorFishTypeId, calculatorWeight, calculatorTemperature),
-        getMealFrequency(calculatorFishTypeId, calculatorWeight),
         getProteinRequirement(calculatorFishTypeId, calculatorWeight),
       ]);
 
       setFeedingRateResult(feedingRate);
-      setMealFrequencyResult(mealFrequency);
       setProteinRequirementResult(proteinRequirement);
     } catch (error) {
       setCalculatorError(error instanceof Error ? error.message : 'Failed to run calculators.');
@@ -650,7 +602,7 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
   };
 
   return (
-       <div className="w-full min-h-screen bg-[#F9FAFB] flex flex-col">
+    <div className="w-full min-h-screen bg-[#F9FAFB] flex flex-col">
       <div className="bg-[#0A4D68] text-white px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -806,14 +758,7 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
                   {feedingRateResult ? `${feedingRateResult.feedingRatePercentage}% body weight/day` : 'Run calculator'}
                 </CardContent>
               </Card>
-              <Card className="bg-gray-50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Meal Frequency</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm">
-                  {mealFrequencyResult ? `${mealFrequencyResult.mealsPerDay} meals/day` : 'Run calculator'}
-                </CardContent>
-              </Card>
+// Meal frequency card removed
               <Card className="bg-gray-50">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm">Protein Requirement</CardTitle>
@@ -840,16 +785,16 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
           <div className="px-6 pt-6 pb-4 border-b border-[#C8D9E0] bg-white sticky top-0 z-10">
             <DialogHeader className="gap-0">
               <DialogTitle className="text-2xl font-bold text-[#1F2937]">
-          {editingFishTypeId ? 'Edit Fish Type' : 'Create New Fish Type'}
+                {editingFishTypeId ? 'Edit Fish Type' : 'Create New Fish Type'}
               </DialogTitle>
               <DialogDescription className="sr-only">
-          Configure fish type profile, water quality, feeding matrix, protein rules, and food compatibility.
+                Configure fish type profile, water quality, feeding matrix, protein rules, and food compatibility.
               </DialogDescription>
             </DialogHeader>
             {formError && (
               <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          {formError}
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                {formError}
               </div>
             )}
           </div>
@@ -861,70 +806,70 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
           >
             <TabsList className="grid w-full grid-cols-3 rounded-xl bg-[#E4EDF1] p-1 h-auto gap-1 border border-[#C7D8DF]">
               <TabsTrigger value="basic" className="h-auto min-h-10 whitespace-normal text-center leading-tight py-2 px-2 text-sm font-semibold rounded-lg border border-transparent text-[#2C4250] data-[state=active]:bg-white data-[state=active]:text-[#0A4D68] data-[state=active]:border-[#AEC7D2] data-[state=active]:shadow-sm">
-              Basic Info
+                Basic Info
               </TabsTrigger>
               <TabsTrigger value="water" className="h-auto min-h-10 whitespace-normal text-center leading-tight py-2 px-2 text-sm font-semibold rounded-lg border border-transparent text-[#2C4250] data-[state=active]:bg-white data-[state=active]:text-[#0A4D68] data-[state=active]:border-[#AEC7D2] data-[state=active]:shadow-sm">
-              Water Quality
+                Water Quality
               </TabsTrigger>
               <TabsTrigger value="feeding" className="h-auto min-h-10 whitespace-normal text-center leading-tight py-2 px-2 text-sm font-semibold rounded-lg border border-transparent text-[#2C4250] data-[state=active]:bg-white data-[state=active]:text-[#0A4D68] data-[state=active]:border-[#AEC7D2] data-[state=active]:shadow-sm">
-              Feeding Rates
+                Feeding Rates
               </TabsTrigger>
               <TabsTrigger value="protein" className="h-auto min-h-10 whitespace-normal text-center leading-tight py-2 px-2 text-sm font-semibold rounded-lg border border-transparent text-[#2C4250] data-[state=active]:bg-white data-[state=active]:text-[#0A4D68] data-[state=active]:border-[#AEC7D2] data-[state=active]:shadow-sm">
-              Protein & Meals
+                Protein
               </TabsTrigger>
               <TabsTrigger value="food" className="h-auto min-h-10 whitespace-normal text-center leading-tight py-2 px-2 text-sm font-semibold rounded-lg border border-transparent text-[#2C4250] data-[state=active]:bg-white data-[state=active]:text-[#0A4D68] data-[state=active]:border-[#AEC7D2] data-[state=active]:shadow-sm">
-              Food Types
+                Food Types
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="basic" className="space-y-4 mt-0 border border-[#D3E1E8] rounded-lg bg-white p-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="fish-type-name" className="text-sm font-medium">Name *</Label>
-            <Input
-              id="fish-type-name"
-              placeholder="e.g., Tilapia"
-              value={formState.name}
-              onChange={(event) => setFormState((previous) => ({ ...previous, name: event.target.value }))}
-            />
-          </div>
-          <div>
-            <Label htmlFor="fish-type-scientific-name" className="text-sm font-medium">Scientific Name *</Label>
-            <Input
-              id="fish-type-scientific-name"
-              placeholder="e.g., Oreochromis niloticus"
-              value={formState.scientificName}
-              onChange={(event) => setFormState((previous) => ({ ...previous, scientificName: event.target.value }))}
-            />
-          </div>
-          <div>
-            <Label className="text-sm font-medium">Arabic Name</Label>
-            <Input
-              placeholder="e.g., البلطي"
-              value={formState.arabicName}
-              onChange={(event) => setFormState((previous) => ({ ...previous, arabicName: event.target.value }))}
-            />
-          </div>
-          <div>
-            <Label className="text-sm font-medium">Target SGR (%/day)</Label>
-            <Input
-              type="number"
-              step="0.1"
-              min="0"
-              value={formState.targetSGR}
-              onChange={(event) => setFormState((previous) => ({ ...previous, targetSGR: toNumber(event.target.value) }))}
-            />
-          </div>
+                <div>
+                  <Label htmlFor="fish-type-name" className="text-sm font-medium">Name *</Label>
+                  <Input
+                    id="fish-type-name"
+                    placeholder="e.g., Tilapia"
+                    value={formState.name}
+                    onChange={(event) => setFormState((previous) => ({ ...previous, name: event.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="fish-type-scientific-name" className="text-sm font-medium">Scientific Name *</Label>
+                  <Input
+                    id="fish-type-scientific-name"
+                    placeholder="e.g., Oreochromis niloticus"
+                    value={formState.scientificName}
+                    onChange={(event) => setFormState((previous) => ({ ...previous, scientificName: event.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Arabic Name</Label>
+                  <Input
+                    placeholder="e.g., البلطي"
+                    value={formState.arabicName}
+                    onChange={(event) => setFormState((previous) => ({ ...previous, arabicName: event.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Target SGR (%/day)</Label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={formState.targetSGR}
+                    onChange={(event) => setFormState((previous) => ({ ...previous, targetSGR: toNumber(event.target.value) }))}
+                  />
+                </div>
               </div>
 
               <div>
-          <Label className="text-sm font-medium">Description</Label>
-          <Textarea
-            rows={3}
-            placeholder="Additional details about this fish type..."
-            value={formState.description}
-            onChange={(event) => setFormState((previous) => ({ ...previous, description: event.target.value }))}
-          />
+                <Label className="text-sm font-medium">Description</Label>
+                <Textarea
+                  rows={3}
+                  placeholder="Additional details about this fish type..."
+                  value={formState.description}
+                  onChange={(event) => setFormState((previous) => ({ ...previous, description: event.target.value }))}
+                />
               </div>
 
               <div>
@@ -936,9 +881,8 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
                       <button
                         type="button"
                         key={parameter}
-                        className={`px-3 py-2 rounded-lg border text-sm text-left ${
-                          selected ? 'bg-[#E0F4F5] border-[#088395] text-[#0A4D68]' : 'bg-white border-gray-300'
-                        }`}
+                        className={`px-3 py-2 rounded-lg border text-sm text-left ${selected ? 'bg-[#E0F4F5] border-[#088395] text-[#0A4D68]' : 'bg-white border-gray-300'
+                          }`}
                         onClick={() => toggleCriticalParameter(parameter)}
                       >
                         {parameter}
@@ -951,197 +895,197 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
 
             <TabsContent value="water" className="space-y-6 mt-0 border border-[#D3E1E8] rounded-lg bg-white p-4">
               <div>
-          <h3 className="text-lg font-semibold text-[#1F2937] mb-4">Water Quality Parameters</h3>
+                <h3 className="text-lg font-semibold text-[#1F2937] mb-4">Water Quality Parameters</h3>
 
-          <div className="space-y-4">
-            <div>
-              <h4 className="text-sm font-semibold text-[#374151] mb-3">Temperature (°C)</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {[
-            { key: 'tempMin', label: 'Minimum' },
-            { key: 'tempOptimal', label: 'Optimal' },
-            { key: 'tempMax', label: 'Maximum' },
-                ].map(({ key, label }) => (
-            <div key={key}>
-              <Label className="text-xs text-gray-600">{label}</Label>
-              <Input
-                type="number"
-                value={formState[key as keyof FishTypeFormState]}
-                onChange={(event) =>
-                  setFormState((previous) => ({
-              ...previous,
-              [key]: toNumber(event.target.value),
-                  }))
-                }
-              />
-            </div>
-                ))}
-              </div>
-            </div>
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-[#374151] mb-3">Temperature (°C)</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {[
+                        { key: 'tempMin', label: 'Minimum' },
+                        { key: 'tempOptimal', label: 'Optimal' },
+                        { key: 'tempMax', label: 'Maximum' },
+                      ].map(({ key, label }) => (
+                        <div key={key}>
+                          <Label className="text-xs text-gray-600">{label}</Label>
+                          <Input
+                            type="number"
+                            value={formState[key as keyof FishTypeFormState] as number}
+                            onChange={(event) =>
+                              setFormState((previous) => ({
+                                ...previous,
+                                [key]: toNumber(event.target.value),
+                              }))
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[
-                {
-            title: 'Dissolved Oxygen (mg/L)',
-            fields: [
-              { key: 'doMin', label: 'Minimum' },
-              { key: 'doSafe', label: 'Safe' },
-            ],
-                },
-                {
-            title: 'pH Range',
-            fields: [
-              { key: 'phMin', label: 'Minimum' },
-              { key: 'phMax', label: 'Maximum' },
-            ],
-                },
-              ].map(({ title, fields }) => (
-                <div key={title} className="space-y-3">
-            <h4 className="text-sm font-semibold text-[#374151]">{title}</h4>
-            <div className="grid grid-cols-2 gap-3">
-              {fields.map(({ key, label }) => (
-                <div key={key}>
-                  <Label className="text-xs text-gray-600">{label}</Label>
-                  <Input
-              type="number"
-              step="0.1"
-              value={formState[key as keyof FishTypeFormState]}
-              onChange={(event) =>
-                setFormState((previous) => ({
-                  ...previous,
-                  [key]: toNumber(event.target.value),
-                }))
-              }
-                  />
-                </div>
-              ))}
-            </div>
-                </div>
-              ))}
-            </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[
+                      {
+                        title: 'Dissolved Oxygen (mg/L)',
+                        fields: [
+                          { key: 'doMin', label: 'Minimum' },
+                          { key: 'doSafe', label: 'Safe' },
+                        ],
+                      },
+                      {
+                        title: 'pH Range',
+                        fields: [
+                          { key: 'phMin', label: 'Minimum' },
+                          { key: 'phMax', label: 'Maximum' },
+                        ],
+                      },
+                    ].map(({ title, fields }) => (
+                      <div key={title} className="space-y-3">
+                        <h4 className="text-sm font-semibold text-[#374151]">{title}</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          {fields.map(({ key, label }) => (
+                            <div key={key}>
+                              <Label className="text-xs text-gray-600">{label}</Label>
+                              <Input
+                                type="number"
+                                step="0.1"
+                                value={formState[key as keyof FishTypeFormState] as number}
+                                onChange={(event) =>
+                                  setFormState((previous) => ({
+                                    ...previous,
+                                    [key]: toNumber(event.target.value),
+                                  }))
+                                }
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {[
-                { key: 'nh3Safe', label: 'NH₃ Safe (mg/L)', step: '0.01' },
-                { key: 'nh3Critical', label: 'NH₃ Critical (mg/L)', step: '0.01' },
-                { key: 'no2Max', label: 'NO₂ Max (mg/L)', step: '0.1' },
-              ].map(({ key, label, step }) => (
-                <div key={key}>
-            <Label className="text-xs font-medium text-gray-700">{label}</Label>
-            <Input
-              type="number"
-              step={step}
-              value={formState[key as keyof FishTypeFormState]}
-              onChange={(event) =>
-                setFormState((previous) => ({
-                  ...previous,
-                  [key]: toNumber(event.target.value),
-                }))
-              }
-            />
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {[
+                      { key: 'nh3Safe', label: 'NH₃ Safe (mg/L)', step: '0.01' },
+                      { key: 'nh3Critical', label: 'NH₃ Critical (mg/L)', step: '0.01' },
+                      { key: 'no2Max', label: 'NO₂ Max (mg/L)', step: '0.1' },
+                    ].map(({ key, label, step }) => (
+                      <div key={key}>
+                        <Label className="text-xs font-medium text-gray-700">{label}</Label>
+                        <Input
+                          type="number"
+                          step={step}
+                          value={formState[key as keyof FishTypeFormState] as number}
+                          onChange={(event) =>
+                            setFormState((previous) => ({
+                              ...previous,
+                              [key]: toNumber(event.target.value),
+                            }))
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
               </div>
 
               <div>
-          <h3 className="text-lg font-semibold text-[#1F2937] mb-4">Performance Benchmarks</h3>
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {[
-                { key: 'fcrMin', label: 'FCR Minimum (Best)' },
-                { key: 'fcrMax', label: 'FCR Maximum (Acceptable)' },
-                { key: 'survivalRate', label: 'Expected Survival Rate (%)' },
-              ].map(({ key, label }) => (
-                <div key={key}>
-            <Label className="text-xs font-medium text-gray-700">{label}</Label>
-            <Input
-              type="number"
-              step={key === 'survivalRate' ? '1' : '0.1'}
-              value={formState[key as keyof FishTypeFormState]}
-              onChange={(event) =>
-                setFormState((previous) => ({
-                  ...previous,
-                  [key]: toNumber(event.target.value),
-                }))
-              }
-            />
+                <h3 className="text-lg font-semibold text-[#1F2937] mb-4">Performance Benchmarks</h3>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {[
+                      { key: 'fcrMin', label: 'FCR Minimum (Best)' },
+                      { key: 'fcrMax', label: 'FCR Maximum (Acceptable)' },
+                      { key: 'survivalRate', label: 'Expected Survival Rate (%)' },
+                    ].map(({ key, label }) => (
+                      <div key={key}>
+                        <Label className="text-xs font-medium text-gray-700">{label}</Label>
+                        <Input
+                          type="number"
+                          step={key === 'survivalRate' ? '1' : '0.1'}
+                          value={formState[key as keyof FishTypeFormState] as number}
+                          onChange={(event) =>
+                            setFormState((previous) => ({
+                              ...previous,
+                              [key]: toNumber(event.target.value),
+                            }))
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {[
+                      { key: 'no3Max', label: 'NO₃ Max (mg/L)' },
+                      { key: 'targetWeightForHarvest', label: 'Target Weight For Harvest (kg)' },
+                      { key: 'defaultMarketPrice', label: 'Default Market Price (EGP/kg)' },
+                    ].map(({ key, label }) => (
+                      <div key={key}>
+                        <Label className="text-xs font-medium text-gray-700">{label}</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={formState[key as keyof FishTypeFormState] as number}
+                          onChange={(event) =>
+                            setFormState((previous) => ({
+                              ...previous,
+                              [key]: toNumber(event.target.value),
+                            }))
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {[
-                { key: 'no3Max', label: 'NO₃ Max (mg/L)' },
-                { key: 'targetWeightForHarvest', label: 'Target Weight For Harvest (kg)' },
-                { key: 'defaultMarketPrice', label: 'Default Market Price (EGP/kg)' },
-              ].map(({ key, label }) => (
-                <div key={key}>
-            <Label className="text-xs font-medium text-gray-700">{label}</Label>
-            <Input
-              type="number"
-              step="0.1"
-              value={formState[key as keyof FishTypeFormState]}
-              onChange={(event) =>
-                setFormState((previous) => ({
-                  ...previous,
-                  [key]: toNumber(event.target.value),
-                }))
-              }
-            />
-                </div>
-              ))}
-            </div>
-          </div>
               </div>
             </TabsContent>
 
             <TabsContent value="feeding" className="space-y-4 mt-0 border border-[#D3E1E8] rounded-lg bg-white p-4">
               <div className="flex flex-wrap gap-2 justify-between items-center">
-          <h3 className="text-base font-semibold">Feeding Rate Matrix</h3>
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={addFeedingTemperature}>
-              <Plus className="w-3 h-3 mr-1" />
-              Temperature
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={addWeightRange}>
-              <Plus className="w-3 h-3 mr-1" />
-              Weight Range
-            </Button>
-          </div>
+                <h3 className="text-base font-semibold">Feeding Rate Matrix</h3>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={addFeedingTemperature}>
+                    <Plus className="w-3 h-3 mr-1" />
+                    Temperature
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={addWeightRange}>
+                    <Plus className="w-3 h-3 mr-1" />
+                    Weight Range
+                  </Button>
+                </div>
               </div>
 
               <Card className="bg-white border border-[#D3E1E8]">
-          <CardContent className="pt-4 space-y-3">
-            <p className="text-sm font-medium text-gray-700">Temperature Columns (°C)</p>
-            <div className="flex flex-wrap gap-2">
-              {formState.feedingRateMatrix.temperatures.map((temperature, index) => (
-                <div key={`temperature-${index}`} className="flex items-center gap-1 border rounded-md bg-gray-50 px-2 py-1">
-            <Input
-              type="number"
-              className="w-20 h-8 bg-white"
-              value={temperature}
-              onChange={(event) =>
-                updateFeedingMatrix((matrix) => {
-                  matrix.temperatures[index] = toNumber(event.target.value);
-                })
-              }
-            />
-            <span className="text-xs text-gray-600">°C</span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
-              onClick={() => removeFeedingTemperature(index)}
-              disabled={formState.feedingRateMatrix.temperatures.length <= 1}
-            >
-              <Trash2 className="w-3 h-3" />
-            </Button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
+                <CardContent className="pt-4 space-y-3">
+                  <p className="text-sm font-medium text-gray-700">Temperature Columns (°C)</p>
+                  <div className="flex flex-wrap gap-2">
+                    {formState.feedingRateMatrix.temperatures.map((temperature, index) => (
+                      <div key={`temperature-${index}`} className="flex items-center gap-1 border rounded-md bg-gray-50 px-2 py-1">
+                        <Input
+                          type="number"
+                          className="w-20 h-8 bg-white"
+                          value={temperature}
+                          onChange={(event) =>
+                            updateFeedingMatrix((matrix) => {
+                              matrix.temperatures[index] = toNumber(event.target.value);
+                            })
+                          }
+                        />
+                        <span className="text-xs text-gray-600">°C</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                          onClick={() => removeFeedingTemperature(index)}
+                          disabled={formState.feedingRateMatrix.temperatures.length <= 1}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
               </Card>
 
               <div className="overflow-x-auto border rounded-lg bg-white">
@@ -1219,302 +1163,248 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
             </TabsContent>
 
             <TabsContent value="protein" className="space-y-4 mt-0 border border-[#D3E1E8] rounded-lg bg-white p-4">
-              <Card className="bg-white border border-[#D3E1E8]">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center justify-between">
-              <span className="font-semibold">Meal Frequency Rules</span>
-              <Button type="button" size="sm" variant="outline" onClick={addMealFrequencyRule}>
-                <Plus className="w-3 h-3 mr-1" />
-                Add Rule
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {formState.mealFrequencyRules.length === 0 ? (
-              <p className="text-sm text-gray-500">No rules configured.</p>
-            ) : (
-              formState.mealFrequencyRules.map((rule, index) => (
-                <div key={`meal-rule-${index}`} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 items-end p-2 border rounded-md bg-gray-50">
-            <div>
-              <Label className="text-xs font-medium text-gray-700">Max Weight (g)</Label>
-              <Input
-                type="number"
-                value={rule.maxWeight ?? ''}
-                placeholder="Leave empty for no max"
-                onChange={(event) =>
-                  updateMealFrequencyRule(index, 'maxWeight', toNullableNumber(event.target.value))
-                }
-              />
-            </div>
-            <div>
-              <Label className="text-xs font-medium text-gray-700">Meals Per Day</Label>
-              <Input
-                type="number"
-                min="1"
-                value={rule.mealsPerDay}
-                onChange={(event) =>
-                  updateMealFrequencyRule(index, 'mealsPerDay', Math.max(0, toNumber(event.target.value)))
-                }
-              />
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="hover:bg-red-50 hover:text-red-600"
-              onClick={() => removeMealFrequencyRule(index)}
-              disabled={formState.mealFrequencyRules.length <= 1}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-                </div>
-              ))
-            )}
-          </CardContent>
-              </Card>
+// Meal Frequency Rules section removed
 
               <Card className="bg-white border border-[#D3E1E8]">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center justify-between">
-              <span className="font-semibold">Protein Requirements</span>
-              <Button type="button" size="sm" variant="outline" onClick={addProteinRequirement}>
-                <Plus className="w-3 h-3 mr-1" />
-                Add Rule
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {formState.proteinRequirements.length === 0 ? (
-              <p className="text-sm text-gray-500">No rules configured.</p>
-            ) : (
-              formState.proteinRequirements.map((rule, index) => (
-                <div key={`protein-rule-${index}`} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end p-2 border rounded-md bg-gray-50">
-            <div>
-              <Label className="text-xs font-medium text-gray-700">Min Weight (g)</Label>
-              <Input
-                type="number"
-                value={rule.minWeight ?? ''}
-                onChange={(event) =>
-                  updateProteinRequirement(index, 'minWeight', toNullableNumber(event.target.value))
-                }
-              />
-            </div>
-            <div>
-              <Label className="text-xs font-medium text-gray-700">Max Weight (g)</Label>
-              <Input
-                type="number"
-                value={rule.maxWeight ?? ''}
-                placeholder="Leave empty for no max"
-                onChange={(event) =>
-                  updateProteinRequirement(index, 'maxWeight', toNullableNumber(event.target.value))
-                }
-              />
-            </div>
-            <div>
-              <Label className="text-xs font-medium text-gray-700">Protein %</Label>
-              <Input
-                type="number"
-                min="0"
-                value={rule.proteinPercentage}
-                onChange={(event) =>
-                  updateProteinRequirement(index, 'proteinPercentage', Math.max(0, toNumber(event.target.value)))
-                }
-              />
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="hover:bg-red-50 hover:text-red-600"
-              onClick={() => removeProteinRequirement(index)}
-              disabled={formState.proteinRequirements.length <= 1}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-                </div>
-              ))
-            )}
-          </CardContent>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center justify-between">
+                    <span className="font-semibold">Protein Requirements</span>
+                    <Button type="button" size="sm" variant="outline" onClick={addProteinRequirement}>
+                      <Plus className="w-3 h-3 mr-1" />
+                      Add Rule
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {formState.proteinRequirements.length === 0 ? (
+                    <p className="text-sm text-gray-500">No rules configured.</p>
+                  ) : (
+                    formState.proteinRequirements.map((rule, index) => (
+                      <div key={`protein-rule-${index}`} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end p-2 border rounded-md bg-gray-50">
+                        <div>
+                          <Label className="text-xs font-medium text-gray-700">Min Weight (g)</Label>
+                          <Input
+                            type="number"
+                            value={rule.minWeight ?? ''}
+                            onChange={(event) =>
+                              updateProteinRequirement(index, 'minWeight', toNullableNumber(event.target.value))
+                            }
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-gray-700">Max Weight (g)</Label>
+                          <Input
+                            type="number"
+                            value={rule.maxWeight ?? ''}
+                            placeholder="Leave empty for no max"
+                            onChange={(event) =>
+                              updateProteinRequirement(index, 'maxWeight', toNullableNumber(event.target.value))
+                            }
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-gray-700">Protein %</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={rule.proteinPercentage}
+                            onChange={(event) =>
+                              updateProteinRequirement(index, 'proteinPercentage', Math.max(0, toNumber(event.target.value)))
+                            }
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="hover:bg-red-50 hover:text-red-600"
+                          onClick={() => removeProteinRequirement(index)}
+                          disabled={formState.proteinRequirements.length <= 1}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
               </Card>
             </TabsContent>
 
             <TabsContent value="food" className="space-y-4 mt-0 border border-[#D3E1E8] rounded-lg bg-white p-4">
               <Card className="bg-white border border-[#D3E1E8]">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">Allowed Food Types</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {isLoadingFoodTypes ? (
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Loading food types...
-              </div>
-            ) : foodTypes.length === 0 ? (
-              <p className="text-sm text-gray-600">No food types available.</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {foodTypes.map((foodType) => {
-            const checked = formState.allowedFoodTypeIds.includes(foodType.id);
-            return (
-              <label
-                key={foodType.id}
-                className={`border rounded-md p-3 text-sm flex items-center justify-between cursor-pointer transition-colors ${
-                  checked ? 'bg-[#DCF4F7] border-[#0D8FA3]' : 'bg-white border-[#C8D7DF] hover:border-[#0D8FA3]'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <Wheat className="w-4 h-4 text-[#0D8FA3]" />
-                  {foodType.name}
-                </span>
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={(event) => toggleAllowedFoodType(foodType.id, event.target.checked)}
-                  className="w-4 h-4 cursor-pointer"
-                />
-              </label>
-            );
-                })}
-              </div>
-            )}
-          </CardContent>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold">Allowed Food Types</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {isLoadingFoodTypes ? (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading food types...
+                    </div>
+                  ) : foodTypes.length === 0 ? (
+                    <p className="text-sm text-gray-600">No food types available.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {foodTypes.map((foodType) => {
+                        const checked = formState.allowedFoodTypeIds.includes(foodType.id);
+                        return (
+                          <label
+                            key={foodType.id}
+                            className={`border rounded-md p-3 text-sm flex items-center justify-between cursor-pointer transition-colors ${checked ? 'bg-[#DCF4F7] border-[#0D8FA3]' : 'bg-white border-[#C8D7DF] hover:border-[#0D8FA3]'
+                              }`}
+                          >
+                            <span className="flex items-center gap-2">
+                              <Wheat className="w-4 h-4 text-[#0D8FA3]" />
+                              {foodType.name}
+                            </span>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(event) => toggleAllowedFoodType(foodType.id, event.target.checked)}
+                              className="w-4 h-4 cursor-pointer"
+                            />
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
               </Card>
 
               <Card className="bg-white border border-[#D3E1E8]">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center justify-between">
-              <span className="font-semibold">Expected Grade Distribution</span>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={addExpectedDistributionRow}
-                disabled={isLoadingGradePricing || gradePricingOptions.length === 0}
-              >
-                <Plus className="w-3 h-3 mr-1" />
-                Add Row
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {!editingFishTypeId ? (
-              <p className="text-xs text-amber-700 border border-amber-200 bg-amber-50 rounded-md p-2">
-                Save the fish type first, then configure grade distribution from available Grade Pricing records.
-              </p>
-            ) : null}
-            {gradePricingError ? (
-              <p className="text-xs text-red-700 border border-red-200 bg-red-50 rounded-md p-2">{gradePricingError}</p>
-            ) : null}
-            {editingFishTypeId && isLoadingGradePricing ? (
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Loading grade pricing options...
-              </div>
-            ) : null}
-            {editingFishTypeId && !isLoadingGradePricing && gradePricingOptions.length === 0 ? (
-              <p className="text-sm text-gray-500">No grade pricing records available for this fish type.</p>
-            ) : null}
-            {formState.expectedGradeDistribution.length === 0 ? (
-              <p className="text-sm text-gray-500">No grade distribution configured.</p>
-            ) : (
-              formState.expectedGradeDistribution.map((row, index) => (
-                <div key={`distribution-row-${index}`} className="grid grid-cols-1 sm:grid-cols-[1fr_140px_auto] gap-2 items-end p-2 border rounded-md bg-gray-50">
-            <div>
-              <Label className="text-xs font-medium text-gray-700">Grade Pricing ID</Label>
-              <select
-                value={row.gradePricingId}
-                onChange={(event) =>
-                  updateExpectedDistributionRow(index, 'gradePricingId', event.target.value)
-                }
-                className="mt-1 h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#0D8FA3]/30"
-                disabled={isLoadingGradePricing || gradePricingOptions.length === 0}
-              >
-                <option value="">Select grade pricing</option>
-                {gradePricingOptions.map((pricing) => (
-                  <option key={pricing.id} value={pricing.id}>
-                    {pricing.gradeName} ({pricing.minWeight}-{pricing.maxWeight}g, {pricing.pricePerKg} EGP/kg)
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label className="text-xs font-medium text-gray-700">Percentage</Label>
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-                value={row.percentage}
-                onChange={(event) => updateExpectedDistributionRow(index, 'percentage', toNumber(event.target.value))}
-              />
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="hover:bg-red-50 hover:text-red-600"
-              onClick={() => removeExpectedDistributionRow(index)}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-                </div>
-              ))
-            )}
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center justify-between">
+                    <span className="font-semibold">Expected Grade Distribution</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={addExpectedDistributionRow}
+                      disabled={isLoadingGradePricing || gradePricingOptions.length === 0}
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Add Row
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {!editingFishTypeId ? (
+                    <p className="text-xs text-amber-700 border border-amber-200 bg-amber-50 rounded-md p-2">
+                      Save the fish type first, then configure grade distribution from available Grade Pricing records.
+                    </p>
+                  ) : null}
+                  {gradePricingError ? (
+                    <p className="text-xs text-red-700 border border-red-200 bg-red-50 rounded-md p-2">{gradePricingError}</p>
+                  ) : null}
+                  {editingFishTypeId && isLoadingGradePricing ? (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading grade pricing options...
+                    </div>
+                  ) : null}
+                  {editingFishTypeId && !isLoadingGradePricing && gradePricingOptions.length === 0 ? (
+                    <p className="text-sm text-gray-500">No grade pricing records available for this fish type.</p>
+                  ) : null}
+                  {formState.expectedGradeDistribution.length === 0 ? (
+                    <p className="text-sm text-gray-500">No grade distribution configured.</p>
+                  ) : (
+                    formState.expectedGradeDistribution.map((row, index) => (
+                      <div key={`distribution-row-${index}`} className="grid grid-cols-1 sm:grid-cols-[1fr_140px_auto] gap-2 items-end p-2 border rounded-md bg-gray-50">
+                        <div>
+                          <Label className="text-xs font-medium text-gray-700">Grade Pricing ID</Label>
+                          <select
+                            value={row.gradePricingId}
+                            onChange={(event) =>
+                              updateExpectedDistributionRow(index, 'gradePricingId', event.target.value)
+                            }
+                            className="mt-1 h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#0D8FA3]/30"
+                            disabled={isLoadingGradePricing || gradePricingOptions.length === 0}
+                          >
+                            <option value="">Select grade pricing</option>
+                            {gradePricingOptions.map((pricing) => (
+                              <option key={pricing.id} value={pricing.id}>
+                                {pricing.gradeName} ({pricing.minWeight}-{pricing.maxWeight}g, {pricing.pricePerKg} EGP/kg)
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-gray-700">Percentage</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={row.percentage}
+                            onChange={(event) => updateExpectedDistributionRow(index, 'percentage', toNumber(event.target.value))}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="hover:bg-red-50 hover:text-red-600"
+                          onClick={() => removeExpectedDistributionRow(index)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
 
-            {formState.expectedGradeDistribution.length > 0 && (
-              <div className={`text-xs font-medium p-2 rounded-md ${
-                Math.abs(distributionTotal - 100) <= 0.01
-            ? 'bg-green-50 text-green-700 border border-green-200'
-            : 'bg-red-50 text-red-700 border border-red-200'
-              }`}>
-                Total: {distributionTotal.toFixed(2)}%
-              </div>
-            )}
-          </CardContent>
+                  {formState.expectedGradeDistribution.length > 0 && (
+                    <div className={`text-xs font-medium p-2 rounded-md ${Math.abs(distributionTotal - 100) <= 0.01
+                      ? 'bg-green-50 text-green-700 border border-green-200'
+                      : 'bg-red-50 text-red-700 border border-red-200'
+                      }`}>
+                      Total: {distributionTotal.toFixed(2)}%
+                    </div>
+                  )}
+                </CardContent>
               </Card>
 
               <Card className="bg-white border border-[#D3E1E8]">
-          <CardContent className="pt-4 space-y-4">
-            <div className="flex items-center justify-between border rounded-md p-3 bg-gray-50 hover:bg-gray-100 transition-colors">
-              <div>
-                <Label className="text-sm font-medium">Active Status</Label>
-                <p className="text-xs text-gray-600 mt-1">Enable this fish type in operational flows</p>
-              </div>
-              <Switch
-                checked={formState.isActive}
-                onCheckedChange={(checked) => setFormState((previous) => ({ ...previous, isActive: checked }))}
-              />
-            </div>
+                <CardContent className="pt-4 space-y-4">
+                  <div className="flex items-center justify-between border rounded-md p-3 bg-gray-50 hover:bg-gray-100 transition-colors">
+                    <div>
+                      <Label className="text-sm font-medium">Active Status</Label>
+                      <p className="text-xs text-gray-600 mt-1">Enable this fish type in operational flows</p>
+                    </div>
+                    <Switch
+                      checked={formState.isActive}
+                      onCheckedChange={(checked) => setFormState((previous) => ({ ...previous, isActive: checked }))}
+                    />
+                  </div>
 
-            <div>
-              <Label className="text-sm font-medium">Notes</Label>
-              <Textarea
-                rows={3}
-                placeholder="Additional notes..."
-                value={formState.notes}
-                onChange={(event) => setFormState((previous) => ({ ...previous, notes: event.target.value }))}
-              />
-            </div>
-          </CardContent>
+                  <div>
+                    <Label className="text-sm font-medium">Notes</Label>
+                    <Textarea
+                      rows={3}
+                      placeholder="Additional notes..."
+                      value={formState.notes}
+                      onChange={(event) => setFormState((previous) => ({ ...previous, notes: event.target.value }))}
+                    />
+                  </div>
+                </CardContent>
               </Card>
             </TabsContent>
 
             <div className="border-t border-[#C8D9E0] pt-4 flex flex-col sm:flex-row gap-3">
               <Button
-          variant="outline"
-          className="flex-1 h-11"
-          onClick={() => setIsModalOpen(false)}
-          disabled={isSaving}
+                variant="outline"
+                className="flex-1 h-11"
+                onClick={() => setIsModalOpen(false)}
+                disabled={isSaving}
               >
-          Cancel
+                Cancel
               </Button>
               <Button
-          className="flex-1 h-11 bg-[#0D8FA3] hover:bg-[#0A6F83] border border-[#0A6F83] text-black"
-          onClick={() => void saveFishType()}
-          disabled={isSaving}
+                className="flex-1 h-11 bg-[#0D8FA3] hover:bg-[#0A6F83] border border-[#0A6F83] text-black"
+                onClick={() => void saveFishType()}
+                disabled={isSaving}
               >
-          {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-          {editingFishTypeId ? 'Update Fish Type' : 'Create Fish Type'}
+                {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                {editingFishTypeId ? 'Update Fish Type' : 'Create Fish Type'}
               </Button>
             </div>
           </Tabs>

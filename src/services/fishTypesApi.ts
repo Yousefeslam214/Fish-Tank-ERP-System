@@ -20,10 +20,7 @@ export interface FeedingRateMatrix {
   rates: number[][];
 }
 
-export interface MealFrequencyRule {
-  maxWeight: number | null;
-  mealsPerDay: number;
-}
+// Meal frequency removed
 
 export interface ProteinRequirementRule {
   minWeight: number | null;
@@ -72,7 +69,6 @@ export interface FishTypeRecord {
   targetWeightForHarvest?: number;
   defaultMarketPrice?: number;
   feedingRateMatrix: FeedingRateMatrix;
-  mealFrequencyRules: MealFrequencyRule[];
   criticalParameters: string[];
   proteinRequirements: ProteinRequirementRule[];
   expectedGradeDistribution?: ExpectedGradeDistributionEntry[];
@@ -111,7 +107,6 @@ export interface FishTypeUpsertPayload {
   targetWeightForHarvest?: number;
   defaultMarketPrice?: number;
   feedingRateMatrix: FeedingRateMatrix;
-  mealFrequencyRules: MealFrequencyRule[];
   criticalParameters?: string[];
   notes?: string;
   allowedFoodTypeIds?: string[];
@@ -127,11 +122,7 @@ export interface FeedingRateResult {
   feedingRatePercentage: number;
 }
 
-export interface MealFrequencyResult {
-  fishTypeId: string;
-  weight: number;
-  mealsPerDay: number;
-}
+// Meal frequency removed
 
 export interface ProteinRequirementResult {
   fishTypeId: string;
@@ -217,19 +208,7 @@ const normalizeFeedingRateMatrix = (value: unknown): FeedingRateMatrix => {
   };
 };
 
-const normalizeMealFrequencyRules = (value: unknown): MealFrequencyRule[] =>
-  asArray(value)
-    .map((entry) => {
-      const record = asRecord(entry);
-      if (!record) {
-        return null;
-      }
-      return {
-        maxWeight: asNumber(record.maxWeight) ?? null,
-        mealsPerDay: asNumber(record.mealsPerDay) ?? 0,
-      };
-    })
-    .filter((entry): entry is MealFrequencyRule => entry !== null);
+// Normalizer for meals removed
 
 const normalizeProteinRequirements = (value: unknown): ProteinRequirementRule[] =>
   asArray(value)
@@ -342,7 +321,6 @@ const normalizeFishType = (value: unknown): FishTypeRecord | null => {
     targetWeightForHarvest: asNumber(record.targetWeightForHarvest),
     defaultMarketPrice: asNumber(record.defaultMarketPrice),
     feedingRateMatrix: normalizeFeedingRateMatrix(record.feedingRateMatrix),
-    mealFrequencyRules: normalizeMealFrequencyRules(record.mealFrequencyRules),
     criticalParameters: asArray(record.criticalParameters)
       .map((entry) => asString(entry))
       .filter((entry): entry is string => Boolean(entry)),
@@ -445,18 +423,7 @@ export const getFeedingRate = async (
   };
 };
 
-export const getMealFrequency = async (
-  fishTypeId: string,
-  weight: number,
-): Promise<MealFrequencyResult> => {
-  const payload = await requestJson(`/farm/fish-types/${fishTypeId}/meal-frequency?weight=${weight}`);
-  const data = normalizeCalculatorResult(payload);
-  return {
-    fishTypeId: asString(data.fishTypeId) || fishTypeId,
-    weight: asNumber(data.weight) ?? weight,
-    mealsPerDay: asNumber(data.mealsPerDay) ?? 0,
-  };
-};
+// getMealFrequency removed
 
 export const getProteinRequirement = async (
   fishTypeId: string,

@@ -3,7 +3,7 @@ import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Package, Fish as FishIcon, Calendar, AlertTriangle, Plus, Loader2 } from 'lucide-react';
+import { Package, Fish as FishIcon, Calendar, AlertTriangle, Loader2 } from 'lucide-react';
 import { User, Farm } from '../../types';
 import {
   findHarvestedInventory,
@@ -14,8 +14,8 @@ import {
 } from '../../services/salesApi';
 
 interface HarvestedInventoryViewProps {
-  user: User;
-  selectedFarm: Farm;
+  user?: User;
+  selectedFarm?: Farm | null;
   refreshKey?: number;
 }
 
@@ -346,10 +346,6 @@ export default function HarvestedInventoryView({ refreshKey = 0 }: HarvestedInve
                     </div>
                   )}
 
-                  <Button className="w-full bg-[#088395] hover:bg-[#0A4D68]" size="sm" disabled>
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add to Order
-                  </Button>
                 </CardContent>
               </Card>
             ))}
