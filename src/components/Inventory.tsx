@@ -32,6 +32,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { BatchHealthModal } from "./tanks/modals/BatchHealthModal";
 import HarvestedInventoryView from "./sales/HarvestedInventoryView";
 import { getFishTypes } from "../services/fishTypesApi";
+import {
+  createFeedPurchaseOrder,
+  createFishPurchaseOrder,
+  createMedicinePurchaseOrder,
+  createProcurementSupplier,
+  getProcurementSuppliers,
+} from "../services/procurementApi";
 
 import {
   getFeedInventory,
@@ -121,6 +128,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     receiveDate: new Date().toISOString().split("T")[0],
     expiryDate: "",
   });
+  const [addResourceSearchQuery, setAddResourceSearchQuery] = useState("");
   const [fishTypeOptions, setFishTypeOptions] = useState<Array<{ id: string; name: string }>>([]);
 
   // Health modal state
@@ -475,6 +483,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       receiveDate: new Date().toISOString().split("T")[0],
       expiryDate: "",
     });
+    setAddResourceSearchQuery("");
   };
 
   const ensureMutationSucceeded = (response: any) => {
@@ -495,16 +504,77 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     return "Failed to add resource. Please check your input and try again.";
   };
 
+  const resolveUnitCost = (...values: Array<unknown>): number => {
+    for (const value of values) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return parsed;
+      }
+    }
+    return 1;
+  };
+
+  const ensureSupplierForResource = async (resourceType: ResourceType): Promise<string> => {
+    const requiredItemTypes =
+      resourceType === "feed"
+        ? ["FEED", "FOOD"]
+        : resourceType === "medicine"
+          ? ["MEDICINE"]
+          : ["FISH", "FINGERLINGS"];
+    const primaryItemType = requiredItemTypes[0];
+    const fallbackName =
+      resourceType === "feed"
+        ? "Inventory Feed Supplier"
+        : resourceType === "medicine"
+          ? "Inventory Medicine Supplier"
+          : "Inventory Fish Supplier";
+
+    const suppliers = await getProcurementSuppliers();
+    const existing = suppliers.find((supplier) =>
+      supplier.items.some((item) => requiredItemTypes.includes(item.toUpperCase())),
+    );
+    if (existing?.id) {
+      return existing.id;
+    }
+
+    const created = await createProcurementSupplier({
+      name: fallbackName,
+      items: [primaryItemType],
+      address: selectedFarm?.name ? `Auto-generated for ${selectedFarm.name}` : "Auto-generated from Inventory",
+    });
+
+    if (!created?.id) {
+      const refreshed = await getProcurementSuppliers();
+      const fallbackSupplier = refreshed.find((supplier) =>
+        supplier.items.some((item) => requiredItemTypes.includes(item.toUpperCase())),
+      );
+      if (fallbackSupplier?.id) {
+        return fallbackSupplier.id;
+      }
+      throw new Error("Unable to resolve procurement supplier");
+    }
+
+    return created.id;
+  };
+
   const handleAddResourceSubmit = async () => {
     const expectsFishCount = newResourceData.resourceType === "fish_batch";
+    const expectsUnits = newResourceData.resourceType === "medicine";
+    const expectsDiscreteQuantity = expectsFishCount || expectsUnits;
     const quantity = Number(newResourceData.quantityKg);
     if (!Number.isFinite(quantity) || quantity <= 0) {
-      toast.error(expectsFishCount ? "Please enter a valid fish count" : "Please enter a valid quantity in Kg");
+      toast.error(
+        expectsFishCount
+          ? "Please enter a valid fish count"
+          : expectsUnits
+            ? "Please enter a valid units quantity"
+            : "Please enter a valid quantity in Kg",
+      );
       return;
     }
 
-    if (expectsFishCount && !Number.isInteger(quantity)) {
-      toast.error("Fish batch quantity must be a whole number");
+    if (expectsDiscreteQuantity && !Number.isInteger(quantity)) {
+      toast.error(expectsFishCount ? "Fish batch quantity must be a whole number" : "Medicine quantity must be a whole number");
       return;
     }
 
@@ -537,6 +607,25 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           return;
         }
 
+        const selectedFoodType = foodTypes.find((entry) => String(entry?.id || entry?._id || "") === foodTypeId);
+        const supplierId = await ensureSupplierForResource("feed");
+        const feedUnitCost = resolveUnitCost(
+          selectedFoodType?.unitCost,
+          selectedFoodType?.costPerKg,
+          selectedFoodType?.pricePerKg,
+          selectedFoodType?.purchasePrice,
+        );
+        await createFeedPurchaseOrder({
+          supplierId,
+          items: [
+            {
+              foodTypeId,
+              quantityKg: quantity,
+              unitCost: feedUnitCost,
+            },
+          ],
+        });
+
         const payload: Record<string, unknown> = {
           foodTypeId,
           quantityKg: quantity,
@@ -557,11 +646,38 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           return;
         }
 
+        const medicineQuantity = Math.max(1, Math.round(quantity));
+        const supplierId = await ensureSupplierForResource("medicine");
+        const selectedMedicineMeta = selectedMedicineItem as MedicineInventoryBatch & Record<string, unknown>;
+        const medicineFishTypeId = String(
+          selectedMedicineMeta?.fishTypeId ||
+            (selectedMedicineMeta?.fishType as any)?.id ||
+            fishTypeOptions[0]?.id ||
+            "",
+        ).trim();
+        const medicineUnitCost = resolveUnitCost(
+          selectedMedicineMeta?.unitCost,
+          selectedMedicineMeta?.costPerUnit,
+          selectedMedicineMeta?.purchasePrice,
+        );
+        await createMedicinePurchaseOrder({
+          supplierId,
+          items: [
+            {
+              medicine: selectedMedicineItem.medicineName,
+              company: selectedMedicineItem.company,
+              fishTypeIds: medicineFishTypeId ? [medicineFishTypeId] : [],
+              quantity: medicineQuantity,
+              unitCost: medicineUnitCost,
+            },
+          ],
+        });
+
         const payload: Record<string, unknown> = {
           medicine: selectedMedicineItem.medicineName,
           company: selectedMedicineItem.company,
-          quantity,
-          unitsReceived: Math.max(1, Math.ceil(quantity)),
+          quantity: medicineQuantity,
+          unitsReceived: medicineQuantity,
           receivedDate: receivedDateIso,
           packagingUnit: "unit",
         };
@@ -579,6 +695,19 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         }
 
         const batchQuantity = Math.max(1, Math.round(quantity));
+        const supplierId = await ensureSupplierForResource("fish_batch");
+        const fishUnitCost = 1;
+        await createFishPurchaseOrder({
+          supplierId,
+          items: [
+            {
+              fishTypeId: selectedFishType.id,
+              quantity: batchQuantity,
+              totalCost: batchQuantity * fishUnitCost,
+            },
+          ],
+        });
+
         const payload: Record<string, unknown> = {
           fishTypeId: selectedFishType.id,
           species: selectedFishType.name,
@@ -924,6 +1053,41 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   const totalMedicineStock = medicineInventory.reduce((sum, batch) => sum + (batch.quantity || 0), 0);
   const expiredMedicineCount = medicineInventory.filter((batch) => getMedicineBatchStatus(batch) === "EXPIRED").length;
   const lowMedicineStockCount = medicineInventory.filter((batch) => getMedicineBatchStatus(batch) === "LOW_STOCK").length;
+
+  const normalizedAddResourceSearch = addResourceSearchQuery.trim().toLowerCase();
+  const matchesAddResourceSearch = (value: string): boolean => {
+    if (!normalizedAddResourceSearch) return true;
+    return value.toLowerCase().includes(normalizedAddResourceSearch);
+  };
+
+  const filteredFeedTypeOptions = foodTypes.filter((foodType) => {
+    const id = String(foodType?.id || foodType?._id || "");
+    const name = String(foodType?.name || "Unknown");
+    return matchesAddResourceSearch(`${name} ${id}`);
+  });
+
+  const filteredMedicineOptions = medicineInventory.filter((medicineItem) => {
+    const id = String(medicineItem.id || "");
+    return matchesAddResourceSearch(`${medicineItem.medicineName} ${medicineItem.company || ""} ${id}`);
+  });
+
+  const filteredFishTypeOptions = fishTypeOptions.filter((fishType) =>
+    matchesAddResourceSearch(`${fishType.name} ${fishType.id}`),
+  );
+
+  const addResourceQuantityLabel =
+    newResourceData.resourceType === "fish_batch"
+      ? "Quantity (Fish Count)"
+      : newResourceData.resourceType === "medicine"
+        ? "Quantity (Units)"
+        : "Quantity (Kg)";
+  const addResourceQuantityStep = newResourceData.resourceType === "feed" ? "0.01" : "1";
+  const addResourceQuantityPlaceholder =
+    newResourceData.resourceType === "fish_batch"
+      ? "100"
+      : newResourceData.resourceType === "medicine"
+        ? "1"
+        : "1";
 
   // Render
 
@@ -1468,7 +1632,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           }
         }}
       >
-        <DialogContent className="w-[420px] max-w-[92vw] sm:w-[440px]">
+        <DialogContent className="w-[680px] max-w-[95vw] sm:w-[720px] max-h-[88vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-[#0A4D68]">
               <Plus className="w-5 h-5" />
@@ -1481,13 +1645,16 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
               <Select
                 value={newResourceData.resourceType}
                 onValueChange={(value: ResourceType) =>
-                  setNewResourceData((previous) => ({
-                    ...previous,
-                    resourceType: value,
-                    feedItemId: "",
-                    medicineItemId: "",
-                    fishBatchItemId: "",
-                  }))
+                  {
+                    setAddResourceSearchQuery("");
+                    setNewResourceData((previous) => ({
+                      ...previous,
+                      resourceType: value,
+                      feedItemId: "",
+                      medicineItemId: "",
+                      fishBatchItemId: "",
+                    }));
+                  }
                 }
               >
                 <SelectTrigger id="resourceType">
@@ -1499,6 +1666,16 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                   <SelectItem value="fish_batch">Fish Batch</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="addResourceSearch">Search Item</Label>
+              <Input
+                id="addResourceSearch"
+                value={addResourceSearchQuery}
+                onChange={(event) => setAddResourceSearchQuery(event.target.value)}
+                placeholder="Search by name or ID"
+              />
             </div>
 
             {newResourceData.resourceType === "feed" && (
@@ -1517,7 +1694,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                     <SelectValue placeholder="Select feed item" />
                   </SelectTrigger>
                   <SelectContent>
-                    {foodTypes.map((foodType) => {
+                    {filteredFeedTypeOptions.map((foodType) => {
                       const id = String(foodType?.id || foodType?._id || "");
                       if (!id) return null;
                       const name = String(foodType?.name || "Unknown");
@@ -1531,6 +1708,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                 </Select>
                 {foodTypes.length === 0 && (
                   <p className="text-xs text-red-600">No feed items available from API.</p>
+                )}
+                {foodTypes.length > 0 && filteredFeedTypeOptions.length === 0 && (
+                  <p className="text-xs text-amber-600">No feed items match your search.</p>
                 )}
               </div>
             )}
@@ -1551,7 +1731,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                     <SelectValue placeholder="Select medicine item" />
                   </SelectTrigger>
                   <SelectContent>
-                    {medicineInventory.map((medicineItem) => {
+                    {filteredMedicineOptions.map((medicineItem) => {
                       const id = String(medicineItem.id || "");
                       if (!id) return null;
                       return (
@@ -1564,6 +1744,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                 </Select>
                 {medicineInventory.length === 0 && (
                   <p className="text-xs text-red-600">No medicine items available from API.</p>
+                )}
+                {medicineInventory.length > 0 && filteredMedicineOptions.length === 0 && (
+                  <p className="text-xs text-amber-600">No medicine items match your search.</p>
                 )}
               </div>
             )}
@@ -1584,7 +1767,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                     <SelectValue placeholder="Select fish batch item" />
                   </SelectTrigger>
                   <SelectContent>
-                    {fishTypeOptions.map((fishType) => (
+                    {filteredFishTypeOptions.map((fishType) => (
                       <SelectItem key={fishType.id} value={fishType.id}>
                         {fishType.name} ({fishType.id.slice(0, 8)})
                       </SelectItem>
@@ -1594,19 +1777,20 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                 {fishTypeOptions.length === 0 && (
                   <p className="text-xs text-red-600">No fish batch items available from API.</p>
                 )}
+                {fishTypeOptions.length > 0 && filteredFishTypeOptions.length === 0 && (
+                  <p className="text-xs text-amber-600">No fish types match your search.</p>
+                )}
               </div>
             )}
 
             <div className="grid gap-2">
-              <Label htmlFor="quantityKg">
-                {newResourceData.resourceType === "fish_batch" ? "Quantity (Fish Count)" : "Quantity (Kg)"}
-              </Label>
+              <Label htmlFor="quantityKg">{addResourceQuantityLabel}</Label>
               <Input
                 id="quantityKg"
                 type="number"
                 min="1"
-                step={newResourceData.resourceType === "fish_batch" ? "1" : "0.01"}
-                placeholder={newResourceData.resourceType === "fish_batch" ? "100" : "1"}
+                step={addResourceQuantityStep}
+                placeholder={addResourceQuantityPlaceholder}
                 value={newResourceData.quantityKg}
                 onChange={(event) =>
                   setNewResourceData((previous) => ({
