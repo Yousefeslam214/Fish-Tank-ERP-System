@@ -69,6 +69,39 @@ const FALLBACK_GENDER_OPTIONS = ['MALE', 'FEMALE'];
 
 const toShortId = (id: string): string => id.split('-')[0] || id;
 const formatNameWithId = (name: string, id: string): string => `${name} (${toShortId(id)})`;
+interface RoleOption {
+  value: string;
+  label: string;
+}
+
+const resolveRoleOptions = (entries: MetadataEnumEntry[] | undefined): RoleOption[] => {
+  if (!entries || entries.length === 0) {
+    return FALLBACK_ROLE_OPTIONS.map((value) => ({ value, label: value }));
+  }
+
+  const options: RoleOption[] = entries
+    .map((entry) => {
+      const value = (entry.value || entry.key || '').trim().toUpperCase();
+      const label = entry.label?.en || entry.label?.ar || entry.key || value;
+      return { value, label };
+    })
+    .filter((opt) => opt.value.length > 0);
+
+  console.log(options);
+
+
+  if (options.length === 0) {
+    return FALLBACK_ROLE_OPTIONS.map((value) => ({ value, label: value }));
+  }
+
+  const seen = new Set<string>();
+  return options.filter((opt) => {
+    if (seen.has(opt.value)) return false;
+    seen.add(opt.value);
+    return true;
+  });
+};
+
 const toStatusClassName = (status: string): string => {
   const normalized = status.trim().toUpperCase();
   if (normalized === 'ACTIVE') {
@@ -122,7 +155,7 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
   });
 
   const roleOptions = useMemo(
-    () => getEnumOptionValues(metadataEnums.userRoles, FALLBACK_ROLE_OPTIONS),
+    () => resolveRoleOptions(metadataEnums.userRoles),
     [metadataEnums],
   );
 
@@ -130,6 +163,14 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
     () => getEnumOptionValues(metadataEnums.gender, FALLBACK_GENDER_OPTIONS),
     [metadataEnums],
   );
+
+  const roleLabelMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    roleOptions.forEach((opt) => {
+      map[opt.value] = opt.label;
+    });
+    return map;
+  }, [roleOptions]);
 
   const farmById = useMemo(() => {
     const map: Record<string, ManagedFarmRecord> = {};
@@ -197,7 +238,7 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
   const resetRegistrationForm = () => {
     setRegistrationForm({
       ...DEFAULT_FORM,
-      role: roleOptions[0] || DEFAULT_FORM.role,
+      role: roleOptions[0]?.value || DEFAULT_FORM.role,
       gender: genderOptions[0] || '',
     });
   };
@@ -277,7 +318,7 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
     setEditAccessState({
       open: true,
       user: userEntry,
-      role: userEntry.role || roleOptions[0] || 'MANAGER',
+      role: userEntry.role || roleOptions[0]?.value || 'MANAGER',
       farmIds: userEntry.farmIds,
     });
   };
@@ -485,8 +526,8 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                     }
                   >
                     {roleOptions.map((option) => (
-                      <option key={`register-role-${option}`} value={option}>
-                        {option}
+                      <option key={`register-role-${option.value}`} value={option.value}>
+                        {option.label}
                       </option>
                     ))}
                   </select>
@@ -546,7 +587,7 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                         onChange={() => toggleRegistrationFarm(farmEntry.id)}
                         className="h-4 w-4 rounded border-gray-300"
                       />
-                      <span>{formatNameWithId(farmEntry.name, farmEntry.id)}</span>
+                      <span>{farmEntry.name}</span>
                     </label>
                   ))}
                 </div>
@@ -595,13 +636,13 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-3">
               <CardTitle>User Administration</CardTitle>
-              <div className="relative w-full sm:w-96">
+              <div className="relative w-full sm:w-70">
                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
                   aria-label="Search users"
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Search by user, role, module, farm id"
+                  placeholder="      Search by user, role"
                   className="pl-8"
                 />
               </div>
@@ -626,16 +667,15 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                       <div className="text-xs text-gray-500">{userEntry.email}</div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{userEntry.role}</Badge>
+                      <Badge variant="outline">{roleLabelMap[userEntry.role] || userEntry.role}</Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {userEntry.farmIds.length === 0 && <span className="text-xs text-gray-500">No farms</span>}
-                        {userEntry.farmIds.map((farmId, index) => {
-                          const fallbackName = userEntry.farmNames[index] || farmById[farmId]?.name || farmId;
+                        {userEntry.farmNames.length === 0 && <span className="text-xs text-gray-500">No farms</span>}
+                        {userEntry.farmNames.map((farmId, index) => {
                           return (
                             <Badge key={`${userEntry.id}-farm-${farmId}`} variant="outline" className="text-xs">
-                              {formatNameWithId(fallbackName, farmId)}
+                              {farmId}
                             </Badge>
                           );
                         })}
@@ -656,9 +696,7 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => openEditAccessDialog(userEntry)}>
-                          Edit Role/Farms
-                        </Button>
+
                         <Button size="sm" variant="outline" onClick={() => openEditModulesDialog(userEntry)}>
                           Module Overrides
                         </Button>
@@ -680,76 +718,8 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
         </Card>
       </div>
 
-      <Dialog
-        open={editAccessState.open}
-        onOpenChange={(open) =>
-          setEditAccessState((previous) => ({
-            ...previous,
-            open,
-            user: open ? previous.user : null,
-          }))
-        }
-      >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Edit Role & Farm Assignments</DialogTitle>
-            <DialogDescription>
-              {editAccessState.user ? `Update ${formatNameWithId(editAccessState.user.name, editAccessState.user.id)}` : ''}
-            </DialogDescription>
-          </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="space-y-1">
-              <Label htmlFor="edit-user-role">Role</Label>
-              <select
-                id="edit-user-role"
-                className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm"
-                value={editAccessState.role}
-                onChange={(event) =>
-                  setEditAccessState((previous) => ({ ...previous, role: event.target.value }))
-                }
-              >
-                {roleOptions.map((option) => (
-                  <option key={`edit-role-${option}`} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </div>
 
-            <div className="space-y-2">
-              <Label>Farm Assignments</Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 rounded-md border p-3">
-                {farms.map((farmEntry) => (
-                  <label key={`edit-${farmEntry.id}`} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={editAccessState.farmIds.includes(farmEntry.id)}
-                      onChange={() => toggleEditFarm(farmEntry.id)}
-                      className="h-4 w-4 rounded border-gray-300"
-                    />
-                    <span>{formatNameWithId(farmEntry.name, farmEntry.id)}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex gap-2 justify-end">
-              <Button
-                variant="outline"
-                onClick={() =>
-                  setEditAccessState({ open: false, user: null, role: 'MANAGER', farmIds: [] })
-                }
-              >
-                Cancel
-              </Button>
-              <Button onClick={() => void submitEditAccess()} disabled={submitting}>
-                {submitting ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <Dialog
         open={editModulesState.open}
@@ -801,7 +771,7 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                       onChange={() => toggleModuleSelection(moduleEntry.id)}
                       className="h-4 w-4 rounded border-gray-300"
                     />
-                    <span>{formatNameWithId(moduleEntry.label.en || moduleEntry.id, moduleEntry.id)}</span>
+                    <span>{moduleEntry.label.en}</span>
                   </label>
                 ))}
               </div>

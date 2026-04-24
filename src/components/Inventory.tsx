@@ -968,44 +968,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           Add resources
         </Button>
       </div>
-      
-      {/* Feed Stock Summary per Type (Task 3.2) */}
-      <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
-        {(() => {
-          const feedStockByType = foodTypes.map(ft => {
-            const ftId = (ft.id || ft._id);
-            const matches = feedInventory
-              .filter(f => {
-                  const fid = f.foodTypeId || f.foodType || f.foodId || f.foodType_id;
-                  const extractedId = typeof fid === 'object' ? fid?.id || fid?._id : fid;
-                  return extractedId === ftId;
-              });
-            const total = matches.reduce((sum, f) => sum + (Number(f.quantityKg) || Number(f.quantity) || 0), 0);
-            const apiThreshold = matches.reduce((acc, row) => (acc > 0 ? acc : getAlertThreshold(row, 0)), 0);
-            const reorderLevel = apiThreshold || getAlertThreshold(ft, 500);
-
-            return { ...ft, total, reorderLevel };
-          });
-          
-          return feedStockByType.map(ft => (
-            <Card key={ft.id || ft._id} className="min-w-[200px] border-l-4 border-l-[#0A4D68]">
-              <CardContent className="p-4">
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">{ft.name || 'Unknown Type'}</p>
-                <div className="flex items-baseline gap-1">
-                  <h4 className="text-xl font-black text-gray-900">{ft.total.toLocaleString()}</h4>
-                  <span className="text-[10px] text-gray-500 font-medium">kg</span>
-                </div>
-                <div className="mt-2 flex items-center justify-between text-[10px]">
-                  <span className="text-gray-500">Value: {(ft.total * (ft.costPerUnit || 0)).toLocaleString()} EGP</span>
-                  <Badge className={`${ft.reorderLevel > 0 && ft.total <= ft.reorderLevel ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'} border-none text-[8px]`}>
-                    {ft.reorderLevel > 0 && ft.total <= ft.reorderLevel ? 'REORDER' : 'OK'}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ));
-        })()}
-      </div>
 
       {/* Feed Consumption Forecast - Farm-wide */}
       <Card className="bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-200">
