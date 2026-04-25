@@ -334,6 +334,8 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Live Sensors</span>
+                  <span className="text-gray-400">•</span>
                   <span
                     className={`inline-block h-2.5 w-2.5 rounded-full ${
                       isLiveSensorConnected ? 'bg-green-500' : sensorRegistered ? 'bg-yellow-500' : 'bg-gray-400'
@@ -458,9 +460,6 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
                 )}
               </div>
             </div>
-            <div className="mt-3 bg-blue-50 border border-blue-200 p-3 rounded-lg text-xs">
-              <p><strong>Note:</strong> Toxic Ammonia (NH3), DO Saturation %, and CO2 Content will be calculated automatically by the system based on temperature, pH, and TAN values.</p>
-            </div>
           </div>
 
           <div>
@@ -523,4 +522,3 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
     </Dialog>
   );
 }
-

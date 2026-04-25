@@ -199,7 +199,6 @@ export function OverviewTab({
                 tankBatches.map((batch: any) => {
                   const growth = batchGrowthAnalysis[batch.id]?.metrics || {};
                   const gStatus = batchGrowthAnalysis[batch.id]?.overallRating || 'NORMAL';
-                  const wq = batchAssessments[batch.id] || {};
                   
                   return (
                     <div key={batch.id} className="border-l-4 border-[#0A4D68] pl-3 py-3 bg-gray-50/50 rounded-xl border border-gray-100 mb-3 last:mb-0 hover:bg-white transition-colors group">
@@ -213,7 +212,7 @@ export function OverviewTab({
                           <Badge className="bg-[#0A4D68] text-white text-[9px] h-5">{batch.status || 'ACTIVE'}</Badge>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-[11px]">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-[11px]">
                         <div>
                           <span className="block text-gray-400 uppercase font-bold text-[9px] mb-0.5 tracking-wider">Weight / Biomass</span>
                           <span className="font-bold text-gray-900">
@@ -229,12 +228,6 @@ export function OverviewTab({
                         <div>
                           <span className="block text-gray-400 uppercase font-bold text-[9px] mb-0.5 tracking-wider">Efficiency (FCR)</span>
                           <span className="font-bold text-[#0A4D68]">{growth.fcr?.toFixed(2) || '1.50'}</span>
-                        </div>
-                        <div>
-                          <span className="block text-gray-400 uppercase font-bold text-[9px] mb-0.5 tracking-wider">WQ Status</span>
-                          <span className={`font-bold ${wq.status === 'CRITICAL' ? 'text-red-600' : wq.status === 'WARNING' ? 'text-amber-600' : 'text-green-600'}`}>
-                            {wq.status || 'OPTIMAL'}
-                          </span>
                         </div>
                       </div>
                     </div>

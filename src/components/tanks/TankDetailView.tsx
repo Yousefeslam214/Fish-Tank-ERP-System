@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { ArrowLeft, RefreshCw, AlertTriangle } from 'lucide-react';
 import { apiGet } from '../../api';
-import { getHarvestPrediction } from '../../services/harvestApi';
 
 // Tab Components
 import { OverviewTab } from './tabs/OverviewTab';
@@ -13,7 +11,6 @@ import { BatchesTab } from './tabs/BatchesTab';
 import { WaterQualityTab } from './tabs/WaterQualityTab';
 import { FeedingHistoryTab } from './tabs/FeedingHistoryTab';
 import { GrowthMeasurementsTab } from './tabs/GrowthMeasurementsTab';
-import { PredictionsTab } from './tabs/PredictionsTab';
 import { TankTasksTab } from './tabs/TankTasksTab';
 import { TankAssignmentsTab } from './tabs/TankAssignmentsTab';
 import { SensorTab } from './tabs/SensorTab';
@@ -48,7 +45,6 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
   const [isActionRequired, setIsActionRequired] = useState(false);
   const [actionReason, setActionReason] = useState<string | null>(null);
   const [tankFeedingCalculation, setTankFeedingCalculation] = useState<any>(null);
-  const [predictionData, setPredictionData] = useState<any>(null);
   const [batchGrowthAnalysis, setBatchGrowthAnalysis] = useState<Record<string, any>>({});
   const [selectedBatchGrowthHistory, setSelectedBatchGrowthHistory] = useState<Record<string, any[]>>({});
   const [batchAssessments, setBatchAssessments] = useState<Record<string, any>>({});
@@ -245,19 +241,6 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
     fetchTankDetails();
   }, [fetchTankDetails]);
 
-  useEffect(() => {
-    const fetchPrediction = async () => {
-      if (!selectedBatchId) return;
-      try {
-        const data = await getHarvestPrediction(selectedBatchId);
-        setPredictionData(data);
-      } catch (err) {
-        console.warn('Failed to fetch harvest prediction for batch:', selectedBatchId, err);
-      }
-    };
-    fetchPrediction();
-  }, [selectedBatchId]);
-
   const fetchBatchGrowthHistory = async (batchId: string) => {
     setLoadingHistory(true);
     try {
@@ -373,9 +356,6 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
             </div>
             <div className="flex items-center gap-3">
               {loadingDetails && <RefreshCw className="w-4 h-4 animate-spin text-gray-300" />}
-              <Badge className={`${currentTank.status === 'critical' || currentTank.status === 'CRITICAL' ? 'bg-[#EF4444]' : (currentTank.status === 'warning' || currentTank.status === 'WARNING') ? 'bg-[#F59E0B]' : 'bg-[#10B981]'} text-white text-sm px-3 py-1`}>
-                {(currentTank.status || 'ACTIVE').toUpperCase()}
-              </Badge>
             </div>
           </div>
         </div>
@@ -393,13 +373,6 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
                 <p className="text-red-700 text-sm font-medium">{actionReason}</p>
               </div>
             </div>
-            <Button
-              size="sm"
-              className="bg-red-600 hover:bg-red-700 text-white font-bold h-10 px-6"
-              onClick={() => setActiveTab('water')}
-            >
-              Take Action
-            </Button>
           </div>
         )}
 
@@ -420,7 +393,6 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
             <TabsTrigger value="water">Water Quality</TabsTrigger>
             <TabsTrigger value="feeding">Feeding History</TabsTrigger>
             <TabsTrigger value="growth">Growth Measurements</TabsTrigger>
-            <TabsTrigger value="predictions">Predictions</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="users">Assign Users</TabsTrigger>
             <TabsTrigger value="sensor">Sensor</TabsTrigger>
@@ -485,16 +457,6 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
               fetchTankDetails={fetchTankDetails}
               setSelectedGrowthRecord={setSelectedGrowthRecord}
               setShowGrowthDetailsModal={setShowGrowthDetailsModal}
-            />
-          </TabsContent>
-
-          <TabsContent value="predictions">
-            <PredictionsTab
-              predictionData={predictionData}
-              loadingDetails={loadingDetails}
-              tankBatches={tankBatches}
-              selectedBatchId={selectedBatchId}
-              setSelectedBatchId={setSelectedBatchId}
             />
           </TabsContent>
 

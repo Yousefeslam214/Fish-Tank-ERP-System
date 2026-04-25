@@ -270,19 +270,6 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    const s = status.toLowerCase();
-    switch (s) {
-      case 'critical': return '🔴';
-      case 'warning': return '🟡';
-      case 'acceptable': return '🔵';
-      case 'optimal': return '🟢';
-      case 'maintenance': return '🔧';
-      case 'empty': return '⚪';
-      default: return '⚪';
-    }
-  };
-
   if (viewMode === 'detail' && selectedTank) {
     return <TankDetailView user={user} tank={selectedTank} onBack={() => setViewMode('list')} />;
   }
@@ -387,7 +374,6 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle className="text-lg">{tank.name}</CardTitle>
-                      <p className="text-[10px] text-gray-400 font-mono">ID: {tank.id}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge className={`${getStatusColor(tank.status ?? '')} text-white text-[10px]`}>
@@ -442,64 +428,6 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
                       </p>
                     )}
                   </div>
-
-                  {/* Water Quality */}
-                  {tank.waterQuality ? (
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">Water Quality</span>
-                        <span className="text-xs">{getStatusIcon(tank.waterQuality.overall)} {tank.waterQuality.overall}</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <span className="text-gray-600">Temp:</span>
-                          <span className="ml-1 font-medium">{tank.waterQuality.temp.value}°C</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">DO:</span>
-                          <span className="ml-1 font-medium">{tank.waterQuality.do.value} mg/L</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">pH:</span>
-                          <span className="ml-1 font-medium">{tank.waterQuality.ph.value}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">NH₃:</span>
-                          <span className="ml-1 font-medium">{tank.waterQuality.nh3.value} mg/L</span>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="bg-gray-50 p-3 rounded-lg text-center py-4 border border-dashed border-gray-200">
-                      <p className="text-xs text-gray-400 italic">No water quality data</p>
-                    </div>
-                  )}
-
-                  {/* Feeding */}
-                  {tank.feeding ? (
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">Today's Feeding</span>
-                        <span className="text-xs">{tank.feeding.todayMeals}/{tank.feeding.totalMeals} meals</span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-600">Fed: {tank.feeding.todayFed} / {tank.feeding.recommended} kg</span>
-                        {tank.feeding.recommended > 0 && (
-                          <span className={`font-medium ${tank.feeding.todayFed < tank.feeding.recommended
-                            ? 'text-yellow-600'
-                            : 'text-green-600'
-                            }`}>
-                            {Math.round((tank.feeding.todayFed / tank.feeding.recommended) * 100)}%
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="bg-gray-50 p-3 rounded-lg text-center py-4 border border-dashed border-gray-200">
-                      <p className="text-xs text-gray-400 italic">No feeding plan</p>
-                    </div>
-                  )}
-
                 </CardContent>
               </Card>
             ))}
