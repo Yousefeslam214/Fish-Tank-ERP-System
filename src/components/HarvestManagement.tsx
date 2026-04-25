@@ -543,6 +543,32 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
     }
   };
 
+  const handleContinueHarvest = async (harvest: any) => {
+    const event = harvestEvents.find((e) => e.id === harvest.id);
+    if (!event) {
+      toast.error('Harvest event not found');
+      return;
+    }
+
+    try {
+      setIsDashLoading(true);
+      const gradings = await getHarvestGradings(event.id);
+      setCurrentEvent(event);
+      setCurrentGradings(gradings);
+      setSelectedTankId(event.tankId);
+      
+      // Try to find the batch ID from the event's source batches or metadata
+      // For now, setting step 2 is the most important
+      setWorkflowStep(2);
+      setActiveTab('workflow');
+      toast.info(`Resuming harvest for ${harvest.tankName}`);
+    } catch (error) {
+      toast.error('Failed to load harvest details');
+    } finally {
+      setIsDashLoading(false);
+    }
+  };
+
   const handleResetWorkflow = () => {
     setWorkflowStep(1);
     setCurrentEvent(null);
@@ -661,19 +687,13 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                 setHistoryTankId(tid);
                 setActiveTab('history');
               }}
+              onContinueHarvest={handleContinueHarvest}
               loading={isBootstrapping}
               kpis={{
                 activeHarvests: activeEventCount,
                 thisMonthHarvested: dashSummary?.fishSummary?.totalBiomassKg || 0,
                 thisMonthRevenue: dashSummary?.predictedRevenue?.totalProjectedRevenue || 0,
-                avgFCR: prediction?.avgFCR || 1.6,
-                readyToHarvest: dashSummary?.upcomingHarvests?.filter((h: any) => h.batches?.[0]?.status === 'READY').length || 0,
-                avgSurvivalRate: 92,
-                nextRecommended: dashSummary?.upcomingHarvests?.[0] ? {
-                  tankId: dashSummary.upcomingHarvests[0].tankName,
-                  tankName: dashSummary.upcomingHarvests[0].tankName,
-                  daysUntil: dashSummary.upcomingHarvests[0].batches?.[0]?.daysToHarvest || 0
-                } : undefined
+
               }}
               activeHarvests={harvestEvents.filter(e => e.status !== 'COMPLETED' && e.status !== 'CANCELLED').map(e => ({
                 id: e.id,
@@ -682,8 +702,10 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                 batchNumber: e.harvestTypeLabel,
                 type: e.harvestType,
                 started: formatDate(e.harvestDate),
-                status: e.status,
-                progress: e.status === 'GRADING' ? 70 : 10,
+                status: e.status === 'STARTED' ? 'DRAFT' : e.status,
+                progress: e.estimatedWeight > 0 
+                  ? Math.min(100, Math.round(((e.actualTotalWeight || 0) / e.estimatedWeight) * 100)) 
+                  : (e.status === 'GRADING' ? 50 : 10),
                 estimatedWeight: e.estimatedWeight,
                 gradedWeight: e.actualTotalWeight || 0
               }))}

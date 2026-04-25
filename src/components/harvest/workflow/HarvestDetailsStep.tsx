@@ -105,7 +105,7 @@ export const HarvestDetailsStep: React.FC<HarvestDetailsStepProps> = ({
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-600">
                 <div>{selectedTank.fishCount} fish • {selectedTank.avgWeight}g avg • {selectedTank.biomass}kg biomass • {selectedTank.daysOld} days old</div>
-                <div>Stocked: {selectedTank.stockedDate} • FCR: {selectedTank.fcr} • SGR: {selectedTank.sgr}%/day</div>
+                <div>Stocked: {selectedTank.stockedDate} • SGR: {selectedTank.sgr}%/day</div>
               </div>
             </div>
             <Button type="button" variant="outline" size="sm">

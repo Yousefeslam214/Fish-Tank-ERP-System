@@ -116,11 +116,7 @@ export const HarvestHistory: React.FC<HarvestHistoryProps> = ({
   ];
 
   const alerts = [
-    {
-      type: 'warning',
-      message: 'Tank C-05 FCR trending high (1.71 → 1.78 → 1.85)',
-      action: 'Review feeding schedule and water quality'
-    },
+
     {
       type: 'success',
       message: 'Tank B-03 consistently exceeds profit targets',
@@ -207,17 +203,6 @@ export const HarvestHistory: React.FC<HarvestHistoryProps> = ({
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="space-y-2">
-              <p className="text-sm text-gray-600">Avg FCR</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-3xl font-bold text-[#0A4D68]">{kpis.avgFCR}</p>
-                <span className="text-sm text-green-600">⭐ Good</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         <Card>
           <CardContent className="pt-6">
@@ -394,7 +379,6 @@ export const HarvestHistory: React.FC<HarvestHistoryProps> = ({
                   <th className="pb-2">Weight</th>
                   <th className="pb-2">Revenue</th>
                   <th className="pb-2">Profit%</th>
-                  <th className="pb-2">FCR</th>
                   <th className="pb-2">Status</th>
                 </tr>
               </thead>
@@ -424,7 +408,6 @@ export const HarvestHistory: React.FC<HarvestHistoryProps> = ({
                         {harvest.profitPercent}%
                       </span>
                     </td>
-                    <td className="py-3 text-sm">{harvest.fcr}</td>
                     <td className="py-3 text-lg">{harvest.status}</td>
                   </tr>
                 ))}
