@@ -674,7 +674,7 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
             <TabsTrigger value="workflow">Harvest</TabsTrigger>
-            <TabsTrigger value="pricing">Pricing</TabsTrigger>
+            <TabsTrigger value="pricing">Grading</TabsTrigger>
             <TabsTrigger value="history">History</TabsTrigger>
           </TabsList>
 
@@ -1022,7 +1022,7 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
           <TabsContent value="pricing" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Fish Grade Pricing Manager</CardTitle>
+                <CardTitle>Fish Grade Management</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1050,7 +1050,7 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                   <div className="flex items-end">
                     <Button variant="outline" onClick={() => void loadPricingForFishType(pricingFishTypeId)} disabled={!pricingFishTypeId}>
                       <RefreshCcw className="w-4 h-4 mr-2" />
-                      Reload Pricing
+                      Reload Grading
                     </Button>
                   </div>
                 </div>
@@ -1060,10 +1060,10 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                 {isLoadingPricing ? (
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Loading pricing...
+                    Loading grading...
                   </div>
                 ) : pricingList.length === 0 ? (
-                  <p className="text-sm text-gray-600">No pricing found for selected fish type.</p>
+                  <p className="text-sm text-gray-600">No grading found for selected fish type.</p>
                 ) : (
                   <div className="space-y-2">
                     {pricingList.map((pricing) => (
@@ -1073,9 +1073,8 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                           <p className="text-gray-600">
                             {pricing.minWeight}-{pricing.maxWeight} g, {pricing.numOfFishInKilo} fish/kg
                           </p>
-                          <p className="text-gray-600">
-                            {formatNumber(pricing.pricePerKg)} EGP/kg {pricing.isWaste ? '(waste)' : ''}
-                          </p>
+                            {formatNumber(pricing.pricePerKg)} EGP/kg
+
                         </div>
                         <Button variant="outline" onClick={() => startEditingPricing(pricing)}>
                           Edit
@@ -1087,7 +1086,7 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
 
                 <Card className="bg-gray-50">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">{editingPricingId ? 'Edit Pricing' : 'Create Pricing'}</CardTitle>
+                    <CardTitle className="text-sm">{editingPricingId ? 'Edit Grading' : 'Create Grading'}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1101,7 +1100,7 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="pricing-price-per-kg">Price Per Kg</Label>
+                        <Label htmlFor="pricing-price-per-kg">Grading Value Per Kg</Label>
                         <Input
                           id="pricing-price-per-kg"
                           type="number"
@@ -1144,24 +1143,7 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                           }
                         />
                       </div>
-                      <div className="flex items-end gap-4">
-                        <label className="text-sm flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={pricingDraft.isWaste}
-                            onChange={(event) => setPricingDraft((prev) => ({ ...prev, isWaste: event.target.checked }))}
-                          />
-                          Waste
-                        </label>
-                        <label className="text-sm flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={pricingDraft.isActive}
-                            onChange={(event) => setPricingDraft((prev) => ({ ...prev, isActive: event.target.checked }))}
-                          />
-                          Active
-                        </label>
-                      </div>
+
                     </div>
 
                     <div className="flex gap-2">
@@ -1171,7 +1153,8 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                         disabled={isSavingPricing || !pricingFishTypeId}
                       >
                         {isSavingPricing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                        {editingPricingId ? 'Update Pricing' : 'Create Pricing'}
+                        {editingPricingId ? 'Update Grading' : 'Create Grading'}
+
                       </Button>
                       {editingPricingId && (
                         <Button
