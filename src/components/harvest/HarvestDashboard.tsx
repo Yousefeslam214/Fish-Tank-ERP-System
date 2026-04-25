@@ -21,7 +21,6 @@ import {
 interface HarvestDashboardProps {
   farmId: string;
   onStartHarvest: () => void;
-  onViewHistory: () => void;
   onViewTankPerformance: (tankId: string) => void;
   onContinueHarvest: (harvest: any) => void;
   kpis?: {
@@ -37,7 +36,6 @@ interface HarvestDashboardProps {
 export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({
   farmId,
   onStartHarvest,
-  onViewHistory,
   onViewTankPerformance,
   onContinueHarvest,
   kpis,
@@ -206,9 +204,6 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Completed Harvests (Last 7 Days)</CardTitle>
-            <Button variant="link" onClick={onViewHistory}>
-              View All <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
           </div>
         </CardHeader>
         <CardContent>

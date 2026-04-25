@@ -671,21 +671,19 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
             <TabsTrigger value="workflow">Harvest</TabsTrigger>
             <TabsTrigger value="pricing">Grading</TabsTrigger>
-            <TabsTrigger value="history">History</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-4">
             <HarvestDashboard
               farmId={farmId}
               onStartHarvest={() => setActiveTab('workflow')}
-              onViewHistory={() => setActiveTab('history')}
               onViewTankPerformance={(tid) => {
-                setHistoryTankId(tid);
-                setActiveTab('history');
+                // Since history is gone, maybe just stay on dashboard or do nothing
+                console.log('View performance for', tid);
               }}
               onContinueHarvest={handleContinueHarvest}
               loading={isBootstrapping}
@@ -1174,74 +1172,7 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="history" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Harvest History By Tank</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex gap-3 items-end">
-                  <div className="flex-1">
-                    <Label htmlFor="history-tank">Tank</Label>
-                    <select
-                      id="history-tank"
-                      className="mt-1 w-full h-9 border rounded-md px-3 bg-white"
-                      value={historyTankId}
-                      onChange={(event) => setHistoryTankId(event.target.value)}
-                    >
-                      <option value="">Select tank</option>
-                      {availableTanks.map((tank) => (
-                        <option key={tank.id} value={tank.id}>
-                          {tank.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <Button variant="outline" onClick={() => void loadHistoryForTank(historyTankId)} disabled={!historyTankId}>
-                    Reload
-                  </Button>
-                </div>
 
-                {isLoadingHistory ? (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Loading tank history...
-                  </div>
-                ) : historyEvents.length === 0 ? (
-                  <p className="text-sm text-gray-600">No events found for this tank.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {historyEvents.map((event) => (
-                      <div key={event.id} className="border rounded-md p-3 flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">{event.id}</p>
-                          <p className="text-sm text-gray-600">{formatDate(event.harvestDate)}</p>
-                        </div>
-                        <div className="text-right text-sm">
-                          <Badge variant="outline">{event.harvestTypeLabel}</Badge>
-                          <p>Status: {event.status}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4" />
-                  Farm-Level Event Snapshot
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-gray-700 space-y-1">
-                <p>Total events loaded: {harvestEvents.length}</p>
-                <p>Active events: {activeEventCount}</p>
-                <p>Completed events: {completedEventCount}</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
       </div>
     </div>
