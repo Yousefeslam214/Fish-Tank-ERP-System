@@ -60,12 +60,21 @@
     "vite": "6.3.5",
     "vitest": "^2.1.8"
   },
+<<<<<<< Updated upstream
   "scripts": {
+=======
+ "scripts": {
+>>>>>>> Stashed changes
     "dev": "npx vite",
     "build": "vite build",
-    "test": "vitest run --config vitest.config.ts",
+    "test": "jest",
+    "test:vitest": "vitest run --config vitest.config.ts",
     "test:unit": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts",
     "test:live": "vitest run --config vitest.live.config.ts"
+<<<<<<< Updated upstream
   }
+=======
+}
+>>>>>>> Stashed changes
 }
