@@ -3,8 +3,7 @@ import { User, Farm } from "../types";
 import { apiGet, apiPost } from "../api";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Icon } from "lucide-react";
-import { barn } from "@lucide/lab";
+import { Warehouse } from "lucide-react";
 interface Props {
   user: User;
   selectedFarm: Farm | null;
@@ -149,7 +148,7 @@ export default function Farms({ user }: Props) {
               <CardHeader className="pb-3">
                 <div>
                   <CardTitle className="text-lg font-bold text-[#0A4D68]">
-                    <Icon iconNode={barn} />
+                    <Warehouse className="mr-2 inline-block h-5 w-5" />
                     Farm Name:{" "}
                     <span style={{ color: "#DB1A1A", fontWeight: "bolder" }}>
                       {farm.name}
