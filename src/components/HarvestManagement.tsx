@@ -17,7 +17,6 @@ import {
   HarvestCondition,
   HarvestEventRecord,
   HarvestGradingRecord,
-  HarvestPredictionRecord,
   HarvestTankRecord,
   TankBatchRecord,
   TankBatchesResponse,
@@ -28,7 +27,6 @@ import {
   getHarvestEvents,
   getHarvestEventsByTank,
   getHarvestGradings,
-  getHarvestPrediction,
   getHarvestTanks,
   getPricingByFishType,
   getTankBatches,
@@ -117,9 +115,6 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
   const [tankBatches, setTankBatches] = useState<TankBatchesResponse>({ summary: null, batches: [] });
   const [selectedBatchId, setSelectedBatchId] = useState('');
   const [selectedHarvestType, setSelectedHarvestType] = useState<HarvestTypeValue>('FULL');
-  const [prediction, setPrediction] = useState<HarvestPredictionRecord | null>(null);
-  const [isLoadingPrediction, setIsLoadingPrediction] = useState(false);
-
   const [currentEvent, setCurrentEvent] = useState<HarvestEventRecord | null>(null);
   const [currentGradings, setCurrentGradings] = useState<HarvestGradingRecord[]>([]);
   const [selectedFishTypeId, setSelectedFishTypeId] = useState('');
@@ -304,38 +299,6 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
       cancelled = true;
     };
   }, [selectedTankId]);
-
-  useEffect(() => {
-    if (!selectedBatchId) {
-      setPrediction(null);
-      return;
-    }
-    let cancelled = false;
-
-    const loadPrediction = async () => {
-      setIsLoadingPrediction(true);
-      try {
-        const data = await getHarvestPrediction(selectedBatchId);
-        if (!cancelled) {
-          setPrediction(data);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setPrediction(null);
-          setGlobalError(error instanceof Error ? error.message : 'Failed to load prediction.');
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoadingPrediction(false);
-        }
-      }
-    };
-
-    void loadPrediction();
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedBatchId]);
 
   useEffect(() => {
     if (selectedBatch?.fishType) {
@@ -579,7 +542,6 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
     setGradingCount('');
     setCompletionPayload({ notes: '' });
     setSelectedBatchId('');
-    setPrediction(null);
   };
 
   const handleSavePricing = async () => {
@@ -772,28 +734,6 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                         </Badge>
                       </div>
                     </div>
-
-                    <Card className="bg-gray-50">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">Prediction</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        {isLoadingPrediction ? (
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Loading prediction...
-                          </div>
-                        ) : prediction ? (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                            <p>Predicted Weight: {formatNumber(prediction.predictedWeightKg)} kg</p>
-                            <p>Days To Harvest: {prediction.daysToHarvest}</p>
-                            <p>Recommendation: {prediction.recommendation}</p>
-                          </div>
-                        ) : (
-                          <p className="text-sm text-gray-600">Select a batch to load prediction.</p>
-                        )}
-                      </CardContent>
-                    </Card>
 
                     <Button
                       className="bg-[#088395] hover:bg-[#0A4D68]"
