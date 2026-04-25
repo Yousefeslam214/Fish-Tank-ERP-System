@@ -96,12 +96,6 @@ export default function AllocateFishToTank({
     });
   }, [availableTanks, farmId]);
 
-  const selectedTank = tanks.find((tank) => tank.id === selectedTankId);
-
-  const getCapacityPercentage = (tank: { biomass: number; capacity: number }) => {
-    return Math.round(((tank.biomass || 0) / (tank.capacity || 1)) * 100);
-  };
-
   const validateForm = () => {
     const newErrors: FormErrors = {};
 
@@ -231,21 +225,11 @@ export default function AllocateFishToTank({
                   <SelectValue placeholder="Choose a tank..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {tanks.map((tank) => {
-                    const capacityPercent = getCapacityPercentage(tank);
-                    const isNearCapacity = capacityPercent >= 80;
-
-                    return (
-                      <SelectItem key={tank.id} value={tank.id}>
-                        <div className="flex items-center justify-between w-full gap-4">
-                          <span>{tank.name}</span>
-                          <span className={`text-xs ${isNearCapacity ? 'text-orange-600' : 'text-gray-600'}`}>
-                            {capacityPercent}% capacity
-                          </span>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
+                  {tanks.map((tank) => (
+                    <SelectItem key={tank.id} value={tank.id}>
+                      {tank.name}
+                    </SelectItem>
+                  ))}
                   {tanks.length === 0 && (
                     <SelectItem value="__no_tanks__" disabled>
                       No available tanks for allocation
@@ -258,19 +242,6 @@ export default function AllocateFishToTank({
                 <p className="text-xs text-orange-600">
                   No allocatable tanks found. Tank must be in ACTIVE, READY, or EMPTY status.
                 </p>
-              )}
-
-              {selectedTank && (
-                <div className="mt-2 p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Current Capacity:</span>
-                    <span className={getCapacityPercentage(selectedTank) >= 80 ? 'text-orange-600 font-medium' : 'text-green-600 font-medium'}>
-                      {(selectedTank.biomass || 0).toLocaleString()}/
-                      {(selectedTank.capacity || 0).toLocaleString()} kg ({getCapacityPercentage(selectedTank)}%)
-                      {getCapacityPercentage(selectedTank) < 80 ? ' - Safe' : ' - Near limit'}
-                    </span>
-                  </div>
-                </div>
               )}
             </div>
 

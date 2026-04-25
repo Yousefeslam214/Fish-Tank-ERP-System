@@ -8,7 +8,6 @@ import { Progress } from "./ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import {
   Package,
-  AlertTriangle,
   Search,
   Plus,
   ShoppingCart,
@@ -26,12 +25,14 @@ import {
 import { User, Farm, FishInventoryBatch } from "../types";
 import AllocateFishToTank from "./AllocateFishToTank";
 import { apiGet } from "../api";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { BatchHealthModal } from "./tanks/modals/BatchHealthModal";
 import HarvestedInventoryView from "./sales/HarvestedInventoryView";
+import Combobox, { type ComboboxItem } from "./Combobox";
 import { getFishTypes } from "../services/fishTypesApi";
+import { FEEDING_TASK_COMPLETED_EVENT } from "../services/taskApi";
 import {
   createFeedPurchaseOrder,
   createFishPurchaseOrder,
@@ -97,7 +98,6 @@ type ResourceType = "feed" | "medicine" | "fish_batch";
 
 export default function Inventory({ user, selectedFarm }: InventoryProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState<string>("all");
 
   // Fish batches - API-driven
   const [fishBatches, setFishBatches] = useState<FishInventoryBatch[]>([]);
@@ -127,7 +127,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     receiveDate: new Date().toISOString().split("T")[0],
     expiryDate: "",
   });
-  const [addResourceSearchQuery, setAddResourceSearchQuery] = useState("");
   const [fishTypeOptions, setFishTypeOptions] = useState<Array<{ id: string; name: string }>>([]);
 
   // Health modal state
@@ -186,6 +185,24 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     return [];
   };
 
+  const resolveFeedExpiryDate = (entry: any): string | undefined => {
+    const candidates = [
+      entry?.expiryDate,
+      entry?.expirationDate,
+      entry?.expiresAt,
+      entry?.expireDate,
+      entry?.expiry,
+    ];
+
+    for (const candidate of candidates) {
+      if (typeof candidate === "string" && candidate.trim()) {
+        return candidate;
+      }
+    }
+
+    return undefined;
+  };
+
   const isReadyToAllocateStatus = (status: unknown): boolean => {
     const normalized = String(status || "").toUpperCase();
     return normalized === "READY_TO_STOCK" || normalized === "READY" || normalized === "AVAILABLE";
@@ -217,6 +234,34 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     } as FishInventoryBatch & { fishTypeName?: string };
   };
 
+  const resolveMedicineDisplayName = (entry: any, fallbackId?: string): string => {
+    const rawName = String(
+      entry?.medicineName ||
+        entry?.medicine?.name ||
+        entry?.name ||
+        entry?.itemName ||
+        entry?.productName ||
+        entry?.tradeName ||
+        "",
+    ).trim();
+    const isUnknownName = !rawName || /^unknown(\s+medicine)?$/i.test(rawName);
+    if (!isUnknownName) return rawName;
+
+    const company = String(
+      entry?.company || entry?.manufacturer || entry?.supplier || entry?.brand || entry?.medicine?.company || "",
+    ).trim();
+    if (company && company !== "-") {
+      return `${company} Medicine`;
+    }
+
+    const id = String(entry?.id || entry?._id || fallbackId || "").trim();
+    if (id) {
+      return `Medicine ${id.slice(0, 8)}`;
+    }
+
+    return "Unnamed Medicine";
+  };
+
   const normalizeMedicineBatch = (entry: any): MedicineInventoryBatch | null => {
     const id = entry?.id || entry?._id;
     if (!id) return null;
@@ -224,7 +269,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     return {
       id: String(id),
       farmId: String(entry?.farmId || entry?.farm || selectedFarm?.id || ""),
-      medicineName: String(entry?.medicineName || entry?.medicine?.name || entry?.name || entry?.itemName || "Unknown Medicine"),
+      medicineName: resolveMedicineDisplayName(entry, String(id)),
       company: String(
         entry?.company ||
           entry?.manufacturer ||
@@ -350,10 +395,11 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   const loadFoodTypes = async () => {
     try {
       const res = await apiGet<any>("/aquaculture/food-types");
-      const data = res.data || res || [];
+      const data = getArrayPayload(res?.data ?? res);
       setFoodTypes(data);
     } catch (error) {
       console.error("Error loading food types", error);
+      setFoodTypes([]);
     }
   };
 
@@ -422,6 +468,25 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     loadFishTypeOptions();
   }, []);
 
+  useEffect(() => {
+    const handleFeedingTaskCompleted = () => {
+      void loadFeed();
+    };
+
+    window.addEventListener(FEEDING_TASK_COMPLETED_EVENT, handleFeedingTaskCompleted);
+    return () => {
+      window.removeEventListener(FEEDING_TASK_COMPLETED_EVENT, handleFeedingTaskCompleted);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isAddResourcesOpen) return;
+    void loadFoodTypes();
+    void loadFeed();
+    void loadMedicine();
+    void loadFishTypeOptions();
+  }, [isAddResourcesOpen]);
+
   // Handlers
 
   // GET /api/v1/inventory/batches/:id
@@ -482,7 +547,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       receiveDate: new Date().toISOString().split("T")[0],
       expiryDate: "",
     });
-    setAddResourceSearchQuery("");
   };
 
   const ensureMutationSucceeded = (response: any) => {
@@ -604,37 +668,50 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       return;
     }
 
-    const receivedDateIso = new Date(newResourceData.receiveDate).toISOString();
-    const expiryDateIso = newResourceData.expiryDate
-      ? new Date(newResourceData.expiryDate).toISOString()
-      : undefined;
+    const receivedDateValue = newResourceData.receiveDate;
+    const expiryDateValue = newResourceData.expiryDate || undefined;
 
     try {
       let response: any;
       const resourceType = newResourceData.resourceType;
 
       if (resourceType === "feed") {
-        const foodTypeId = String(newResourceData.feedItemId || "");
-        if (!foodTypeId) {
+        const selectedFeedOptionId = String(newResourceData.feedItemId || "").trim();
+        if (!selectedFeedOptionId) {
           toast.error("Please select a feed item");
           return;
         }
 
-        const selectedFoodType = foodTypes.find((entry) => String(entry?.id || entry?._id || "") === foodTypeId);
-        const selectedFoodTypeMeta = (selectedFoodType ?? {}) as Record<string, unknown>;
+        const selectedFoodType = foodTypes.find(
+          (entry) => String(entry?.id || entry?._id || "").trim() === selectedFeedOptionId,
+        );
+        const selectedFeedInventoryItem = feedInventory.find((entry: any) => {
+          const entryId = String(entry?.id || entry?._id || "").trim();
+          const rawFoodType = entry?.foodTypeId || entry?.foodType || entry?.foodId || entry?.foodType_id;
+          const foodTypeIdFromEntry = String(
+            typeof rawFoodType === "object"
+              ? rawFoodType?.id || rawFoodType?._id || ""
+              : rawFoodType || "",
+          ).trim();
+          return entryId === selectedFeedOptionId || foodTypeIdFromEntry === selectedFeedOptionId;
+        });
+
+        const selectedFoodTypeMeta = (selectedFoodType ?? selectedFeedInventoryItem ?? {}) as Record<string, unknown>;
+        const nestedFoodType = selectedFeedInventoryItem?.foodType;
         const resolvedFoodTypeId = String(
-          selectedFoodTypeMeta?.id || selectedFoodTypeMeta?._id || foodTypeId,
+          selectedFoodTypeMeta?.id ||
+            selectedFoodTypeMeta?._id ||
+            selectedFoodTypeMeta?.foodTypeId ||
+            selectedFoodTypeMeta?.foodType_id ||
+            (typeof nestedFoodType === "object" ? nestedFoodType?.id || nestedFoodType?._id : "") ||
+            selectedFeedOptionId,
         ).trim();
-        if (!resolvedFoodTypeId) {
-          toast.error("Selected feed item has no valid ID");
-          return;
-        }
         const supplierId = await ensureSupplierForResource("feed");
         const feedUnitCost = resolveUnitCost(
-          selectedFoodType?.unitCost,
-          selectedFoodType?.costPerKg,
-          selectedFoodType?.pricePerKg,
-          selectedFoodType?.purchasePrice,
+          selectedFoodTypeMeta?.unitCost,
+          selectedFoodTypeMeta?.costPerKg,
+          selectedFoodTypeMeta?.pricePerKg,
+          selectedFoodTypeMeta?.purchasePrice,
         );
         const feedTotalCost = Number((quantity * feedUnitCost).toFixed(2));
 
@@ -655,7 +732,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
             quantityKg: quantity,
             quantity,
             initialQuantityKg: quantity,
-            receivedDate: receivedDateIso,
+            receivedDate: receivedDateValue,
             packagingUnit: "KG",
             unitsReceived: Math.max(1, Math.ceil(quantity)),
             costPerKg: feedUnitCost,
@@ -672,8 +749,8 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           if (withNestedFoodType) {
             payload.foodType = { id: resolvedFoodTypeId };
           }
-          if (expiryDateIso) {
-            payload.expiryDate = expiryDateIso;
+          if (expiryDateValue) {
+            payload.expiryDate = expiryDateValue;
           }
           return payload;
         };
@@ -706,7 +783,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         const medicineQuantity = Math.max(1, Math.round(quantity));
         const supplierId = await ensureSupplierForResource("medicine");
         const selectedMedicineMeta = selectedMedicineItem as MedicineInventoryBatch & Record<string, unknown>;
-        const medicineName = String(selectedMedicineItem.medicineName || "").trim() || "Unknown Medicine";
+        const medicineName = resolveMedicineDisplayName(selectedMedicineItem, selectedMedicineId);
         const medicineCompany = String(selectedMedicineItem.company || "").trim() || "Unknown Company";
         const medicineFishTypeId = String(
           selectedMedicineMeta?.fishTypeId ||
@@ -741,11 +818,11 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           costPerUnit: medicineUnitCost,
           totalCost: medicineTotalCost,
           unitsReceived: medicineQuantity,
-          receivedDate: receivedDateIso,
+          receivedDate: receivedDateValue,
           packagingUnit: "unit",
         };
-        if (expiryDateIso) {
-          payload.expiryDate = expiryDateIso;
+        if (expiryDateValue) {
+          payload.expiryDate = expiryDateValue;
         }
         response = await createMedicine(payload);
       } else if (resourceType === "fish_batch") {
@@ -1023,6 +1100,28 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     return quantity <= 0 ? "critical" : "good";
   };
 
+  const getStockStatusBadge = (status: "good" | "low" | "critical") => {
+    if (status === "critical") {
+      return (
+        <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
+          Critical
+        </Badge>
+      );
+    }
+    if (status === "low") {
+      return (
+        <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
+          Low
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+        Healthy
+      </Badge>
+    );
+  };
+
   const getDaysUntilExpiry = (expiryDate?: string) => {
     if (!expiryDate) return null;
     return Math.ceil(
@@ -1042,93 +1141,170 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     (batch: any) => isReadyToAllocateStatus(batch.status) && (batch.quantity ?? 0) > 0
   );
 
-  // Combine feed + medicine from API
-  const combinedInventory = [
-    ...feedInventory.map((f: any) => {
-      // Find food type object from foodTypes list
-      // Handle various ID field names returned by different backend versions
-      const fid = f.foodTypeId || f.foodType || f.foodId || f.foodType_id;
-      const foodTypeId = typeof fid === 'object' ? fid?.id || fid?._id : fid;
-      
-      const ft = foodTypes.find(t => (t.id || t._id) === foodTypeId);
-      
-      const name = f.name || (ft ? `${ft.name} ${f.manufacturer ? `(${f.manufacturer})` : ''}` : 'Unknown Feed');
-      const arabicName = f.arabicName || ft?.arabicName;
-      const unit = f.unit || (ft?.unit || 'kg');
-      const quantity = typeof f.quantityKg === 'number' ? f.quantityKg : (typeof f.quantity === 'number' ? f.quantity : 0);
-      const costPerUnit = f.costPerKg || f.unitCost || f.costPerUnit || ft?.costPerUnit || 0;
-      const foodTypeThreshold = getAlertThreshold(ft, 100);
-      
-      return {
-        ...f,
-        type: 'feed',
-        name,
-        arabicName,
-        quantity,
-        initialQuantity: toNumber(f.initialQuantityKg ?? f.initialQuantity ?? quantity, quantity),
-        unit,
-        reorderLevel: getAlertThreshold(f, foodTypeThreshold),
-        costPerUnit: costPerUnit,
-        supplier: f.manufacturer || f.supplier || ft?.supplier || 'Main Supplier',
-        expiryDate: f.expiryDate,
-        status: f.status || 'IN_STOCK',
-        batchNumber: f.batchNumber || '-',
-      };
-    }),
-    ...medicineInventory.map((m) => ({
-      ...m,
-      type: 'medicine',
-      name: m.medicineName,
-      supplier: m.company,
-      initialQuantity: toNumber((m as any).initialQuantity ?? (m as any).initialQuantityKg ?? m.quantity, m.quantity),
-      costPerUnit: toNumber((m as any).costPerUnit ?? (m as any).unitCost ?? 0, 0),
-      status: getMedicineBatchStatus(m),
-    })),
-  ];
+  const feedStockInventory = feedInventory.map((f: any) => {
+    // Find food type object from foodTypes list
+    // Handle various ID field names returned by different backend versions
+    const fid = f.foodTypeId || f.foodType || f.foodId || f.foodType_id;
+    const foodTypeId = typeof fid === "object" ? fid?.id || fid?._id : fid;
 
-  const finalFilteredInventory = combinedInventory.filter((item: any) => {
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = filterType === "all" || item.type === filterType;
-    return matchesSearch && matchesType;
+    const ft = foodTypes.find((t) => (t.id || t._id) === foodTypeId);
+
+    const name = f.name || (ft ? `${ft.name} ${f.manufacturer ? `(${f.manufacturer})` : ""}` : "Unknown Feed");
+    const arabicName = f.arabicName || ft?.arabicName;
+    const unit = f.unit || (ft?.unit || "kg");
+    const quantity = typeof f.quantityKg === "number" ? f.quantityKg : typeof f.quantity === "number" ? f.quantity : 0;
+    const costPerUnit = f.costPerKg || f.unitCost || f.costPerUnit || ft?.costPerUnit || 0;
+    const foodTypeThreshold = getAlertThreshold(ft, 100);
+
+    return {
+      ...f,
+      type: "feed",
+      name,
+      arabicName,
+      quantity,
+      initialQuantity: toNumber(f.initialQuantityKg ?? f.initialQuantity ?? quantity, quantity),
+      unit,
+      reorderLevel: getAlertThreshold(f, foodTypeThreshold),
+      costPerUnit: costPerUnit,
+      supplier: f.manufacturer || f.supplier || ft?.supplier || "Main Supplier",
+      expiryDate: resolveFeedExpiryDate(f),
+      status: f.status || "IN_STOCK",
+      batchNumber: f.batchNumber || "-",
+    };
   });
 
-  const lowStockItems = combinedInventory.filter((item: any) => getStockStatus(item) !== "good");
+  const finalFilteredInventory = feedStockInventory.filter((item: any) =>
+    item.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-  const expiringItems = combinedInventory.filter((item: any) => {
+  const expiringItems = feedStockInventory.filter((item: any) => {
     if (!item.expiryDate) return false;
     const daysUntilExpiry = getDaysUntilExpiry(item.expiryDate);
     return daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0;
   });
 
-  const totalFeedStock = feedInventory.reduce((sum: number, f: any) => {
-    const qty = typeof f.quantityKg === 'number' ? f.quantityKg : (typeof f.quantity === 'number' ? f.quantity : 0);
-    return sum + qty;
-  }, 0);
-
+  const lowFeedStockCount = feedStockInventory.filter((item: any) => getStockStatus(item) !== "good").length;
+  const totalFeedValue = feedStockInventory.reduce(
+    (sum, item: any) => sum + toNumber(item.quantity, 0) * toNumber(item.costPerUnit, 0),
+    0,
+  );
   const totalMedicineStock = medicineInventory.reduce((sum, batch) => sum + (batch.quantity || 0), 0);
   const expiredMedicineCount = medicineInventory.filter((batch) => getMedicineBatchStatus(batch) === "EXPIRED").length;
   const lowMedicineStockCount = medicineInventory.filter((batch) => getMedicineBatchStatus(batch) === "LOW_STOCK").length;
 
-  const normalizedAddResourceSearch = addResourceSearchQuery.trim().toLowerCase();
-  const matchesAddResourceSearch = (value: string): boolean => {
-    if (!normalizedAddResourceSearch) return true;
-    return value.toLowerCase().includes(normalizedAddResourceSearch);
+  const dedupeComboboxItems = (items: Array<ComboboxItem | null>): ComboboxItem[] => {
+    const seen = new Set<string>();
+    return items.filter((item): item is ComboboxItem => {
+      if (!item || !item.value) return false;
+      if (seen.has(item.value)) return false;
+      seen.add(item.value);
+      return true;
+    });
   };
 
-  const filteredFeedTypeOptions = foodTypes.filter((foodType) => {
-    const id = String(foodType?.id || foodType?._id || "");
-    const name = String(foodType?.name || "Unknown");
-    return matchesAddResourceSearch(`${name} ${id}`);
-  });
+  const addResourceFeedItems: ComboboxItem[] = dedupeComboboxItems([
+    ...foodTypes.map((foodType) => {
+      const id = String(foodType?.id || foodType?._id || "").trim();
+      if (!id) return null;
+      const name = String(foodType?.name || "Unknown Feed");
+      return {
+        value: id,
+        label: name,
+        sub: `ID: ${id.slice(0, 8)}`,
+      };
+    }),
+    ...feedInventory.map((entry: any) => {
+      const rawFoodType =
+        entry?.foodTypeId ||
+        entry?.foodType ||
+        entry?.foodId ||
+        entry?.foodType_id;
+      const foodTypeId = String(typeof rawFoodType === "object" ? rawFoodType?.id || rawFoodType?._id || "" : rawFoodType || "").trim();
+      const entryId = String(entry?.id || entry?._id || "").trim();
+      const optionId = foodTypeId || entryId;
+      if (!optionId) return null;
+      const label = String(
+        entry?.name ||
+          (typeof rawFoodType === "object" ? rawFoodType?.name : "") ||
+          `Feed ${optionId.slice(0, 8)}`,
+      );
+      const supplier = String(entry?.supplier || entry?.manufacturer || "").trim();
+      return {
+        value: optionId,
+        label,
+        sub: supplier
+          ? `${supplier} - ID: ${optionId.slice(0, 8)}`
+          : `ID: ${optionId.slice(0, 8)}`,
+      };
+    }),
+  ]);
 
-  const filteredMedicineOptions = medicineInventory.filter((medicineItem) => {
-    const id = String(medicineItem.id || "");
-    return matchesAddResourceSearch(`${medicineItem.medicineName} ${medicineItem.company || ""} ${id}`);
-  });
+  const addResourceMedicineItems: ComboboxItem[] = medicineInventory
+    .map((medicineItem) => {
+      const id = String(medicineItem.id || "").trim();
+      if (!id) return null;
+      return {
+        value: id,
+        label: resolveMedicineDisplayName(medicineItem, id),
+        sub: `${medicineItem.company || "Unknown Company"} - ID: ${id.slice(0, 8)}`,
+      };
+    })
+    .filter((item): item is ComboboxItem => item !== null);
 
-  const filteredFishTypeOptions = fishTypeOptions.filter((fishType) =>
-    matchesAddResourceSearch(`${fishType.name} ${fishType.id}`),
-  );
+  const addResourceFishBatchItems: ComboboxItem[] = fishTypeOptions.map((fishType) => ({
+    value: fishType.id,
+    label: fishType.name,
+    sub: `ID: ${fishType.id.slice(0, 8)}`,
+  }));
+
+  const addResourceItemOptions: ComboboxItem[] =
+    newResourceData.resourceType === "feed"
+      ? addResourceFeedItems
+      : newResourceData.resourceType === "medicine"
+        ? addResourceMedicineItems
+        : addResourceFishBatchItems;
+
+  const addResourceItemLabel =
+    newResourceData.resourceType === "feed"
+      ? "Feed Item"
+      : newResourceData.resourceType === "medicine"
+        ? "Medicine Item"
+        : "Fish Batch Item";
+
+  const addResourceItemPlaceholder =
+    newResourceData.resourceType === "feed"
+      ? "Search or select feed item..."
+      : newResourceData.resourceType === "medicine"
+        ? "Search or select medicine item..."
+        : "Search or select fish batch item...";
+
+  const addResourceEmptyText =
+    newResourceData.resourceType === "feed"
+      ? "No feed items available."
+      : newResourceData.resourceType === "medicine"
+        ? "No medicine items available from API."
+        : "No fish batch items available from API.";
+
+  const addResourceSelectedItemValue =
+    newResourceData.resourceType === "feed"
+      ? newResourceData.feedItemId
+      : newResourceData.resourceType === "medicine"
+        ? newResourceData.medicineItemId
+        : newResourceData.fishBatchItemId;
+
+  const handleAddResourceItemChange = (item: ComboboxItem | null) => {
+    const selectedId = item?.value ?? "";
+
+    setNewResourceData((previous) => {
+      if (previous.resourceType === "feed") {
+        return { ...previous, feedItemId: selectedId };
+      }
+      if (previous.resourceType === "medicine") {
+        return { ...previous, medicineItemId: selectedId };
+      }
+      return { ...previous, fishBatchItemId: selectedId };
+    });
+  };
 
   const addResourceQuantityLabel =
     newResourceData.resourceType === "fish_batch"
@@ -1172,9 +1348,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
             <Plus className="w-4 h-4 mr-2" />
             Allocate to Tank
           </TabsTrigger>
-          <TabsTrigger value="supplies">
+          <TabsTrigger value="feed-stock">
             <Package className="w-4 h-4 mr-2" />
-            Supplies
+            Feed Stock
           </TabsTrigger>
           <TabsTrigger value="harvested-fish">
             <Fish className="w-4 h-4 mr-2" />
@@ -1316,36 +1492,28 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           </Card>
         </TabsContent>
 
-        {/* Supplies Tab */}
-        <TabsContent value="supplies" className="mt-4">
+        {/* Feed Stock Tab */}
+        <TabsContent value="feed-stock" className="mt-4">
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Total Items</CardTitle>
+                <CardTitle className="text-sm">Feed Batches</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{combinedInventory.length}</div>
-                <p className="text-xs text-gray-600 mt-1">In inventory</p>
+                <div className="text-2xl font-bold">{feedStockInventory.length}</div>
+                <p className="text-xs text-gray-600 mt-1">Feed records in inventory</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Total Value</CardTitle>
+                <CardTitle className="text-sm">Total Feed Value</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  $
-                  {combinedInventory
-                    .reduce(
-                      (sum, item: any) => sum + (item.quantity || 0) * (item.costPerUnit || 0),
-                      0
-                    )
-                    .toLocaleString()}
-                </div>
+                <div className="text-2xl font-bold">${totalFeedValue.toLocaleString()}</div>
                 <p className="text-xs text-gray-600 mt-1">
-                  Current stock value
+                  Current feed stock value
                 </p>
               </CardContent>
             </Card>
@@ -1355,9 +1523,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                 <CardTitle className="text-sm">Low Stock</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl text-orange-600 font-bold">
-                  {combinedInventory.filter((i: any) => getStockStatus(i) !== "good").length}
-                </div>
+                <div className="text-2xl text-orange-600 font-bold">{lowFeedStockCount}</div>
                 <p className="text-xs text-gray-600 mt-1">Need reordering</p>
               </CardContent>
             </Card>
@@ -1368,7 +1534,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl text-red-600 font-bold">
-                  {combinedInventory.filter((i: any) => {
+                  {expiringItems.filter((i: any) => {
                     const days = getDaysUntilExpiry(i.expiryDate);
                     return days !== null && days <= 90;
                   }).length}
@@ -1385,7 +1551,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                 <div className="flex-1 relative w-full md:w-auto">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input
-                    placeholder="Search supplies..."
+                    placeholder="Search feed stock..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10 h-9"
@@ -1398,8 +1564,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                     className="h-9 w-9 text-gray-400 hover:text-[#0A4D68]"
                     onClick={() => {
                       loadFeed();
-                      loadMedicine();
-                      loadMedicineTotals();
                       loadFoodTypes();
                     }}
                   >
@@ -1420,9 +1584,20 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
             <CardContent>
               <div className="space-y-3">
                 {finalFilteredInventory.map((item: any) => {
-                  const Icon = getTypeIcon(item.type || 'feed');
+                  const Icon = getTypeIcon("feed");
                   const daysUntilExpiry = getDaysUntilExpiry(item.expiryDate);
                   const itemName = item.name;
+                  const stockStatus = getStockStatus(item);
+                  const quantity = toNumber(item.quantity, 0);
+                  const initialQuantity = toNumber(item.initialQuantity ?? item.quantity, quantity);
+                  const reorderLevel = toNumber(item.reorderLevel, 0);
+                  const stockLevelPercent = initialQuantity > 0 ? Math.min(100, (quantity / initialQuantity) * 100) : 0;
+                  const stockProgressClass =
+                    stockStatus === "critical"
+                      ? "h-1.5 mt-2 [&>div]:bg-red-500"
+                      : stockStatus === "low"
+                        ? "h-1.5 mt-2 [&>div]:bg-orange-500"
+                        : "h-1.5 mt-2 [&>div]:bg-emerald-500";
 
                   return (
                     <div
@@ -1437,16 +1612,27 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <p className="font-semibold text-[#0A4D68]">{itemName}</p>
-                              <Badge
-                                className={getTypeColor(item.type || 'feed')}
-                                variant="outline"
-                              >
-                                {item.type || 'Feed'}
+                              <Badge className={getTypeColor("feed")} variant="outline">
+                                Feed
                               </Badge>
+                              {getStockStatusBadge(stockStatus)}
                             </div>
                             <p className="text-xs text-gray-600">
                               {item.supplier ? `Supplier: ${item.supplier}` : 'Stock available in storage'}
                             </p>
+                            <p className="text-xs text-gray-700 mt-1">
+                              Stock level:{" "}
+                              <span className="font-semibold">
+                                {quantity.toLocaleString()} {item.unit}
+                              </span>{" "}
+                              / {initialQuantity.toLocaleString()} {item.unit}
+                            </p>
+                            {reorderLevel > 0 && (
+                              <p className="text-xs text-gray-600">
+                                Reorder level: {reorderLevel.toLocaleString()} {item.unit}
+                              </p>
+                            )}
+                            <Progress value={stockLevelPercent} className={stockProgressClass} />
                             {item.expiryDate && (
                               <p
                                 className={`text-xs mt-1 ${daysUntilExpiry && daysUntilExpiry <= 30
@@ -1464,19 +1650,17 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                           </div>
                         </div>
                         <div className="text-right flex flex-col items-end gap-2 text-right">
-                          {item.type === 'feed' && (
-                            <Button 
-                              size="icon" 
-                              variant="ghost" 
-                              className="w-7 h-7 text-red-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e: React.MouseEvent) => {
-                                e.stopPropagation();
-                                handleDeleteFeed(item.id);
-                              }}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          )}
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="w-7 h-7 text-red-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e: React.MouseEvent) => {
+                              e.stopPropagation();
+                              handleDeleteFeed(item.id);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
                       </div>
 
@@ -1494,9 +1678,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
               {finalFilteredInventory.length === 0 && (
                 <div className="text-center py-12">
                   <Package className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-600">No items found</p>
+                  <p className="text-gray-600">No feed stock found</p>
                   <p className="text-sm text-gray-500 mt-1">
-                    Try adjusting your search or filters
+                    Try adjusting your search or add a new feed resource
                   </p>
                 </div>
               )}
@@ -1551,27 +1735,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
             </Card>
           </div>
 
-          {medicineTotals.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Medicine Totals</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {medicineTotals.map((item, idx) => (
-                  <div
-                    key={`${item.medicineName}-${idx}`}
-                    className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
-                  >
-                    <span className="font-medium text-gray-700">{item.medicineName}</span>
-                    <span className="text-gray-600">
-                      {item.totalQuantity.toLocaleString()} {item.unit}
-                    </span>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
@@ -1608,7 +1771,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                       <tr>
                         <th className="px-4 py-3">Medicine</th>
                         <th className="px-4 py-3">Company</th>
-                        <th className="px-4 py-3">Batch</th>
                         <th className="px-4 py-3">Quantity</th>
                         <th className="px-4 py-3">Expiry Date</th>
                         <th className="px-4 py-3">Status</th>
@@ -1622,7 +1784,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                           <tr key={batch.id} className="hover:bg-[#f8fafc] transition-colors">
                             <td className="px-4 py-3 font-semibold text-[#0A4D68]">{batch.medicineName}</td>
                             <td className="px-4 py-3 text-gray-700">{batch.company || "-"}</td>
-                            <td className="px-4 py-3 font-mono text-xs text-gray-600">{batch.batchNumber || "-"}</td>
                             <td className="px-4 py-3">
                               {batch.quantity.toLocaleString()} {batch.unit}
                             </td>
@@ -1687,12 +1848,15 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           }
         }}
       >
-        <DialogContent className="w-[680px] max-w-[95vw] sm:w-[720px] max-h-[88vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-[#0A4D68]">
               <Plus className="w-5 h-5" />
               Add resources
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Add inventory resources and select resource type, item, quantity, receive date, and expiry date.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -1701,7 +1865,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                 value={newResourceData.resourceType}
                 onValueChange={(value: ResourceType) =>
                   {
-                    setAddResourceSearchQuery("");
                     setNewResourceData((previous) => ({
                       ...previous,
                       resourceType: value,
@@ -1723,120 +1886,20 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
               </Select>
             </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="addResourceSearch">Search Item</Label>
-              <Input
-                id="addResourceSearch"
-                value={addResourceSearchQuery}
-                onChange={(event) => setAddResourceSearchQuery(event.target.value)}
-                placeholder="Search by name or ID"
-              />
-            </div>
-
-            {newResourceData.resourceType === "feed" && (
-              <div className="grid gap-2">
-                <Label htmlFor="feedItemId">Feed Item</Label>
-                <Select
-                  value={newResourceData.feedItemId}
-                  onValueChange={(value) =>
-                    setNewResourceData((previous) => ({
-                      ...previous,
-                      feedItemId: value,
-                    }))
-                  }
-                >
-                  <SelectTrigger id="feedItemId">
-                    <SelectValue placeholder="Select feed item" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredFeedTypeOptions.map((foodType) => {
-                      const id = String(foodType?.id || foodType?._id || "");
-                      if (!id) return null;
-                      const name = String(foodType?.name || "Unknown");
-                      return (
-                        <SelectItem key={id} value={id}>
-                          {name} ({id.slice(0, 8)})
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-                {foodTypes.length === 0 && (
-                  <p className="text-xs text-red-600">No feed items available from API.</p>
-                )}
-                {foodTypes.length > 0 && filteredFeedTypeOptions.length === 0 && (
-                  <p className="text-xs text-amber-600">No feed items match your search.</p>
-                )}
-              </div>
-            )}
-
-            {newResourceData.resourceType === "medicine" && (
-              <div className="grid gap-2">
-                <Label htmlFor="medicineItemId">Medicine Item</Label>
-                <Select
-                  value={newResourceData.medicineItemId}
-                  onValueChange={(value) =>
-                    setNewResourceData((previous) => ({
-                      ...previous,
-                      medicineItemId: value,
-                    }))
-                  }
-                >
-                  <SelectTrigger id="medicineItemId">
-                    <SelectValue placeholder="Select medicine item" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredMedicineOptions.map((medicineItem) => {
-                      const id = String(medicineItem.id || "");
-                      if (!id) return null;
-                      return (
-                        <SelectItem key={id} value={id}>
-                          {medicineItem.medicineName} ({id.slice(0, 8)})
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-                {medicineInventory.length === 0 && (
-                  <p className="text-xs text-red-600">No medicine items available from API.</p>
-                )}
-                {medicineInventory.length > 0 && filteredMedicineOptions.length === 0 && (
-                  <p className="text-xs text-amber-600">No medicine items match your search.</p>
-                )}
-              </div>
-            )}
-
-            {newResourceData.resourceType === "fish_batch" && (
-              <div className="grid gap-2">
-                <Label htmlFor="fishBatchItemId">Fish Batch Item</Label>
-                <Select
-                  value={newResourceData.fishBatchItemId}
-                  onValueChange={(value) =>
-                    setNewResourceData((previous) => ({
-                      ...previous,
-                      fishBatchItemId: value,
-                    }))
-                  }
-                >
-                  <SelectTrigger id="fishBatchItemId">
-                    <SelectValue placeholder="Select fish batch item" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredFishTypeOptions.map((fishType) => (
-                      <SelectItem key={fishType.id} value={fishType.id}>
-                        {fishType.name} ({fishType.id.slice(0, 8)})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {fishTypeOptions.length === 0 && (
-                  <p className="text-xs text-red-600">No fish batch items available from API.</p>
-                )}
-                {fishTypeOptions.length > 0 && filteredFishTypeOptions.length === 0 && (
-                  <p className="text-xs text-amber-600">No fish types match your search.</p>
-                )}
-              </div>
-            )}
+            <Combobox
+              items={addResourceItemOptions}
+              value={addResourceSelectedItemValue || null}
+              onChange={handleAddResourceItemChange}
+              label={addResourceItemLabel}
+              placeholder={addResourceItemPlaceholder}
+              searchPlaceholder="Search by name or ID..."
+              emptyText={addResourceEmptyText}
+            />
+            <p className="text-xs text-gray-500">
+              {addResourceItemOptions.length > 0
+                ? `${addResourceItemOptions.length} item(s) available`
+                : addResourceEmptyText}
+            </p>
 
             <div className="grid gap-2">
               <Label htmlFor="quantityKg">{addResourceQuantityLabel}</Label>
