@@ -9,6 +9,8 @@ import {
   deleteTask,
   getFarmTasks,
   getMyTasks,
+  isFeedingTask,
+  notifyFeedingTaskCompleted,
   TaskItem,
   TaskStatus,
   updateTaskStatus,
@@ -95,6 +97,9 @@ export default function Tasks({ user }: TasksProps) {
     setTaskBusy(task.id, true);
     try {
       await updateTaskStatus(task.id, status);
+      if (status === 'DONE' && isFeedingTask(task)) {
+        notifyFeedingTaskCompleted(task.id);
+      }
       toast.success(`Task moved to ${status}`);
       await loadTasks();
     } catch (err) {

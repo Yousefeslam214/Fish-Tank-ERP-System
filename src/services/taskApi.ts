@@ -27,6 +27,22 @@ export interface TaskCreatePayload {
   dueAt?: string;
 }
 
+export const FEEDING_TASK_COMPLETED_EVENT = 'feeding-task-completed';
+
+export const isFeedingTask = (task: Pick<TaskItem, 'templateId' | 'title' | 'description'>): boolean => {
+  const haystack = `${task.templateId || ''} ${task.title || ''} ${task.description || ''}`.toLowerCase();
+  return haystack.includes('feed') || haystack.includes('feeding') || haystack.includes('meal');
+};
+
+export const notifyFeedingTaskCompleted = (taskId: string): void => {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent(FEEDING_TASK_COMPLETED_EVENT, {
+      detail: { taskId },
+    }),
+  );
+};
+
 const toArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
 const readPayload = (payload: unknown): unknown => {

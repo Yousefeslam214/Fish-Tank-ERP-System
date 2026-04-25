@@ -138,14 +138,13 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
     }
   }, [batchRequirement, availableFoodTypes]);
 
-  // Auto-populate weight fed based on recommended amount
+  // Auto-populate weight fed based on remaining recommendation
   useEffect(() => {
     if (open && dailyRecommended > 0 && weightFed === 0) {
-      // If we have a per-meal recommendation, use it as default for one session
-      const defaultAmount = batchRequirement?.feedPerMealKg || (dailyRecommended / (batchRequirement?.mealsPerDay || 4));
-      setWeightFed(Number(defaultAmount.toFixed(2)));
+      const remaining = Math.max(0, dailyRecommended - currentTotalFed);
+      setWeightFed(Number(remaining.toFixed(2)));
     }
-  }, [open, dailyRecommended, weightFed, batchRequirement]);
+  }, [open, dailyRecommended, currentTotalFed, weightFed]);
 
   const handleSave = async () => {
     if (!foodTypeId) {
@@ -194,7 +193,7 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
             assignedToUserId: userId,
             tankId: tank.id,
             title: `Feeding Record: ${tank.name}`,
-            description: `Recorded feeding of ${weightFed}kg ${availableFoodTypes.find(f => f.id === foodTypeId)?.name || 'feed'}.`,
+            description: `Recorded ${weightFed}kg of ${availableFoodTypes.find(f => f.id === foodTypeId)?.name || 'feed'}.`,
             dueAt: new Date().toISOString()
           })
         );
@@ -290,16 +289,16 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
                   )}
                 </div>
               </div>
-              <div className="space-y-1 border-l pl-6 border-[#088395]/10">
-                <p className="text-[#0A4D68]/60 text-[10px] uppercase font-bold tracking-wider">Session Recommendation</p>
+              <div className="space-y-1 pl-6">
+                <div className="flex justify-between items-center">
+                  <p className="text-[#0A4D68]/60 text-[10px] uppercase font-bold tracking-wider">Already Fed</p>
+                </div>
                 <div className="flex items-baseline gap-1">
                   {isLoadingRequirement ? (
                     <RefreshCw className="w-5 h-5 animate-spin text-[#0A4D68]/40" />
                   ) : (
                     <>
-                      <span className="text-xl font-bold text-[#0A4D68]">
-                        {(batchRequirement?.feedPerMealKg || (dailyRecommended / (batchRequirement?.mealsPerDay || 4))).toFixed(1)}
-                      </span>
+                      <span className="text-xl font-bold text-[#0A4D68]">{currentTotalFed.toFixed(1)}</span>
                       <span className="text-sm font-medium text-[#0A4D68]/70">kg</span>
                     </>
                   )}
@@ -395,11 +394,7 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
                 <div className="flex justify-between text-[11px] font-medium text-gray-400">
                   <div className="flex items-center gap-1.5">
                     <Droplet className="w-3 h-3" />
-                    <span>Weight: {totalWithNewMeal.toFixed(1)} / {dailyRecommended.toFixed(1)} kg</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Fish className="w-3 h-3" />
-                    <span>Progression Track</span>
+                    <span>Progression: {totalWithNewMeal.toFixed(1)} / {dailyRecommended.toFixed(1)} kg</span>
                   </div>
                 </div>
                 <Progress
@@ -409,8 +404,12 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2 bg-white/5 border border-white/10 p-3 rounded-xl flex items-center justify-between">
-                  <span className="text-[10px] text-gray-500 font-bold uppercase">Amount Remaining Today</span>
+                <div className="bg-white/5 border border-white/10 p-3 rounded-xl flex items-center justify-between">
+                  <span className="text-[10px] text-gray-500 font-bold uppercase">Daily Total</span>
+                  <span className="text-sm font-bold text-white">{totalWithNewMeal.toFixed(1)} <span className="text-[10px] text-gray-600">KG</span></span>
+                </div>
+                <div className="bg-white/5 border border-white/10 p-3 rounded-xl flex items-center justify-between">
+                  <span className="text-[10px] text-gray-500 font-bold uppercase">Diff</span>
                   <span className={`text-sm font-bold ${totalWithNewMeal >= dailyRecommended ? 'text-green-400' : 'text-orange-400'}`}>
                     {Math.max(0, dailyRecommended - totalWithNewMeal).toFixed(1)} <span className="text-[10px] opacity-70">KG</span>
                   </span>

@@ -5,6 +5,15 @@ export const getFeedInventory = () => apiGet<any>("/inventory/feed");
 export const createFeed = (data: any) =>
   apiPost<any>("/inventory/feed", data);
 
+export const createMedicine = (data: any) =>
+  apiPost<any>("/inventory/medicine", data);
+
+export const createFishBatch = (data: any) =>
+  apiPost<any>("/inventory/batches", data);
+
+export const createHarvestedFish = (data: any) =>
+  apiPost<any>("/inventory/harvested", data);
+
 export const getFeedByFoodType = (foodId: string) =>
   apiGet<any>(`/inventory/feed/food-type/${foodId}`);
 

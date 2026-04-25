@@ -209,7 +209,28 @@ const normalizeGrading = (value: unknown): HarvestGradingRecord | null => {
   };
 };
 
+const postWithFallback = async (
+  primaryPath: string,
+  fallbackPath: string,
+  primaryBody: unknown,
+  fallbackBody: unknown,
+): Promise<unknown> => {
+  try {
+    return await requestJson(primaryPath, {
+      method: 'POST',
+      body: primaryBody,
+    });
+  } catch (error) {
+    if (!(error instanceof ApiClientError) || (error.status !== 404 && error.status !== 405)) {
+      throw error;
+    }
+  }
 
+  return requestJson(fallbackPath, {
+    method: 'POST',
+    body: fallbackBody,
+  });
+};
 
 const normalizePricing = (value: unknown): FishGradePricingRecord | null => {
   const record = asRecord(value);
@@ -380,19 +401,27 @@ export const addHarvestGradingRecord = async (
   eventId: string,
   payload: AddHarvestGradingPayload,
 ): Promise<HarvestGradingRecord> => {
-  console.log(`[addHarvestGradingRecord] Adding grading for event ${eventId}`, payload);
+  const primaryBody = {
+    fishTypeId: payload.fishTypeId,
+    gradeId: payload.gradeId,
+    weight: payload.weight,
+    count: payload.count,
+    condition: payload.condition,
+  };
 
-  const body = {
+  const fallbackBody = {
     pricingId: payload.gradeId,
     sourceBatchId: payload.sourceBatchId,
     weightKg: payload.weight,
+    condition: payload.condition,
   };
-  console.log(`[addHarvestGradingRecord] Request body:`, body);
 
-  const response = await requestJson(`/harvest/events/${eventId}/grading`, {
-    method: 'POST',
-    body,
-  });
+  const response = await postWithFallback(
+    `/harvest/events/${eventId}/grading`,
+    `/harvest/events/${eventId}/grading`,
+    primaryBody,
+    fallbackBody,
+  );
 
   const data = unwrapApiData<unknown>(response);
   const grading = normalizeGrading(data);
@@ -419,10 +448,12 @@ export const completeHarvestEvent = async (
   eventId: string,
   payload: CompleteHarvestPayload,
 ): Promise<HarvestEventRecord> => {
-  const response = await requestJson(`/harvest/events/${eventId}/complete`, {
-    method: 'POST',
-    body: { notes: payload.notes || '' },
-  });
+  const response = await postWithFallback(
+    `/harvest/events/${eventId}/complete`,
+    `/harvest/events/${eventId}/complete`,
+    { notes: payload.notes || '' },
+    {},
+  );
   const data = unwrapApiData<unknown>(response);
   const event = normalizeHarvestEvent(data);
   if (!event) {

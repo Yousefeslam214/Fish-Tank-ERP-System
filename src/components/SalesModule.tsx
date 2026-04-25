@@ -12,7 +12,6 @@ import {
 import { User, Farm } from '../types';
 import { mockFarms } from '../mockData';
 import CustomerManagement from './sales/CustomerManagement';
-import HarvestedInventoryView from './sales/HarvestedInventoryView';
 import SalesOrderList from './sales/SalesOrderList';
 import { getSalesDashboardMetrics } from '../services/salesApi';
 import { Button } from './ui/button';
@@ -175,7 +174,6 @@ export default function SalesModule({ user, selectedFarm, allowedPages = [], onN
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="bg-white">
             <TabsTrigger value="orders">Sales Orders</TabsTrigger>
-            <TabsTrigger value="inventory">Harvested Stock</TabsTrigger>
             <TabsTrigger value="customers">Customers</TabsTrigger>
           </TabsList>
 
@@ -184,14 +182,6 @@ export default function SalesModule({ user, selectedFarm, allowedPages = [], onN
               user={user}
               selectedFarm={currentFarm}
               onOrdersChanged={handleDataChanged}
-            />
-          </TabsContent>
-
-          <TabsContent value="inventory">
-            <HarvestedInventoryView
-              user={user}
-              selectedFarm={currentFarm}
-              refreshKey={refreshKey}
             />
           </TabsContent>
 

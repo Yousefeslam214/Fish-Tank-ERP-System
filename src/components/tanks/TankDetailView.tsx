@@ -16,6 +16,7 @@ import { GrowthMeasurementsTab } from './tabs/GrowthMeasurementsTab';
 import { PredictionsTab } from './tabs/PredictionsTab';
 import { TankTasksTab } from './tabs/TankTasksTab';
 import { TankAssignmentsTab } from './tabs/TankAssignmentsTab';
+import { SensorTab } from './tabs/SensorTab';
 
 // Modals
 import { FeedingModal } from './modals/FeedingModal';
@@ -422,6 +423,7 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
             <TabsTrigger value="predictions">Predictions</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="users">Assign Users</TabsTrigger>
+            <TabsTrigger value="sensor">Sensor</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -502,6 +504,10 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
 
           <TabsContent value="users">
             <TankAssignmentsTab user={user} tank={currentTank} />
+          </TabsContent>
+
+          <TabsContent value="sensor">
+            <SensorTab tank={currentTank} />
           </TabsContent>
         </Tabs>
       </div>
