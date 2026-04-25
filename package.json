@@ -65,7 +65,8 @@
   "scripts": {
     "dev": "npx vite",
     "build": "vite build",
-    "test": "vitest run --config vitest.config.ts",
+    "test": "jest",
+    "test:vitest": "vitest run --config vitest.config.ts",
     "test:unit": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts",
     "test:live": "vitest run --config vitest.live.config.ts"

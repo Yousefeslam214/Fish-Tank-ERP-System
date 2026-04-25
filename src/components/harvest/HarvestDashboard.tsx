@@ -21,20 +21,12 @@ import {
 interface HarvestDashboardProps {
   farmId: string;
   onStartHarvest: () => void;
-  onViewHistory: () => void;
   onViewTankPerformance: (tankId: string) => void;
+  onContinueHarvest: (harvest: any) => void;
   kpis?: {
     activeHarvests: number;
     thisMonthHarvested: number;
     thisMonthRevenue: number;
-    avgFCR: number;
-    readyToHarvest: number;
-    avgSurvivalRate: number;
-    nextRecommended?: {
-      tankId: string;
-      tankName: string;
-      daysUntil: number;
-    }
   };
   activeHarvests?: any[];
   completedHarvests?: any[];
@@ -44,8 +36,8 @@ interface HarvestDashboardProps {
 export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({
   farmId,
   onStartHarvest,
-  onViewHistory,
   onViewTankPerformance,
+  onContinueHarvest,
   kpis,
   activeHarvests = [],
   completedHarvests = [],
@@ -120,71 +112,9 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Avg FCR (Last 3)</p>
-                <div className="flex items-baseline gap-2">
-                  <p className="text-3xl font-bold text-[#0A4D68]">{kpis?.avgFCR ?? 0}</p>
-                  <span className="text-sm text-green-600">⭐ Excellent</span>
-                </div>
-              </div>
-              <Target className="w-10 h-10 text-[#0A4D68] opacity-20" />
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Ready to Harvest</p>
-                <div className="space-y-1">
-                  <p className="text-3xl font-bold text-green-600">🟢 {kpis?.readyToHarvest ?? 0} Tanks</p>
-                  <p className="text-sm text-gray-600">&gt;400g avg</p>
-                </div>
-                <Button variant="link" className="px-0 h-auto text-[#0A4D68]" size="sm">
-                  View List →
-                </Button>
-              </div>
-              <Fish className="w-10 h-10 text-green-500 opacity-20" />
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Avg Survival Rate</p>
-                <div className="flex items-baseline gap-2">
-                  <p className="text-3xl font-bold text-[#0A4D68]">{kpis?.avgSurvivalRate ?? 0}%</p>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">Last 10 harvests</p>
-              </div>
-              <Award className="w-10 h-10 text-[#0A4D68] opacity-20" />
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Next Recommended</p>
-                <div className="space-y-1">
-                  <p className="text-2xl font-bold text-[#0A4D68]">{kpis?.nextRecommended?.tankName ?? 'None'}</p>
-                  <p className="text-sm text-gray-600">In {kpis?.nextRecommended?.daysUntil ?? '--'} days</p>
-                </div>
-                <Button variant="link" className="px-0 h-auto text-[#0A4D68]" size="sm">
-                  Predict →
-                </Button>
-              </div>
-              <Calendar className="w-10 h-10 text-[#0A4D68] opacity-20" />
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Active Harvests */}
@@ -237,7 +167,11 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({
                     <Badge variant={harvest.status === 'GRADING' ? 'default' : 'secondary'}>
                       {harvest.status}
                     </Badge>
-                    <Button size="sm" variant="outline">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => onContinueHarvest(harvest)}
+                    >
                       Continue →
                     </Button>
                   </div>
@@ -270,9 +204,6 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Completed Harvests (Last 7 Days)</CardTitle>
-            <Button variant="link" onClick={onViewHistory}>
-              View All <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -290,8 +221,6 @@ export const HarvestDashboard: React.FC<HarvestDashboardProps> = ({
                   <Badge variant="outline" size="sm">{harvest.type}</Badge>
                   <span className="text-sm">{harvest.weight}kg</span>
                   <span className="text-sm font-semibold text-green-600">{harvest.revenue.toLocaleString()} EGP</span>
-                  <span className="text-sm text-gray-600">FCR: {harvest.fcr}</span>
-                  <span className="text-lg">{harvest.status}</span>
                 </div>
               </div>
             ))}
