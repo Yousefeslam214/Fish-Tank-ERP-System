@@ -116,7 +116,7 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
   const [selectedTankId, setSelectedTankId] = useState('');
   const [tankBatches, setTankBatches] = useState<TankBatchesResponse>({ summary: null, batches: [] });
   const [selectedBatchId, setSelectedBatchId] = useState('');
-  const [selectedHarvestType, setSelectedHarvestType] = useState<HarvestTypeValue>('QUARTER');
+  const [selectedHarvestType, setSelectedHarvestType] = useState<HarvestTypeValue>('FULL');
   const [prediction, setPrediction] = useState<HarvestPredictionRecord | null>(null);
   const [isLoadingPrediction, setIsLoadingPrediction] = useState(false);
 
@@ -765,19 +765,12 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
                     </div>
 
                     <div>
-                      <Label htmlFor="workflow-harvest-type">Harvest Type</Label>
-                      <select
-                        id="workflow-harvest-type"
-                        className="mt-1 w-full h-9 border rounded-md px-3 bg-white"
-                        value={selectedHarvestType}
-                        onChange={(event) => setSelectedHarvestType(event.target.value as HarvestTypeValue)}
-                      >
-                        {harvestTypeOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
+                      <Label>Harvest Type</Label>
+                      <div className="mt-1 flex items-center gap-2 px-3 h-9 border rounded-md bg-gray-50 text-sm font-medium">
+                        <Badge className="bg-purple-100 text-purple-700 border-purple-300">
+                          🟣 Full
+                        </Badge>
+                      </div>
                     </div>
 
                     <Card className="bg-gray-50">

@@ -113,97 +113,17 @@ export const HarvestDetailsStep: React.FC<HarvestDetailsStepProps> = ({
             </Button>
           </div>
 
-          {/* Harvest Type */}
           <div className="space-y-3">
-            <Label>Harvest Type *</Label>
-            
-            <RadioGroup 
-              value={formData.harvestType} 
-              onValueChange={(value) => setFormData({ ...formData, harvestType: value as HarvestType })}
-            >
-              <div className="space-y-3">
-                {/* Full Harvest */}
-                <div className="flex items-start space-x-3 border rounded-lg p-4 hover:bg-gray-50">
-                  <RadioGroupItem value="FULL" id="full" />
-                  <div className="flex-1">
-                    <Label htmlFor="full" className="font-semibold cursor-pointer">
-                      Full Harvest (100% of batch) 🟣
-                    </Label>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Recommended for: End of cycle, tank cleaning
-                    </p>
-                  </div>
-                </div>
-
-                {/* Partial Harvest */}
-                <div className="flex items-start space-x-3 border rounded-lg p-4 hover:bg-gray-50">
-                  <RadioGroupItem value="PARTIAL" id="partial" />
-                  <div className="flex-1 space-y-3">
-                    <Label htmlFor="partial" className="font-semibold cursor-pointer">
-                      Partial Harvest (Select percentage) 🟠
-                    </Label>
-                    {formData.harvestType === 'PARTIAL' && (
-                      <div className="space-y-2 pl-2">
-                        <div className="flex items-center gap-4">
-                          <Label className="min-w-24">Percentage:</Label>
-                          <Slider 
-                            value={[formData.partialPercentage || 50]}
-                            onValueChange={(value) => setFormData({ ...formData, partialPercentage: value[0] })}
-                            min={10}
-                            max={90}
-                            step={5}
-                            className="flex-1"
-                          />
-                          <span className="font-bold text-[#0A4D68] min-w-16 text-right">
-                            {formData.partialPercentage}%
-                          </span>
-                        </div>
-                        <div className="text-sm text-gray-600 pl-2">
-                          = ~{Math.round(selectedTank.fishCount * (formData.partialPercentage || 50) / 100)} fish, 
-                          ~{Math.round(selectedTank.biomass * (formData.partialPercentage || 50) / 100)}kg estimated
-                        </div>
-                        <div className="text-sm text-gray-600 pl-2">
-                          {getRemainingInfo()}
-                        </div>
-                      </div>
-                    )}
-                    <p className="text-sm text-gray-600">
-                      Recommended for: Size grading, thinning
-                    </p>
-                  </div>
-                </div>
-
-                {/* Selective Harvest */}
-                <div className="flex items-start space-x-3 border rounded-lg p-4 hover:bg-gray-50">
-                  <RadioGroupItem value="SELECTIVE" id="selective" />
-                  <div className="flex-1 space-y-3">
-                    <Label htmlFor="selective" className="font-semibold cursor-pointer">
-                      Selective Harvest (Large fish only) 🩷
-                    </Label>
-                    {formData.harvestType === 'SELECTIVE' && (
-                      <div className="space-y-2 pl-2">
-                        <div className="flex items-center gap-4">
-                          <Label className="min-w-24">Min Weight:</Label>
-                          <Input
-                            type="number"
-                            value={formData.selectiveMinWeight}
-                            onChange={(e) => setFormData({ ...formData, selectiveMinWeight: Number(e.target.value) })}
-                            className="w-32"
-                          />
-                          <span>g</span>
-                        </div>
-                        <div className="text-sm text-gray-600 pl-2">
-                          Est. Count: ~{Math.round(selectedTank.fishCount * 0.25)} fish, ~{Math.round(selectedTank.biomass * 0.4)}kg
-                        </div>
-                      </div>
-                    )}
-                    <p className="text-sm text-gray-600">
-                      Recommended for: Market-ready fish, staggered harvest
-                    </p>
-                  </div>
-                </div>
+            <Label>Harvest Type</Label>
+            <div className="border rounded-lg p-4 bg-gray-50 flex items-center justify-between">
+              <div>
+                <Label className="font-semibold">Full Harvest (100% of batch) 🟣</Label>
+                <p className="text-sm text-gray-600 mt-1">
+                  Recommended for: End of cycle, tank cleaning
+                </p>
               </div>
-            </RadioGroup>
+              <Badge className="bg-purple-100 text-purple-700 border-purple-300">Selected</Badge>
+            </div>
           </div>
 
           {/* Date & Time */}
