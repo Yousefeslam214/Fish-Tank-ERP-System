@@ -34,10 +34,7 @@ const QUICK_LOGIN_PRESETS = [
     email: "warehouse_manager.test@fishfarm360.local",
   },
   { key: "Technician", email: "technician.test@fishfarm360.local" },
-  { key: "Accountant", email: "accountant.test@fishfarm360.local" },
-  { key: "Sales", email: "sales.test@fishfarm360.local" },
   { key: "Worker", email: "worker.test@fishfarm360.local" },
-  { key: "Delivery", email: "delivery.test@fishfarm360.local" },
 ];
 
 const normalizeErrorMessage = (error: unknown): string => {
