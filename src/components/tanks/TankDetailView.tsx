@@ -36,6 +36,63 @@ interface TankDetailViewProps {
   user: any;
 }
 
+const toFiniteNumber = (value: any): number | undefined => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value.replace(/[^\d.-]/g, ''));
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  if (value && typeof value === 'object' && 'value' in value) {
+    return toFiniteNumber((value as { value?: unknown }).value);
+  }
+  return undefined;
+};
+
+const toValidDate = (value: any): Date => {
+  const candidate = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(candidate.getTime()) ? new Date() : candidate;
+};
+
+const normalizeGrowthMeasurement = (measurement: any) => ({
+  ...measurement,
+  measuredAt: toValidDate(
+    measurement?.measuredAt ??
+      measurement?.measurementDate ??
+      measurement?.date ??
+      measurement?.timestamp ??
+      measurement?.createdAt,
+  ),
+  daysInCulture:
+    toFiniteNumber(
+      measurement?.daysInCulture ??
+        measurement?.dayInCulture ??
+        measurement?.day,
+    ) ?? 0,
+  sampleSize:
+    toFiniteNumber(
+      measurement?.sampleSize ??
+        measurement?.sampleCount ??
+        measurement?.numberOfFishSampled ??
+        measurement?.count,
+    ) ?? 0,
+  averageWeightGrams:
+    toFiniteNumber(
+      measurement?.averageWeightGrams ??
+        measurement?.averageWeight ??
+        measurement?.avgWeight ??
+        measurement?.weightGrams ??
+        measurement?.weight,
+    ) ?? 0,
+  sgr: toFiniteNumber(measurement?.sgr),
+  fcr: toFiniteNumber(measurement?.fcr),
+  sgrRating: measurement?.sgrRating ?? measurement?.sgr?.rating,
+  fcrRating: measurement?.fcrRating ?? measurement?.fcr?.rating,
+  overallRating:
+    measurement?.overallRating ??
+    measurement?.rating ??
+    measurement?.overall?.rating,
+});
+
 export default function TankDetailView({ tank, onBack, user }: TankDetailViewProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [currentTank, setCurrentTank] = useState(tank);
@@ -134,13 +191,14 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
               if (fd.status === 'fulfilled') allBatchFd.push(...(fd.value.data ?? fd.value ?? []));
               if (growth.status === 'fulfilled') {
                 const growthVal = growth.value;
-                const history = Array.isArray(growthVal)
+                const historyRaw = Array.isArray(growthVal)
                   ? growthVal
                   : (Array.isArray(growthVal.data)
                     ? growthVal.data
                     : (Array.isArray(growthVal.history)
                       ? growthVal.history
                       : (growthVal.data?.history || [])));
+                const history = historyRaw.map(normalizeGrowthMeasurement);
                 setSelectedBatchGrowthHistory(prev => ({ ...prev, [batchId]: history }));
               }
               if (analysis.status === 'fulfilled') {
@@ -270,18 +328,9 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
     try {
       const res = await apiGet<any>(`/tanks/growth/batch/${batchId}`);
       const data = res.data ?? res;
-      const mappedHistory = (Array.isArray(data) ? data : (Array.isArray(data.history) ? data.history : [])).map((m: any) => ({
-        id: m.id,
-        measuredAt: new Date(m.measuredAt || m.date),
-        daysInCulture: m.daysInCulture || 0,
-        sampleSize: m.sampleSize || 0,
-        averageWeightGrams: m.averageWeightGrams || m.avgWeight || 0,
-        sgr: m.sgr,
-        fcr: m.fcr,
-        sgrRating: m.sgrRating,
-        fcrRating: m.fcrRating,
-        overallRating: m.overallRating
-      }));
+      const mappedHistory = (
+        Array.isArray(data) ? data : Array.isArray(data.history) ? data.history : []
+      ).map(normalizeGrowthMeasurement);
       setBatchGrowthHistory(mappedHistory);
     } catch (err) {
       console.error('Failed to fetch batch growth history:', err);

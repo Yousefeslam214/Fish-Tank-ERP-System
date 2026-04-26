@@ -40,6 +40,23 @@ interface GrowthHistoryProps {
   onViewDetails?: (measurement: GrowthMeasurement) => void;
 }
 
+const toFiniteNumber = (value: any): number | undefined => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value.replace(/[^\d.-]/g, ''));
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  if (value && typeof value === 'object' && 'value' in value) {
+    return toFiniteNumber((value as { value?: unknown }).value);
+  }
+  return undefined;
+};
+
+const toValidDate = (value: any): Date => {
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+};
+
 export default function GrowthHistory({ 
   batch, 
   measurements,
@@ -52,12 +69,52 @@ export default function GrowthHistory({
   const [showRecordModal, setShowRecordModal] = useState(false);
   const [editingMeasurement, setEditingMeasurement] = useState<GrowthMeasurement | null>(null);
 
+  const normalizedMeasurements = measurements.map((measurement) => ({
+    ...measurement,
+    measuredAt: toValidDate(
+      (measurement as any).measuredAt ??
+        (measurement as any).measurementDate ??
+        (measurement as any).date ??
+        (measurement as any).timestamp ??
+        (measurement as any).createdAt,
+    ),
+    daysInCulture:
+      toFiniteNumber(
+        (measurement as any).daysInCulture ??
+          (measurement as any).dayInCulture ??
+          (measurement as any).day,
+      ) ?? 0,
+    sampleSize:
+      toFiniteNumber(
+        (measurement as any).sampleSize ??
+          (measurement as any).sampleCount ??
+          (measurement as any).numberOfFishSampled ??
+          (measurement as any).count,
+      ) ?? 0,
+    averageWeightGrams:
+      toFiniteNumber(
+        (measurement as any).averageWeightGrams ??
+          (measurement as any).averageWeight ??
+          (measurement as any).avgWeight ??
+          (measurement as any).weightGrams ??
+          (measurement as any).weight,
+      ) ?? 0,
+    sgr: toFiniteNumber((measurement as any).sgr),
+    fcr: toFiniteNumber((measurement as any).fcr),
+    sgrRating: (measurement as any).sgrRating ?? (measurement as any).sgr?.rating,
+    fcrRating: (measurement as any).fcrRating ?? (measurement as any).fcr?.rating,
+    overallRating:
+      (measurement as any).overallRating ??
+      (measurement as any).rating ??
+      (measurement as any).overall?.rating,
+  })) as GrowthMeasurement[];
+
   const daysInCulture = Math.floor(
     (new Date().getTime() - batch.stockedDate.getTime()) / (1000 * 60 * 60 * 24)
   );
 
-  const lastMeasurement = measurements.length > 0 
-    ? measurements[measurements.length - 1] 
+  const lastMeasurement = normalizedMeasurements.length > 0 
+    ? normalizedMeasurements[normalizedMeasurements.length - 1] 
     : null;
 
   const getRatingColor = (rating?: string) => {
@@ -85,12 +142,12 @@ export default function GrowthHistory({
     {
       day: 0,
       weight: batch.initialWeight,
-      sgr: 0
+      sgr: undefined
     },
-    ...measurements.map(m => ({
+    ...normalizedMeasurements.map(m => ({
       day: m.daysInCulture,
       weight: m.averageWeightGrams,
-      sgr: m.sgr || 0
+      sgr: m.sgr
     }))
   ];
 
@@ -168,7 +225,7 @@ export default function GrowthHistory({
         <h3 className="font-semibold text-gray-900">Measurement Timeline</h3>
         
         <div className="space-y-4">
-          {measurements.map((measurement, index) => (
+          {normalizedMeasurements.map((measurement, index) => (
             <Card key={measurement.id} className="bg-white shadow-sm border-l-4 border-l-[#088395]">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
@@ -196,13 +253,13 @@ export default function GrowthHistory({
                           <p className="font-semibold">{measurement.averageWeightGrams.toFixed(1)}{t('common.g')}</p>
                           {index > 0 && (
                             <p className="text-xs text-[#10B981]">
-                              +{(measurement.averageWeightGrams - measurements[index - 1].averageWeightGrams).toFixed(1)}g
+                              +{(measurement.averageWeightGrams - normalizedMeasurements[index - 1].averageWeightGrams).toFixed(1)}g
                             </p>
                           )}
                         </div>
                       </div>
 
-                      {measurement.sgr && (
+                      {measurement.sgr !== undefined && (
                         <div>
                           <p className="text-xs text-gray-600">SGR</p>
                           <Badge className={getRatingColor(measurement.sgrRating)}>
@@ -211,7 +268,7 @@ export default function GrowthHistory({
                         </div>
                       )}
 
-                      {measurement.fcr && (
+                      {measurement.fcr !== undefined && (
                         <div>
                           <p className="text-xs text-gray-600">FCR</p>
                           <Badge className={getRatingColor(measurement.fcrRating)}>
