@@ -379,9 +379,9 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
             </div>
             <div className="flex items-center gap-3">
               {loadingDetails && <RefreshCw className="w-4 h-4 animate-spin text-gray-300" />}
-              <Badge className={`${currentTank.status === 'critical' || currentTank.status === 'CRITICAL' ? 'bg-[#EF4444]' : (currentTank.status === 'warning' || currentTank.status === 'WARNING') ? 'bg-[#F59E0B]' : 'bg-[#10B981]'} text-white text-sm px-3 py-1`}>
+              {/* <Badge className={`${currentTank.status === 'critical' || currentTank.status === 'CRITICAL' ? 'bg-[#EF4444]' : (currentTank.status === 'warning' || currentTank.status === 'WARNING') ? 'bg-[#F59E0B]' : 'bg-[#10B981]'} text-white text-sm px-3 py-1`}>
                 {(currentTank.status || 'ACTIVE').toUpperCase()}
-              </Badge>
+              </Badge> */}
             </div>
           </div>
         </div>

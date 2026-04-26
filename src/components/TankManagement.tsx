@@ -13,7 +13,7 @@ import {
   AlertDialogTitle,
 } from './ui/alert-dialog';
 import { toast } from 'sonner';
-import { Activity, CheckCircle2, Droplet, Fish, HeartPulse, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Activity, Droplet, Fish, HeartPulse, Loader2, Plus, Trash2 } from 'lucide-react';
 import { Progress } from './ui/progress';
 import { User, Farm } from '../types';
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from '../api';
@@ -21,7 +21,7 @@ import TankDetailView from './tanks/TankDetailView';
 import { AddTankModal } from './tanks/modals/AddTankModal';
 import { Pencil } from 'lucide-react';
 import { fetchAllTankHealthOverviews, TankHealthOverview } from '../services/tankHealthOverview';
-import { formatHealthStatus, getHealthStatusColor, recordRecoveredHealthCheck } from '../services/healthCheckApi';
+import { formatHealthStatus, getHealthStatusColor } from '../services/healthCheckApi';
 
 interface TankManagementProps {
   user: User;
@@ -92,9 +92,6 @@ interface ApiTank {
   batches?: any[];
 }
 
-const getBatchLabel = (batch: any) =>
-  batch?.batchNumber ? `Batch ${batch.batchNumber}` : `Batch ${String(batch?.id || '').slice(0, 8)}`;
-
 const formatDateTime = (value?: string) => {
   if (!value) return 'Unknown';
   const date = new Date(value);
@@ -122,7 +119,6 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
   const [editTankId, setEditTankId] = useState<string | null>(null);
   const [healthOverviewByTank, setHealthOverviewByTank] = useState<Record<string, TankHealthOverview>>({});
   const [loadingHealthOverview, setLoadingHealthOverview] = useState(false);
-  const [improvingTankId, setImprovingTankId] = useState<string | null>(null);
 
   const currentFarm = selectedFarm;
 
@@ -281,27 +277,6 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
     }
   };
 
-  const handleMarkImproved = async (tankId: string, event: MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
-    const overview = healthOverviewByTank[tankId];
-    const activeRecord = overview?.latestActiveRecord;
-    if (!activeRecord) {
-      toast.error('No active health alert found for this tank.');
-      return;
-    }
-
-    setImprovingTankId(tankId);
-    try {
-      await recordRecoveredHealthCheck(activeRecord.batchId, activeRecord);
-      toast.success('Recovery report saved for this tank.');
-      await loadHealthOverviews(tanks);
-    } catch (error) {
-      toast.error(`Failed to save recovery report: ${(error as Error).message}`);
-    } finally {
-      setImprovingTankId(null);
-    }
-  };
-
   const getStatusColor = (status: string) => {
     const normalized = status.toLowerCase();
     switch (normalized) {
@@ -439,8 +414,6 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredTanks.map((tank) => {
               const healthOverview = healthOverviewByTank[tank.id];
-              const activeRecord = healthOverview?.latestActiveRecord || null;
-              const activeBatch = healthOverview?.batchOverviews.find((batch) => batch.latestActiveRecord?.id === activeRecord?.id)?.batch;
 
               return (
                 <Card
@@ -597,23 +570,12 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
                         <p className="text-sm text-slate-500">
                           No AI health reports have been recorded for this tank yet.
                         </p>
-                      ) : healthOverview.requiresAttention && activeRecord ? (
-                        <div className="space-y-3">
-                          <div className="rounded-xl border border-rose-200 bg-rose-50 p-3">
-                            <p className="text-sm font-semibold text-rose-800">{activeRecord.bacterialType}</p>
-                            <p className="mt-1 text-xs text-rose-700">
-                              {activeBatch ? `${getBatchLabel(activeBatch)} • ` : ''}
-                              Last report: {formatDateTime(activeRecord.checkedAt)}
-                            </p>
-                          </div>
-                          <Button
-                            className="w-full bg-emerald-600 hover:bg-emerald-700"
-                            onClick={(event) => void handleMarkImproved(tank.id, event)}
-                            disabled={improvingTankId === tank.id}
-                          >
-                            <CheckCircle2 className="mr-2 h-4 w-4" />
-                            {improvingTankId === tank.id ? 'Saving recovery...' : 'Mark Improved'}
-                          </Button>
+                      ) : healthOverview.requiresAttention ? (
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                          <p className="text-sm font-semibold text-slate-800">Latest report available</p>
+                          <p className="mt-1 text-xs text-slate-600">
+                            {formatDateTime(healthOverview.latestRecord?.checkedAt)}
+                          </p>
                         </div>
                       ) : healthOverview.isRecovered ? (
                         <div className="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
