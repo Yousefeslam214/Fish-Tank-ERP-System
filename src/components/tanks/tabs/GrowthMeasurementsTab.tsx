@@ -3,7 +3,7 @@ import { Card, CardContent } from "../../ui/card";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
-import { Fish, TrendingUp, Activity, Target, RefreshCw } from "lucide-react";
+import { Fish, RefreshCw } from "lucide-react";
 import GrowthHistory from "../GrowthHistory";
 import { apiGet } from "../../../api";
 
@@ -96,8 +96,6 @@ export function GrowthMeasurementsTab({
 
   const analysisData = localAnalysis || analysis;
   const metrics = analysisData?.metrics || {};
-  const economics = analysisData?.economics || {};
-  const recommendations = analysisData?.recommendations || [];
 
   const currentWeight =
     history.length > 0
@@ -276,122 +274,6 @@ export function GrowthMeasurementsTab({
           </CardContent>
         </Card>
 
-        <Card className="flex-1 bg-white border-purple-100 shadow-sm hover:shadow-md transition-all group border-l-4 border-l-purple-500">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest group-hover:text-purple-500">
-                Feed Cost
-              </p>
-              {!isLoadingAnalysis && (
-                <Badge className="bg-purple-100 text-purple-700 border-none uppercase font-black text-[8px] h-4">
-                  USD
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-baseline gap-2">
-              {isLoadingAnalysis ? (
-                <RefreshCw className="w-4 h-4 animate-spin text-purple-400" />
-              ) : (
-                <h4 className="text-lg font-black text-gray-900">
-                  ${economics.feedCostToDate?.toLocaleString() || "---"}
-                </h4>
-              )}
-              <span className="text-[9px] text-gray-500">to date</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Recommendations */}
-        <Card className="md:col-span-1 bg-white border-amber-100">
-          <CardContent className="p-5">
-            <h3 className="font-bold text-gray-900 flex items-center gap-2 mb-4">
-              <Activity className="w-4 h-4 text-amber-500" />
-              Growth Recommendations
-            </h3>
-            <div className="space-y-3">
-              {isLoadingAnalysis ? (
-                <div className="flex items-center justify-center py-8">
-                  <RefreshCw className="w-6 h-6 animate-spin text-amber-400" />
-                </div>
-              ) : recommendations.length > 0 ? (
-                recommendations.map((rec: string, i: number) => (
-                  <div
-                    key={i}
-                    className="flex gap-2 text-xs text-gray-700 bg-amber-50/50 p-2 rounded-lg border border-amber-100/50"
-                  >
-                    <div className="w-1 h-1 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
-                    <span>{rec}</span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-xs text-gray-500 text-center py-4 italic">
-                  No specific recommendations at this time.
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Growth Highlights */}
-        <Card className="md:col-span-2 bg-white">
-          <CardContent className="p-5">
-            <h3 className="font-bold text-gray-900 flex items-center gap-2 mb-4">
-              <TrendingUp className="w-4 h-4 text-[#088395]" />
-              Economic Analysis
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="space-y-1">
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                  Weight Gain
-                </p>
-                <p className="text-lg font-black text-gray-900">
-                  {metrics.weightGainGrams?.toFixed(1) || "---"}g
-                </p>
-                <p className="text-[9px] text-[#10B981] font-bold">
-                  Total period
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                  ADG
-                </p>
-                <p className="text-lg font-black text-gray-900">
-                  {metrics.adg?.toFixed(2) || "---"}g
-                </p>
-                <p className="text-[9px] text-gray-500 font-bold">
-                  Avg Daily Gain
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                  Cost/KG Gain
-                </p>
-                <p className="text-lg font-black text-gray-900">
-                  ${economics.feedCostPerKgGain?.toFixed(2) || "---"}
-                </p>
-                <p className="text-[9px] text-gray-500 font-bold">
-                  Feed cost efficiency
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                  Proj. Revenue
-                </p>
-                <p className="text-lg font-black text-[#10B981]">
-                  $
-                  {economics.projectedRevenue?.toLocaleString(undefined, {
-                    maximumFractionDigits: 0,
-                  }) || "---"}
-                </p>
-                <p className="text-[9px] text-gray-500 font-bold">
-                  Current biomass
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       <GrowthHistory
