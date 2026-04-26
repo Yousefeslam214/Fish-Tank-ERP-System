@@ -342,7 +342,7 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
           </Button>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        {/* <div className="flex flex-wrap gap-2">
           {['ALL', 'ACTIVE', 'INACTIVE', 'MAINTENANCE', 'EMPTY'].map((status) => (
             <Button
               key={status}
@@ -354,7 +354,7 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
               {status}
             </Button>
           ))}
-        </div>
+        </div> */}
 
         <AddTankModal open={showAddTankModal} onOpenChange={setShowAddTankModal} onConfirm={handleAddTank} />
 
