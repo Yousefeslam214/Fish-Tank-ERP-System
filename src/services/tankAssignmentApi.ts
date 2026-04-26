@@ -68,7 +68,7 @@ const normalizeAssignedIds = (payload: unknown): string[] => {
 };
 
 export const getFarmUsers = async (farmId: string): Promise<TankAssignableUser[]> => {
-  const payload = await apiGet<unknown>(`/users/farm`);
+  const payload = await apiGet<unknown>(`/users/farm/${farmId}`);
   const list = toArray(readPayload(payload));
   return list.map(normalizeUser).filter((user): user is TankAssignableUser => Boolean(user));
 };
