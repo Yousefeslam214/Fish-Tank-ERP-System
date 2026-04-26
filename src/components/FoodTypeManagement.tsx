@@ -1,5 +1,5 @@
 // ============================================================
-// FoodTypeManagement.tsx  –  Updated by Ziad (Clean Version)
+// FoodTypeManagement.tsx  –  Updated by Hazem
 // ============================================================
 
 import { useState, useEffect, useCallback } from 'react';

@@ -1458,7 +1458,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
       <Dialog
         open={isMedicineDetailsOpen}
-        onOpenChange={(open) => {
+        onOpenChange={(open: boolean | ((prevState: boolean) => boolean)) => {
           setIsMedicineDetailsOpen(open);
           if (!open) {
             setSelectedMedicineBatch(null);
