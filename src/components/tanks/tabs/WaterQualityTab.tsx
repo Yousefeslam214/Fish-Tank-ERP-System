@@ -7,7 +7,6 @@ import {
   Droplet,
   Search,
   RefreshCw,
-  AlertTriangle,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -190,15 +189,9 @@ export function WaterQualityTab({
                     </div>
 
                     <p className="text-sm text-gray-700 mb-4 font-medium leading-relaxed">
-                      {typeof assessment.recommendation === "string"
-                        ? assessment.recommendation
-                        : typeof assessment.message === "string"
-                          ? assessment.message
-                          : assessment.recommendation?.text ||
-                            assessment.message?.text ||
-                            (isCritical || isWarning
-                              ? "Action required to stabilize parameters."
-                              : "Water quality is within optimal range for this batch.")}
+                      {isCritical || isWarning
+                        ? "Action required to stabilize parameters."
+                        : "Water quality is within optimal range for this batch."}
                     </p>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
@@ -217,44 +210,7 @@ export function WaterQualityTab({
                       ))}
                     </div>
 
-                    {assessment.alerts && assessment.alerts.length > 0 && (
-                      <div className="mt-3 p-2 bg-red-50 rounded-lg border border-red-100 space-y-2">
-                        {assessment.alerts.map((alert: any, idx: number) => {
-                          const alertMsg =
-                            typeof alert === "string"
-                              ? alert
-                              : alert.message ||
-                                alert.parameter ||
-                                "Water parameter alert";
-                          return (
-                            <div
-                              key={idx}
-                              className="flex items-start gap-2 text-[10px] text-red-700 font-bold"
-                            >
-                              <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                              <span>{alertMsg}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-2 gap-3 text-xs mt-4 pt-4 border-t border-gray-100">
-                      <div className="space-y-1">
-                        <span className="text-gray-400 block font-bold uppercase text-[9px] tracking-widest">
-                          Growth Impact
-                        </span>
-                        <span
-                          className={`font-bold ${isCritical ? "text-red-600" : isWarning ? "text-amber-600" : "text-green-600"}`}
-                        >
-                          {assessment.growthImpact ||
-                            (isCritical
-                              ? "High Risk"
-                              : isWarning
-                                ? "Slightly Reduced"
-                                : "Maximum Growth")}
-                        </span>
-                      </div>
+                    <div className="grid grid-cols-1 gap-3 text-xs mt-4 pt-4 border-t border-gray-100">
                       <div className="space-y-1">
                         <span className="text-gray-400 block font-bold uppercase text-[9px] tracking-widest">
                           Action Required
