@@ -388,36 +388,7 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
       </div>
 
       <div className={`p-6 ${loadingDetails ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}`}>
-        {isActionRequired && (
-          <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-6 flex items-center justify-between shadow-sm animate-pulse">
-            <div className="flex items-center gap-4">
-              <div className="bg-red-500 p-2 rounded-full">
-                <AlertTriangle className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h3 className="text-red-900 font-bold uppercase text-xs tracking-widest">Immediate Action Required</h3>
-                <p className="text-red-700 text-sm font-medium">{actionReason}</p>
-              </div>
-            </div>
-            <Button
-              size="sm"
-              className="bg-red-600 hover:bg-red-700 text-white font-bold h-10 px-6"
-              onClick={() => setActiveTab('water')}
-            >
-              Take Action
-            </Button>
-          </div>
-        )}
-
-        {detailsError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 text-red-500" />
-              <p className="text-sm text-red-800">Failed to load tank history: {detailsError}</p>
-            </div>
-            <Button size="sm" variant="outline" onClick={fetchTankDetails}>Retry</Button>
-          </div>
-        )}
+        
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="bg-white">
