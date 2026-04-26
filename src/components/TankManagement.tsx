@@ -298,26 +298,6 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    const normalized = status.toLowerCase();
-    switch (normalized) {
-      case 'critical':
-        return '🔴';
-      case 'warning':
-        return '🟡';
-      case 'acceptable':
-        return '🔵';
-      case 'optimal':
-        return '🟢';
-      case 'maintenance':
-        return '🔧';
-      case 'empty':
-        return '⚪';
-      default:
-        return '⚪';
-    }
-  };
-
   if (viewMode === 'detail' && selectedTank) {
     return <TankDetailView user={user} tank={selectedTank} onBack={() => setViewMode('list')} />;
   }
@@ -428,12 +408,13 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <CardTitle className="text-lg">{tank.name}</CardTitle>
-                        <p className="font-mono text-[10px] text-gray-400">ID: {tank.id}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge className={`${getStatusColor(tank.status ?? '')} text-[10px] text-white`}>
-                          {(tank.status ?? 'unknown').toUpperCase()}
-                        </Badge>
+                        {(tank.status ?? '').toLowerCase() !== 'critical' && (
+                          <Badge className={`${getStatusColor(tank.status ?? '')} text-[10px] text-white`}>
+                            {(tank.status ?? 'unknown').toUpperCase()}
+                          </Badge>
+                        )}
                         <div className="flex items-center gap-1">
                           <Button
                             variant="ghost"
@@ -485,116 +466,7 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
                       )}
                     </div>
 
-                    {tank.waterQuality ? (
-                      <div className="rounded-lg bg-gray-50 p-3">
-                        <div className="mb-2 flex items-center justify-between">
-                          <span className="text-sm font-medium">Water Quality</span>
-                          <span className="text-xs">
-                            {getStatusIcon(tank.waterQuality.overall)} {tank.waterQuality.overall}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div>
-                            <span className="text-gray-600">Temp:</span>
-                            <span className="ml-1 font-medium">{tank.waterQuality.temp.value}°C</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">DO:</span>
-                            <span className="ml-1 font-medium">{tank.waterQuality.do.value} mg/L</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">pH:</span>
-                            <span className="ml-1 font-medium">{tank.waterQuality.ph.value}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">NH₃:</span>
-                            <span className="ml-1 font-medium">{tank.waterQuality.nh3.value} mg/L</span>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 py-4 text-center">
-                        <p className="text-xs italic text-gray-400">No water quality data</p>
-                      </div>
-                    )}
-
-                    {tank.feeding ? (
-                      <div className="rounded-lg bg-gray-50 p-3">
-                        <div className="mb-2 flex items-center justify-between">
-                          <span className="text-sm font-medium">Today's Feeding</span>
-                          <span className="text-xs">
-                            {tank.feeding.todayMeals}/{tank.feeding.totalMeals} meals
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-gray-600">
-                            Fed: {tank.feeding.todayFed} / {tank.feeding.recommended} kg
-                          </span>
-                          {tank.feeding.recommended > 0 && (
-                            <span
-                              className={`font-medium ${
-                                tank.feeding.todayFed < tank.feeding.recommended ? 'text-yellow-600' : 'text-green-600'
-                              }`}
-                            >
-                              {Math.round((tank.feeding.todayFed / tank.feeding.recommended) * 100)}%
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 py-4 text-center">
-                        <p className="text-xs italic text-gray-400">No feeding plan</p>
-                      </div>
-                    )}
-
-                    <div className="rounded-2xl border border-[#D7E9EE] bg-[#F7FCFD] p-4">
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                          <HeartPulse className="h-4 w-4 text-[#088395]" />
-                          Tank Health File
-                        </div>
-                        {loadingHealthOverview ? (
-                          <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-                        ) : healthOverview?.latestRecord ? (
-                          <Badge variant="outline" className={getHealthStatusColor(healthOverview.latestRecord.healthStatus)}>
-                            {formatHealthStatus(healthOverview.latestRecord.healthStatus)}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="border-slate-200 text-slate-500">
-                            No reports
-                          </Badge>
-                        )}
-                      </div>
-
-                      {!healthOverview || healthOverview.healthChecks.length === 0 ? (
-                        <p className="text-sm text-slate-500">
-                          No AI health reports have been recorded for this tank yet.
-                        </p>
-                      ) : healthOverview.requiresAttention ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                          <p className="text-sm font-semibold text-slate-800">Latest report available</p>
-                          <p className="mt-1 text-xs text-slate-600">
-                            {formatDateTime(healthOverview.latestRecord?.checkedAt)}
-                          </p>
-                        </div>
-                      ) : healthOverview.isRecovered ? (
-                        <div className="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-                          <p className="text-sm font-semibold text-emerald-800">
-                            Recovered from {healthOverview.latestActiveRecord?.bacterialType || healthOverview.currentDiseaseLabel}
-                          </p>
-                          <p className="text-xs text-emerald-700">
-                            Recovery recorded on {formatDateTime(healthOverview.recoveredAt)}
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-                          <p className="text-sm font-semibold text-emerald-800">Latest report is healthy</p>
-                          <p className="mt-1 text-xs text-emerald-700">
-                            {formatDateTime(healthOverview.latestRecord?.checkedAt)}
-                          </p>
-                        </div>
-                      )}
-                    </div>
+                   
                   </CardContent>
                 </Card>
               );
