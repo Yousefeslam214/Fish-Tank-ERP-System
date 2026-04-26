@@ -1,40 +1,53 @@
-import { useState, useEffect, useMemo } from 'react';
-import Login from './components/Login';
-import Dashboard from './components/Dashboard';
-import TankManagement from './components/TankManagement';
-import Accounting from './components/Accounting';
-import Inventory from './components/Inventory';
-import Analytics from './components/Analytics';
-import AIAssistant from './components/AIAssistant';
-import HealthLibrary from './components/HealthLibrary';
-import NotificationCenter from './components/NotificationCenter';
-import Procurement from './components/Procurement';
-import SalesModule from './components/SalesModule';
-import FishTypeManagement from './components/FishTypeManagement';
-import FoodTypeManagement from './components/FoodTypeManagement';
-import { HarvestManagement } from './components/HarvestManagement';
-import Tasks from './components/Tasks';
-import Sidebar from './components/Sidebar';
-import UserManagement from './components/UserManagement';
-import { Toaster } from './components/ui/sonner';
-import { User, Farm } from './types';
-import { clearAuthSession, getStoredAppUser, getAccessToken } from './services/authSession';
-import { apiGet, API_BASE } from './api';
-import { mockFarms } from './mockData';
-import { fetchEventSource } from '@microsoft/fetch-event-source';
-import { getMetadata } from './services/metaApi';
-import { buildModuleLabelMap, isPageAllowed, resolveAllowedPages } from './services/moduleAccess';
+import { useState, useEffect, useMemo } from "react";
+import Login from "./components/Login";
+import Dashboard from "./components/Dashboard";
+import TankManagement from "./components/TankManagement";
+import Accounting from "./components/Accounting";
+import Inventory from "./components/Inventory";
+import Analytics from "./components/Analytics";
+import AIAssistant from "./components/AIAssistant";
+import HealthLibrary from "./components/HealthLibrary";
+import NotificationCenter from "./components/NotificationCenter";
+import Procurement from "./components/Procurement";
+import SalesModule from "./components/SalesModule";
+import FishTypeManagement from "./components/FishTypeManagement";
+import FoodTypeManagement from "./components/FoodTypeManagement";
+import { HarvestManagement } from "./components/HarvestManagement";
+import IoTManagement from "./components/IoTManagement";
+import Farms from "./components/Farms";
+import Tasks from "./components/Tasks";
+import Sidebar from "./components/Sidebar";
+import UserManagement from "./components/UserManagement";
+import { Toaster } from "./components/ui/sonner";
+import { User, Farm } from "./types";
+import {
+  clearAuthSession,
+  getStoredAppUser,
+  getAccessToken,
+} from "./services/authSession";
+import { apiGet, API_BASE } from "./api";
+import { mockFarms } from "./mockData";
+import { fetchEventSource } from "@microsoft/fetch-event-source";
+import { getMetadata } from "./services/metaApi";
+import {
+  buildModuleLabelMap,
+  isPageAllowed,
+  resolveAllowedPages,
+} from "./services/moduleAccess";
 
 export default function App() {
+
+
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [currentPage, setCurrentPage] = useState('dashboard');
+  const [currentPage, setCurrentPage] = useState("dashboard");
   const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
-  const [moduleLabelMap, setModuleLabelMap] = useState<Record<string, string>>({});
-
+  const [moduleLabelMap, setModuleLabelMap] = useState<Record<string, string>>(
+    {},
+  );
   const allowedPages = useMemo(() => {
     if (!currentUser) {
-      return ['dashboard'];
+      return ["dashboard"];
     }
     return resolveAllowedPages(currentUser);
   }, [currentUser]);
@@ -47,27 +60,31 @@ export default function App() {
     }
   }, []);
 
-
-
   useEffect(() => {
     if (!currentUser) return;
 
     const controller = new AbortController();
 
     const asRecord = (value: unknown): Record<string, unknown> =>
-      value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+      value && typeof value === "object"
+        ? (value as Record<string, unknown>)
+        : {};
 
     const toText = (value: unknown): string => {
-      if (typeof value === 'string') return value.trim();
-      if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-      return '';
+      if (typeof value === "string") return value.trim();
+      if (typeof value === "number" || typeof value === "boolean")
+        return String(value);
+      return "";
     };
 
     const formatMessage = (template: string, data: Record<string, unknown>) => {
-      if (!template) return '';
+      if (!template) return "";
       let formatted = template;
       Object.entries(data).forEach(([key, value]) => {
-        formatted = formatted.replace(new RegExp(`{{${key}}}`, 'g'), String(value));
+        formatted = formatted.replace(
+          new RegExp(`{{${key}}}`, "g"),
+          String(value),
+        );
       });
       return formatted;
     };
@@ -77,18 +94,21 @@ export default function App() {
         return Number.isNaN(value.getTime()) ? null : value;
       }
 
-      if (typeof value === 'number' && Number.isFinite(value)) {
+      if (typeof value === "number" && Number.isFinite(value)) {
         const normalized = Math.abs(value) < 1e12 ? value * 1000 : value;
         const date = new Date(normalized);
         return Number.isNaN(date.getTime()) ? null : date;
       }
 
-      if (typeof value === 'string' && value.trim()) {
+      if (typeof value === "string" && value.trim()) {
         const trimmed = value.trim();
         if (/^\d+(\.\d+)?$/.test(trimmed)) {
           const numericValue = Number(trimmed);
           if (Number.isFinite(numericValue)) {
-            const normalized = Math.abs(numericValue) < 1e12 ? numericValue * 1000 : numericValue;
+            const normalized =
+              Math.abs(numericValue) < 1e12
+                ? numericValue * 1000
+                : numericValue;
             const date = new Date(normalized);
             if (!Number.isNaN(date.getTime())) return date;
           }
@@ -115,7 +135,7 @@ export default function App() {
       const notification = Object.keys(nested).length > 0 ? nested : root;
 
       const eventType = toText(root.type).toLowerCase();
-      if (eventType === 'connected' || eventType === 'heartbeat') {
+      if (eventType === "connected" || eventType === "heartbeat") {
         return null;
       }
 
@@ -142,32 +162,43 @@ export default function App() {
         subject ||
         toText(notification.templateName) ||
         toText(root.templateName) ||
-        'Notification';
+        "Notification";
 
-      if (!subject && !message && !toText(notification.id) && !toText(root.id)) {
+      if (
+        !subject &&
+        !message &&
+        !toText(notification.id) &&
+        !toText(root.id)
+      ) {
         return null;
       }
 
       const statusKey = toText(data.status).toUpperCase();
       const priorityKey = toText(notification.priority).toLowerCase();
       const priorityMap: Record<string, string> = {
-        CRITICAL: 'critical',
-        HIGH: 'high',
-        WARNING: 'medium',
-        INFO: 'low',
+        CRITICAL: "critical",
+        HIGH: "high",
+        WARNING: "medium",
+        INFO: "low",
       };
 
       const normalizedPriority =
-        priorityKey === 'critical' || priorityKey === 'high' || priorityKey === 'medium' || priorityKey === 'low'
+        priorityKey === "critical" ||
+        priorityKey === "high" ||
+        priorityKey === "medium" ||
+        priorityKey === "low"
           ? priorityKey
-          : (priorityMap[statusKey] || 'medium');
+          : priorityMap[statusKey] || "medium";
 
       return {
-        id: toText(notification.id) || toText(root.id) || Math.random().toString(36).slice(2, 11),
+        id:
+          toText(notification.id) ||
+          toText(root.id) ||
+          Math.random().toString(36).slice(2, 11),
         title,
         subject: subject || title,
         message,
-        type: 'alert',
+        type: "alert",
         priority: normalizedPriority,
         timestamp: pickTimestamp(
           notification.timestamp,
@@ -185,27 +216,34 @@ export default function App() {
     };
 
     const connectToSSE = async () => {
-      console.log('Attempting to connect to Notification Stream...');
+      console.log("Attempting to connect to Notification Stream...");
       try {
         const token = getAccessToken();
         await fetchEventSource(`${API_BASE}/notifications/stream`, {
-          method: 'GET',
+          method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
-            Accept: 'text/event-stream',
+            Accept: "text/event-stream",
           },
           signal: controller.signal,
           async onopen(response) {
             if (!response.ok) {
-              console.error('Failed to connect to notifications stream:', response.status, response.statusText);
+              console.error(
+                "Failed to connect to notifications stream:",
+                response.status,
+                response.statusText,
+              );
             }
           },
           onmessage(ev) {
-            const raw = typeof ev.data === 'string' ? ev.data.trim() : String(ev.data ?? '').trim();
-            if (!raw || raw === '[DONE]') {
+            const raw =
+              typeof ev.data === "string"
+                ? ev.data.trim()
+                : String(ev.data ?? "").trim();
+            if (!raw || raw === "[DONE]") {
               return;
             }
-            const looksLikeJson = raw.startsWith('{') || raw.startsWith('[');
+            const looksLikeJson = raw.startsWith("{") || raw.startsWith("[");
             if (!looksLikeJson) {
               return;
             }
@@ -218,25 +256,30 @@ export default function App() {
               }
 
               setNotifications((prev: any[]) => {
-                const existingIndex = prev.findIndex((item) => item.id === newNotification.id);
+                const existingIndex = prev.findIndex(
+                  (item) => item.id === newNotification.id,
+                );
                 if (existingIndex === -1) {
                   return [newNotification, ...prev];
                 }
                 const next = [...prev];
-                next[existingIndex] = { ...next[existingIndex], ...newNotification };
+                next[existingIndex] = {
+                  ...next[existingIndex],
+                  ...newNotification,
+                };
                 return next;
               });
             } catch (err) {
-              console.error('Failed to parse notification event:', err);
+              console.error("Failed to parse notification event:", err);
             }
           },
           onerror(err) {
-            console.warn('SSE connection error, retrying...', err);
+            console.warn("SSE connection error, retrying...", err);
             throw err;
           },
         });
       } catch (err) {
-        console.error('SSE fatal error:', err);
+        console.error("SSE fatal error:", err);
       }
     };
 
@@ -279,30 +322,29 @@ export default function App() {
     if (!currentUser) return;
 
     if (!isPageAllowed(currentPage, allowedPages)) {
-      setCurrentPage(allowedPages[0] || 'dashboard');
+      setCurrentPage(allowedPages[0] || "dashboard");
     }
   }, [allowedPages, currentPage, currentUser]);
 
-
-
   const fetchFarms = async (user: User) => {
     try {
-      const res = await apiGet<any>('/farms');
+      const res = await apiGet<any>("/farms");
       const apiFarms = res.data || (Array.isArray(res) ? res : []);
 
       if (apiFarms.length > 0) {
-        const farm = apiFarms.find((f: any) => f.id === user.farmId) || apiFarms[0];
+        const farm =
+          apiFarms.find((f: any) => f.id === user.farmId) || apiFarms[0];
         setSelectedFarm(farm);
       } else if (user.farmId) {
         // Fallback to mock if needed, but only if they belong to one
-        const mockFarm = mockFarms.find(f => f.id === user.farmId);
+        const mockFarm = mockFarms.find((f) => f.id === user.farmId);
         if (mockFarm) setSelectedFarm(mockFarm);
       }
     } catch (err) {
-      console.error('Failed to fetch farms:', err);
+      console.error("Failed to fetch farms:", err);
       // Fallback
       if (user.farmId) {
-        const mockFarm = mockFarms.find(f => f.id === user.farmId);
+        const mockFarm = mockFarms.find((f) => f.id === user.farmId);
         if (mockFarm) setSelectedFarm(mockFarm);
       }
     }
@@ -323,7 +365,7 @@ export default function App() {
   const handleLogout = () => {
     setCurrentUser(null);
     clearAuthSession();
-    setCurrentPage('dashboard');
+    setCurrentPage("dashboard");
     setSelectedFarm(null);
   };
 
@@ -344,62 +386,44 @@ export default function App() {
       />
 
       <div className="flex-1 overflow-auto">
-        {currentPage === 'dashboard' && (
-          <Dashboard
-            user={currentUser}
-            selectedFarm={selectedFarm}
-          />
+        {currentPage === "dashboard" && (
+          <Dashboard user={currentUser} selectedFarm={selectedFarm} />
         )}
-        {currentPage === 'tanks' && (
-          <TankManagement
-            user={currentUser}
-            selectedFarm={selectedFarm}
-          />
+        {currentPage === "tanks" && (
+          <TankManagement user={currentUser} selectedFarm={selectedFarm} />
         )}
-        {currentPage === 'accounting' && (
-          <Accounting
-            user={currentUser}
-            selectedFarm={selectedFarm}
-          />
+        {currentPage === "accounting" && (
+          <Accounting user={currentUser} selectedFarm={selectedFarm} />
         )}
-        {currentPage === 'inventory' && (
-          <Inventory
-            user={currentUser}
-            selectedFarm={selectedFarm}
-          />
+        {currentPage === "inventory" && (
+          <Inventory user={currentUser} selectedFarm={selectedFarm} />
         )}
-        {currentPage === 'analytics' && (
-          <Analytics
-            user={currentUser}
-            selectedFarm={selectedFarm}
-          />
+        {currentPage === "analytics" && (
+          <Analytics user={currentUser} selectedFarm={selectedFarm} />
         )}
-        {currentPage === 'ai-assistant' && (
-          <AIAssistant user={currentUser} />
+
+        {currentPage === "iot-management" && (
+          <IoTManagement user={currentUser} selectedFarm={selectedFarm} />
         )}
-        {currentPage === 'health' && (
-          <HealthLibrary
-            user={currentUser}
-            selectedFarm={selectedFarm}
-          />
+        {currentPage === "farms" && (
+          <Farms user={currentUser} selectedFarm={selectedFarm} />
         )}
-        {currentPage === 'notifications' && (
+        {currentPage === "ai-assistant" && <AIAssistant user={currentUser} />}
+        {currentPage === "health" && (
+          <HealthLibrary user={currentUser} selectedFarm={selectedFarm} />
+        )}
+        {currentPage === "notifications" && (
           <NotificationCenter
             user={currentUser}
             notifications={notifications}
             onUpdateNotifications={setNotifications}
           />
         )}
-        {currentPage === 'tasks' && (
-          <Tasks user={currentUser} />
+        {currentPage === "tasks" && <Tasks user={currentUser} />}
+        {currentPage === "procurement" && (
+          <Procurement user={currentUser} selectedFarm={selectedFarm} />
         )}
-        {currentPage === 'procurement' && (
-          <Procurement
-            user={currentUser}
-            selectedFarm={selectedFarm}
-          />
-        )}
-        {currentPage === 'sales' && (
+        {currentPage === "sales" && (
           <SalesModule
             user={currentUser}
             selectedFarm={selectedFarm}
@@ -407,31 +431,23 @@ export default function App() {
             onNavigateToPage={handlePageChange}
           />
         )}
-        {currentPage === 'fish-types' && (
-          <FishTypeManagement
-            user={currentUser}
-            selectedFarm={selectedFarm}
-          />
+        {currentPage === "fish-types" && (
+          <FishTypeManagement user={currentUser} selectedFarm={selectedFarm} />
         )}
-        {currentPage === 'food-types' && (
-          <FoodTypeManagement
-            user={currentUser}
-            selectedFarm={selectedFarm}
-          />
+        {currentPage === "food-types" && (
+          <FoodTypeManagement user={currentUser} selectedFarm={selectedFarm} />
         )}
-        {currentPage === 'users' && (
-          <UserManagement
-            user={currentUser}
-            selectedFarm={selectedFarm}
-          />
+        {currentPage === "users" && (
+          <UserManagement user={currentUser} selectedFarm={selectedFarm} />
         )}
-        {currentPage === 'harvest' && (
-          <HarvestManagement
-            farmId={selectedFarm?.id || 'farm-1'}
-          />
+        {currentPage === "harvest" && (
+          <HarvestManagement farmId={selectedFarm?.id || "farm-1"} />
         )}
       </div>
       <Toaster />
     </div>
+
+
+
   );
 }

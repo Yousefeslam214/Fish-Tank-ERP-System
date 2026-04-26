@@ -158,7 +158,6 @@ export function TankAssignmentsTab({ tank, user }: TankAssignmentsTabProps) {
             <p className="text-sm text-gray-600">
               Tank: <span className="font-medium text-gray-900">{tank?.name}</span>
             </p>
-            <p className="text-xs text-gray-500 mt-1">ID: {tank?.id}</p>
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
@@ -172,7 +171,7 @@ export function TankAssignmentsTab({ tank, user }: TankAssignmentsTabProps) {
               {assignedUsers.map((member) => (
                 <Badge key={member.id} variant="outline" className="flex items-center gap-2 pr-1">
                   <span>{member.name}</span>
-                  <span className="text-[10px] text-gray-500">{member.role}</span>
+                  <span className="text-[10px] text-gray-500">WORKER</span>
                   <button
                     type="button"
                     onClick={() => void handleUnassign(member.id)}
@@ -197,7 +196,7 @@ export function TankAssignmentsTab({ tank, user }: TankAssignmentsTabProps) {
                 <SelectContent>
                   {availableUsers.map((item) => (
                     <SelectItem key={item.id} value={item.id}>
-                      {item.name} ({item.role})
+                      {item.name} (WORKER)
                     </SelectItem>
                   ))}
                 </SelectContent>

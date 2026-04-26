@@ -29,6 +29,15 @@ export function WaterQualityTab({
   const [isLoadingAssessments, setIsLoadingAssessments] = React.useState(false);
 
   React.useEffect(() => {
+    console.group('[WaterQualityTab] API Data');
+    console.log('tankBatches:', tankBatches);
+    console.log('batchAssessments:', batchAssessments);
+    console.log('waterQualityHistory:', waterQualityHistory);
+    console.log('waterQualityRecords:', waterQualityRecords);
+    console.groupEnd();
+  }, [tankBatches, batchAssessments, waterQualityHistory, waterQualityRecords]);
+
+  React.useEffect(() => {
     if (tankBatches.length > 0) {
       const fetchAssessments = async () => {
         setIsLoadingAssessments(true);
@@ -50,12 +59,15 @@ export function WaterQualityTab({
           results.forEach(r => {
             if (r.data) newAssessments[r.id] = r.data;
           });
+          console.log('[WaterQualityTab] Normalized fetched assessments:', newAssessments);
           setLocalAssessments(newAssessments);
         } finally {
           setIsLoadingAssessments(false);
         }
       };
       fetchAssessments();
+    } else {
+      console.log('[WaterQualityTab] No tank batches available, skipped assessments fetch.');
     }
   }, [tankBatches]);
 
@@ -89,6 +101,14 @@ export function WaterQualityTab({
               const isCritical = status === 'CRITICAL';
               const isWarning = status === 'WARNING' || status === 'CAUTION';
               const params = assessment.parameters || {};
+              const parameterCards = [
+                { label: 'Temperature', data: params.temperature },
+                { label: 'Dissolved Oxygen', data: params.dissolvedOxygen || params.do },
+                { label: 'pH', data: params.pH || params.ph },
+                { label: 'Ammonia', data: params.ammonia || params.totalAmmonia || params.nh3 },
+                { label: 'Nitrite', data: params.nitrite || params.no2 },
+                { label: 'Turbidity', data: params.turbidity },
+              ];
 
               return (
                 <Card key={batch.id} className={`border-l-4 ${isCritical ? 'border-l-red-500' : isWarning ? 'border-l-yellow-500' : 'border-l-green-500'} group hover:shadow-md transition-all shadow-sm`}>
@@ -116,14 +136,15 @@ export function WaterQualityTab({
                     </p>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
-                      {Object.entries(params).map(([key, info]: [string, any]) => (
-                        <div key={key} className="flex flex-col p-2 bg-gray-50 rounded-lg border border-gray-100">
-                          <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1 line-clamp-1">{key.replace(/([A-Z])/g, ' $1')}</span>
+                      {parameterCards.map(({ label, data }) => (
+                        <div key={label} className="flex flex-col p-2 bg-gray-50 rounded-lg border border-gray-100">
+                          <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1 line-clamp-1">{label}</span>
                           <div className="flex items-center justify-between gap-1">
-                            <span className="font-bold text-[10px] text-gray-900 truncate">{info.value ?? 'N/A'}</span>
+                            <span className="font-bold text-[10px] text-gray-900 truncate">{data?.value ?? 'N/A'}</span>
                             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                              info.status === 'OPTIMAL' ? 'bg-green-500' : 
-                              info.status === 'WARNING' ? 'bg-yellow-500' : 'bg-red-500'
+                              !data?.status ? 'bg-gray-300' :
+                              data.status === 'OPTIMAL' ? 'bg-green-500' :
+                              data.status === 'WARNING' ? 'bg-yellow-500' : 'bg-red-500'
                             }`} />
                           </div>
                         </div>

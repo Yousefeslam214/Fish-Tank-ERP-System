@@ -6,7 +6,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { CheckCircle2, Clock3, ListChecks, PlayCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { User } from '../../../types';
-import { getFarmTasks, getMyTasks, TaskItem, TaskStatus, updateTaskStatus } from '../../../services/taskApi';
+import {
+  getFarmTasks,
+  getMyTasks,
+  isFeedingTask,
+  notifyFeedingTaskCompleted,
+  TaskItem,
+  TaskStatus,
+  updateTaskStatus,
+} from '../../../services/taskApi';
 
 interface TankTasksTabProps {
   user: User;
@@ -105,6 +113,9 @@ export function TankTasksTab({ user, tank }: TankTasksTabProps) {
     setTaskBusy(task.id, true);
     try {
       await updateTaskStatus(task.id, nextStatus);
+      if (nextStatus === 'DONE' && isFeedingTask(task)) {
+        notifyFeedingTaskCompleted(task.id);
+      }
       toast.success(`Task moved to ${nextStatus}`);
       await loadTasks();
     } catch (err) {

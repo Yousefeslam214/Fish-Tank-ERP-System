@@ -139,17 +139,6 @@ export const TankHarvestPerformance: React.FC<TankHarvestPerformanceProps> = ({
 
       {/* Performance Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <p className="text-sm text-gray-600 mb-2">Avg FCR</p>
-              <p className="text-4xl font-bold text-[#0A4D68] mb-1">{performanceMetrics.avgFCR}</p>
-              <Badge className="bg-green-100 text-green-700 border-green-300">
-                ⭐ Excellent
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
 
         <Card>
           <CardContent className="pt-6">
@@ -196,7 +185,7 @@ export const TankHarvestPerformance: React.FC<TankHarvestPerformanceProps> = ({
                       <div className="font-semibold text-gray-900">{harvest.month}</div>
                       <div className="text-2xl font-bold text-[#0A4D68]">{harvest.weight}kg</div>
                       <div className="text-sm text-gray-600">{harvest.harvestNumber}</div>
-                      <div className="text-xs text-gray-500">FCR: {harvest.fcr}</div>
+
                       <div className="text-xs text-green-600 font-semibold">{harvest.profit}% profit</div>
                     </div>
                   </div>

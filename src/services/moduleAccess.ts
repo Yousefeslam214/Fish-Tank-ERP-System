@@ -1,22 +1,23 @@
-import { User } from '../types';
+import { User } from "../types";
 
 export const MODULE_BACKED_PAGE_ORDER = [
-  'dashboard',
-  'tanks',
-  'procurement',
-  'harvest',
-  'inventory',
-  'sales',
-  'user-management',
-  'accounting',
-  'analytics',
-  'fish-types',
-  'food-types',
-  'users',
-  'ai-assistant',
-  'health',
-  'notifications',
-  'tasks',
+  "dashboard",
+  "tanks",
+  "procurement",
+  "harvest",
+  "inventory",
+  "sales",
+  "accounting",
+  "analytics",
+  "fish-types",
+  "food-types",
+  "users",
+  "iot-management",
+  "farms",
+  "ai-assistant",
+  "health",
+  "notifications",
+  "tasks",
 ] as const;
 
 export type ModuleBackedPageId = (typeof MODULE_BACKED_PAGE_ORDER)[number];
@@ -33,23 +34,23 @@ const normalizeModuleId = (value: string): string =>
   value
     .trim()
     .toLowerCase()
-    .replace(/[_\s]+/g, '-');
+    .replace(/[_\s]+/g, "-");
 
 const MODULE_ID_ALIASES: Record<string, ModuleBackedPageId> = {
-  task: 'tasks',
-  'user-management': 'users',
+  task: "tasks",
+  "user-management": "users",
 };
 
-const canonicalizeModuleId = (value: string): ModuleBackedPageId | '' => {
+const canonicalizeModuleId = (value: string): ModuleBackedPageId | "" => {
   const normalized = normalizeModuleId(value);
   if (!normalized) {
-    return '';
+    return "";
   }
 
   const aliased = MODULE_ID_ALIASES[normalized] ?? normalized;
   return MODULE_BACKED_PAGE_ORDER.includes(aliased as ModuleBackedPageId)
     ? (aliased as ModuleBackedPageId)
-    : '';
+    : "";
 };
 
 export const resolveAllowedPages = (user: User): string[] => {
@@ -60,17 +61,21 @@ export const resolveAllowedPages = (user: User): string[] => {
 
   const allowedModulePages =
     effectiveModules.length > 0
-      ? MODULE_BACKED_PAGE_ORDER.filter((pageId) => effectiveModules.includes(pageId))
+      ? MODULE_BACKED_PAGE_ORDER.filter((pageId) =>
+          effectiveModules.includes(pageId),
+        )
       : fallbackPages;
 
   if (allowedModulePages.length === 0) {
-    return ['dashboard'];
+    return ["dashboard"];
   }
 
   return allowedModulePages;
 };
 
-export const buildModuleLabelMap = (modules: NavigationModule[]): Record<string, string> => {
+export const buildModuleLabelMap = (
+  modules: NavigationModule[],
+): Record<string, string> => {
   const mapping: Record<string, string> = {};
 
   modules.forEach((moduleEntry) => {
@@ -88,5 +93,7 @@ export const buildModuleLabelMap = (modules: NavigationModule[]): Record<string,
   return mapping;
 };
 
-export const isPageAllowed = (pageId: string, allowedPages: string[]): boolean =>
-  allowedPages.includes(pageId);
+export const isPageAllowed = (
+  pageId: string,
+  allowedPages: string[],
+): boolean => allowedPages.includes(pageId);

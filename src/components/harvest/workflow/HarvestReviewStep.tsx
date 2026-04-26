@@ -309,12 +309,7 @@ export const HarvestReviewStep: React.FC<HarvestReviewStepProps> = ({
               </div>
             </div>
 
-            {harvestData.fcr && (
-              <div className="text-sm">
-                <span className="text-gray-600">FCR (Batch):</span>
-                <span className="font-semibold ml-2">{harvestData.fcr} ⭐ Good</span>
-              </div>
-            )}
+
           </div>
         </CardContent>
       </Card>

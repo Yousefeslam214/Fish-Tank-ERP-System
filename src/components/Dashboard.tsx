@@ -319,32 +319,21 @@ export default function Dashboard({ user, selectedFarm }: DashboardProps) {
               </CardContent>
             </Card>
 
-            {/* Predicted Revenue */}
+            {/* Total Tanks */}
             <Card className="bg-white shadow-sm">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Predicted Revenue</p>
+                    <p className="text-sm text-gray-600 mb-1">Total Tanks</p>
                     <p className="text-3xl font-bold text-gray-900">
-                      {predictedRevenue.toLocaleString()} EGP
+                      {dashData?.fishSummary?.totalTanks ?? tanks.length}
                     </p>
-                    <p className="text-sm text-gray-500 mt-1">At next harvest</p>
-                    <div className="flex items-center gap-1 mt-2">
-                      {nextHarvestStatus ? (
-                        <>
-                          <div className={`w-2 h-2 rounded-full ${nextHarvestStatus === 'READY' ? 'bg-green-500 animate-pulse' : 'bg-[#088395]'}`} />
-                          <span className="text-sm font-semibold text-gray-700">{nextHarvestStatus}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Calendar className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm text-gray-600">{nextHarvestDateFormatted}</span>
-                        </>
-                      )}
-                    </div>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {dashData?.fishSummary?.activeTanks ?? 0} active tanks
+                    </p>
                   </div>
-                  <div className="w-12 h-12 rounded-lg bg-[#ECFDF5] flex items-center justify-center">
-                    <DollarSign className="w-6 h-6 text-[#10B981]" />
+                  <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                    <TrendingUp className="w-6 h-6 text-gray-600" />
                   </div>
                 </div>
               </CardContent>
@@ -450,8 +439,7 @@ export default function Dashboard({ user, selectedFarm }: DashboardProps) {
                             ) : (
                               <Clock className="w-3 h-3" />
                             )}
-                            {harvest.batches[0].status || `${harvest.batches[0].daysToHarvest}d`}
-                            {harvest.batches[0].status && harvest.batches[0].status !== 'READY' && harvest.batches[0].daysToHarvest != null && ` (${harvest.batches[0].daysToHarvest}d)`}
+                            {harvest.batches[0].status}
                           </Badge>
                         )}
                       </div>

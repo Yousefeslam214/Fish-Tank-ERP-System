@@ -3,8 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Progress } from '../../ui/progress';
 import { Button } from '../../ui/button';
-import { Fish, Scale, FileText, PlusCircle, HeartPulse, ShieldAlert } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../ui/tooltip';
+import { Fish, PlusCircle } from 'lucide-react';
 
 interface BatchesTabProps {
   batchesSummary: any;
@@ -232,55 +231,12 @@ export function BatchesTab({
                       <p className="text-xs text-gray-600">Distributed over {batch.feedingPlan?.mealsPerDay || 4} meals</p>
                     </div>
                   </div>
-                  <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
-                    <div className="bg-gray-50 p-2 rounded">
-                      <span className="text-gray-600">Today's Fed:</span>
-                      <span className="ml-1 font-medium">{batch.feedingPlan?.todayFed ?? 0} kg</span>
-                    </div>
-                    <div className="bg-gray-50 p-2 rounded">
-                      <span className="text-gray-600">This Week:</span>
-                      <span className="ml-1 font-medium">{batch.feedingPlan?.thisWeekFed ?? 0} kg</span>
-                    </div>
-                    <div className="bg-gray-50 p-2 rounded">
-                      <span className="text-gray-600">Last FCR:</span>
-                      <span className="ml-1 font-medium">{batch.feedingPlan?.lastFCR || '1.52'}</span>
-                    </div>
-                  </div>
                 </div>
 
                 <div className="mt-4 flex gap-2">
-                  <TooltipProvider>
-                    <div className="flex-1 flex gap-2">
-                      <Button variant="outline" className="flex-1" onClick={() => handleViewGrowthHistory(batch)}>
-                        <Scale className="w-4 h-4 mr-2" />
-                        View History
-                      </Button>
-                      <Button variant="outline" className="flex-1 border-[#088395] text-[#088395] hover:bg-blue-50" onClick={() => handleUpdateBatchData(batch)}>
-                        <PlusCircle className="w-4 h-4 mr-2" />
-                        Update Samples
-                      </Button>
-                    </div>
-                  </TooltipProvider>
-                </div>
-
-                <div className="mt-2 flex gap-2 pt-2 border-t">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="flex-1 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50"
-                    onClick={() => handleHealthCheck(batch)}
-                  >
-                    <HeartPulse className="w-3.5 h-3.5 mr-1" />
-                    Record Health Check
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="flex-1 text-xs text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                    onClick={() => handleQuarantine(batch)}
-                  >
-                    <ShieldAlert className="w-3.5 h-3.5 mr-1" />
-                    Move to Quarantine
+                  <Button variant="outline" className="w-full border-[#088395] text-[#088395] hover:bg-blue-50" onClick={() => handleUpdateBatchData(batch)}>
+                    <PlusCircle className="w-4 h-4 mr-2" />
+                    Update Samples
                   </Button>
                 </div>
               </CardContent>
