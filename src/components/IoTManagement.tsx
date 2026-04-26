@@ -90,8 +90,16 @@ export default function IoTManagement({ user, selectedFarm }: Props) {
     }
   };
 
-  const handleRegister = async () => {
-    if (!selectedTankId || !deviceIdInput) return;
+  const handleRegister = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!selectedTankId) {
+      alert("Please select a tank first.");
+      return;
+    }
+    if (!deviceIdInput) {
+      alert("Please enter a device ID.");
+      return;
+    }
     setIsRegistering(true);
     try {
       await registerIotDevice({
@@ -100,6 +108,7 @@ export default function IoTManagement({ user, selectedFarm }: Props) {
       });
       setDeviceIdInput("");
       await fetchData();
+      alert("Device registered successfully!");
     } catch (err) {
       alert("Failed to register device: " + (err as Error).message);
     } finally {
@@ -159,64 +168,67 @@ export default function IoTManagement({ user, selectedFarm }: Props) {
               Assign New Device
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-6 space-y-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Select Tank</label>
-              <Select value={selectedTankId} onValueChange={setSelectedTankId}>
-                <SelectTrigger className="rounded-xl bg-gray-50 border-gray-100">
-                  <SelectValue placeholder="Chose a tank" />
-                </SelectTrigger>
-                <SelectContent>
-                  {tanks.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-4">
+          <CardContent className="p-6">
+            <form onSubmit={handleRegister} className="space-y-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Device ID (MAC)</label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="FF:FF:FF:FF:FF:FF"
-                    value={deviceIdInput}
-                    onChange={(e) => setDeviceIdInput(e.target.value)}
-                    className="rounded-xl bg-gray-50 border-gray-100 font-mono text-sm"
-                  />
-                </div>
+                <label className="text-sm font-medium text-gray-700">Select Tank</label>
+                <Select value={selectedTankId} onValueChange={setSelectedTankId}>
+                  <SelectTrigger className="rounded-xl bg-gray-50 border-gray-100">
+                    <SelectValue placeholder="Chose a tank" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tanks.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
-              <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider">Suggested Device</p>
-                  <p className="text-sm font-mono mt-1 text-blue-900">{SPECIFIC_DEVICE_ID}</p>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Device ID (MAC)</label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="FF:FF:FF:FF:FF:FF"
+                      value={deviceIdInput}
+                      onChange={(e) => setDeviceIdInput(e.target.value)}
+                      className="rounded-xl bg-gray-50 border-gray-100 font-mono text-sm"
+                    />
+                  </div>
                 </div>
+
                 <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setDeviceIdInput(SPECIFIC_DEVICE_ID)}
-                  className="bg-blue-600 text-white hover:bg-blue-700 rounded-lg shadow-sm"
+                  type="submit"
+                  className="w-full rounded-xl bg-blue-600 hover:bg-blue-700 transition-all font-semibold h-12 text-white shadow-lg"
+                  disabled={isRegistering}
                 >
-                  Select
+                  {isRegistering ? (
+                    <RefreshCw className="animate-spin mr-2" />
+                  ) : (
+                    <ShieldCheck className="mr-2 w-5 h-5" />
+                  )}
+                  Register Device
                 </Button>
-              </div>
 
-              <Button
-                className="w-full rounded-xl bg-gray-900 hover:bg-gray-800 transition-all font-semibold h-12"
-                onClick={handleRegister}
-                disabled={isRegistering || !selectedTankId || !deviceIdInput}
-              >
-                {isRegistering ? (
-                  <RefreshCw className="animate-spin mr-2" />
-                ) : (
-                  <ShieldCheck className="mr-2 w-5 h-5" />
-                )}
-                Register Device
-              </Button>
-            </div>
+                <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider">Suggested Device</p>
+                    <p className="text-sm font-mono mt-1 text-blue-900">{SPECIFIC_DEVICE_ID}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setDeviceIdInput(SPECIFIC_DEVICE_ID)}
+                    className="bg-white text-blue-600 hover:bg-blue-50 rounded-lg shadow-sm border border-blue-100"
+                  >
+                    Select
+                  </Button>
+                </div>
+              </div>
+            </form>
           </CardContent>
         </Card>
 
