@@ -47,6 +47,28 @@ export function FeedingHistoryTab({
     return 0;
   };
 
+  const calcAchievementPercent = (
+    fed: number,
+    recommended: number,
+    fallbackAchievement?: string,
+  ) => {
+    if (recommended > 0) {
+      const roundedFed = Math.round(fed * 10) / 10;
+      const roundedRecommended = Math.round(recommended * 10) / 10;
+      if (Math.abs(roundedFed - roundedRecommended) <= 0.1) return 100;
+      return Math.round((fed / recommended) * 100);
+    }
+    return fallbackAchievement
+      ? parseInt(fallbackAchievement.replace(/[^\d]/g, "")) || 0
+      : 0;
+  };
+
+  const dailyTarget = parseVal(
+    tankFeedingCalculation?.recommendedAmount ||
+      tankFeedingCalculation?.totalRecommended ||
+      "0",
+  );
+
   return (
     <div className="space-y-4 pt-4">
       {/* Today's Schedule */}
@@ -77,9 +99,7 @@ export function FeedingHistoryTab({
                   Recommended for Tank
                 </p>
                 <h4 className="text-xl font-black">
-                  {tankFeedingCalculation.recommendedAmount ||
-                    tankFeedingCalculation.totalRecommended ||
-                    "0"}{" "}
+                  {Math.round(dailyTarget)}{" "}
                   kg/day
                 </h4>
               </div>
@@ -183,7 +203,12 @@ export function FeedingHistoryTab({
                         batch.dailyFeedKg ||
                         "0",
                     );
-                    const fed = batch.feedingPlan?.todayFed || 0;
+                    const fed = parseVal(
+                      batch.feedingPlan?.todayFed ??
+                        batch.fedTodayKg ??
+                        batch.todayFedKg ??
+                        daily,
+                    );
                     const remaining = Math.max(0, daily - fed);
                     const status =
                       fed >= daily ? "OK" : fed > 0 ? "WARNING" : "STOPPED";
@@ -212,7 +237,9 @@ export function FeedingHistoryTab({
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-4 font-medium">{daily} kg</td>
+                        <td className="px-4 py-4 font-medium">
+                          {Math.round(daily)} kg
+                        </td>
                         <td className="px-4 py-4 font-bold text-blue-600">
                           {fed} kg
                         </td>
@@ -270,11 +297,11 @@ export function FeedingHistoryTab({
                 const status =
                   record.status ||
                   (fed >= (recommended || 0.1) ? "on-target" : "below");
-                const achievementVal = record.achievement
-                  ? parseInt(record.achievement.replace(/[^\d]/g, ""))
-                  : recommended > 0
-                    ? Math.round((fed / recommended) * 100)
-                    : 0;
+                const achievementVal = calcAchievementPercent(
+                  fed,
+                  recommended,
+                  record.achievement,
+                );
 
                 return (
                   <Card
@@ -326,7 +353,7 @@ export function FeedingHistoryTab({
                               <p
                                 className={`font-bold ${achievementVal >= 90 && achievementVal <= 110 ? "text-green-600" : "text-yellow-600"}`}
                               >
-                                {record.achievement || `${achievementVal}%`}
+                                {`${achievementVal}%`}
                               </p>
                             </div>
                             <div className="space-y-1">

@@ -39,6 +39,23 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
   const [batchRequirement, setBatchRequirement] = useState<any>(null);
   const [isLoadingRequirement, setIsLoadingRequirement] = useState(false);
 
+  const parseWeightValue = (value: unknown): number => {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+    if (typeof value === 'string') {
+      const parsed = parseFloat(value.replace(/[^\d.-]/g, ''));
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+  };
+
+  const roundToOneDecimal = (value: number): number =>
+    Math.round(value * 10) / 10;
+
+  const formatKg = (value: number): string => {
+    const rounded = roundToOneDecimal(value);
+    return Number.isInteger(rounded) ? `${rounded}` : rounded.toFixed(1);
+  };
+
   useEffect(() => {
     if (open) {
       setWeightFed(0);
@@ -113,19 +130,33 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
     }
   }, [selectedBatchId, open, tankBatches]);
 
-  const dailyRecommended =
+  const dailyRecommended = parseWeightValue(
     batchRequirement?.totalDailyFeedKg ||
     batchRequirement?.recommendedAmount ||
     batchRequirement?.totalRecommended ||
     tank?.feeding?.recommended ||
-    90;
+    90,
+  );
 
-  const currentTotalFed = batchRequirement?.fedTodayKg ?? (tank?.feeding?.todayFed ?? 0);
-  const totalWithNewMeal = currentTotalFed + weightFed;
-
-  const progress = {
-    weight: dailyRecommended > 0 ? totalWithNewMeal / dailyRecommended : 0
-  };
+  const currentTotalFed = parseWeightValue(
+    batchRequirement?.fedTodayKg ??
+      batchRequirement?.todayFed ??
+      batchRequirement?.alreadyFedKg ??
+      tank?.feeding?.todayFed ??
+      0,
+  );
+  const totalWithNewMeal = roundToOneDecimal(
+    currentTotalFed + parseWeightValue(weightFed),
+  );
+  const targetRounded = roundToOneDecimal(dailyRecommended);
+  const displayProgressFed =
+    dailyRecommended > 0 ? Math.min(totalWithNewMeal, targetRounded) : 0;
+  const progressPercent =
+    targetRounded > 0
+      ? Math.round((displayProgressFed / targetRounded) * 100)
+      : 0;
+  const showUnderfeedingWarning =
+    dailyRecommended > 0 && totalWithNewMeal < dailyRecommended * 0.8;
 
   // Auto-select recommended food type when available
   useEffect(() => {
@@ -141,7 +172,10 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
   // Auto-populate weight fed based on remaining recommendation
   useEffect(() => {
     if (open && dailyRecommended > 0 && weightFed === 0) {
-      const remaining = Math.max(0, dailyRecommended - currentTotalFed);
+      const remaining =
+        currentTotalFed > 0
+          ? Math.max(0, dailyRecommended - currentTotalFed)
+          : dailyRecommended;
       setWeightFed(Number(remaining.toFixed(2)));
     }
   }, [open, dailyRecommended, currentTotalFed, weightFed]);
@@ -283,7 +317,7 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
                     <RefreshCw className="w-5 h-5 animate-spin text-[#0A4D68]/40" />
                   ) : (
                     <>
-                      <span className="text-xl font-bold text-[#0A4D68]">{dailyRecommended.toFixed(1)}</span>
+                      <span className="text-xl font-bold text-[#0A4D68]">{formatKg(dailyRecommended)}</span>
                       <span className="text-sm font-medium text-[#0A4D68]/70">kg / day</span>
                     </>
                   )}
@@ -298,7 +332,7 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
                     <RefreshCw className="w-5 h-5 animate-spin text-[#0A4D68]/40" />
                   ) : (
                     <>
-                      <span className="text-xl font-bold text-[#0A4D68]">{currentTotalFed.toFixed(1)}</span>
+                      <span className="text-xl font-bold text-[#0A4D68]">{formatKg(currentTotalFed)}</span>
                       <span className="text-sm font-medium text-[#0A4D68]/70">kg</span>
                     </>
                   )}
@@ -371,7 +405,7 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
                 <Input
                   type="number"
                   value={weightFed}
-                  onChange={(e) => setWeightFed(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => setWeightFed(parseWeightValue(e.target.value))}
                   className="h-12 pl-4 pr-12 text-lg font-bold bg-white border-2 border-gray-100 focus:border-[#088395] transition-all"
                 />
                 <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-[#0A4D68]/40 font-bold">
@@ -384,8 +418,8 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 shadow-inner">
             <div className="flex items-center justify-between mb-4">
               <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Live Progress</h4>
-              <Badge className={`${progress.weight >= 1 ? 'bg-green-500' : 'bg-[#088395]'} text-[10px] uppercase font-bold`}>
-                {Math.round(progress.weight * 100)}% Fulfilled
+              <Badge className={`${progressPercent >= 100 ? 'bg-green-500' : 'bg-[#088395]'} text-[10px] uppercase font-bold`}>
+                {progressPercent}% Fulfilled
               </Badge>
             </div>
 
@@ -394,29 +428,18 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
                 <div className="flex justify-between text-[11px] font-medium text-gray-400">
                   <div className="flex items-center gap-1.5">
                     <Droplet className="w-3 h-3" />
-                    <span>Progression: {totalWithNewMeal.toFixed(1)} / {dailyRecommended.toFixed(1)} kg</span>
+                    <span>Progression: {formatKg(displayProgressFed)} / {formatKg(dailyRecommended)} kg</span>
                   </div>
                 </div>
                 <Progress
-                  value={Math.min(progress.weight * 100, 100)}
+                  value={progressPercent}
                   className="h-2 bg-gray-800"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-white/5 border border-white/10 p-3 rounded-xl flex items-center justify-between">
-                  <span className="text-[10px] text-gray-500 font-bold uppercase">Daily Total</span>
-                  <span className="text-sm font-bold text-white">{totalWithNewMeal.toFixed(1)} <span className="text-[10px] text-gray-600">KG</span></span>
-                </div>
-                <div className="bg-white/5 border border-white/10 p-3 rounded-xl flex items-center justify-between">
-                  <span className="text-[10px] text-gray-500 font-bold uppercase">Diff</span>
-                  <span className={`text-sm font-bold ${totalWithNewMeal >= dailyRecommended ? 'text-green-400' : 'text-orange-400'}`}>
-                    {Math.max(0, dailyRecommended - totalWithNewMeal).toFixed(1)} <span className="text-[10px] opacity-70">KG</span>
-                  </span>
-                </div>
-              </div>
+              
 
-              {weightFed < dailyRecommended * 0.8 && (
+              {showUnderfeedingWarning && (
                 <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl text-[10px] text-amber-200 leading-relaxed shadow-sm">
                   <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 animate-pulse" />
                   <p><strong className="text-amber-500">Caution:</strong> Currently underfeeding relative to optimal growth projection. If appetite is low, verify water parameters immediately.</p>
@@ -425,37 +448,8 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
             </div>
           </div>
 
-          <div className="space-y-3 pt-2">
-            <Label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Field Observations</Label>
-            <Textarea
-              placeholder="Record any unusual behavior, water clarity issues, or external conditions..."
-              className="resize-none min-h-[80px] bg-gray-50/50 border-gray-200 focus:bg-white transition-colors"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </div>
+         
 
-          <div className="space-y-4 border-t pt-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label className="text-sm font-bold text-gray-700">Skip Feeding?</Label>
-                <p className="text-[10px] text-gray-500 font-medium">Toggle if this meal was not delivered</p>
-              </div>
-              <Switch checked={skipReason} onCheckedChange={setSkipReason} />
-            </div>
-
-            {skipReason && (
-              <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                <Label className="text-xs font-bold text-red-500 uppercase tracking-wide">Reason for Skipping</Label>
-                <Textarea
-                  placeholder="e.g., Low appetite, water quality issues, power failure..."
-                  className="resize-none min-h-[60px] border-red-100 bg-red-50/30 focus:bg-white"
-                  value={skipNotes}
-                  onChange={(e) => setSkipNotes(e.target.value)}
-                />
-              </div>
-            )}
-          </div>
 
           <div className="flex gap-3 pt-4 border-t">
             <Button variant="ghost" className="flex-1 h-12 text-gray-500 font-bold uppercase text-[10px] tracking-widest hover:bg-gray-100" onClick={() => onOpenChange(false)}>
