@@ -45,7 +45,6 @@ export default function RecordGrowthMeasurement({
   batch,
   language = 'en',
   onSuccess,
-  measuredBy = 'Caretaker',
   measurement
 }: RecordGrowthMeasurementProps) {
   const t = (key: string) => getTranslation(language, key);
@@ -64,7 +63,6 @@ export default function RecordGrowthMeasurement({
     maxWeight: 0,
     averageLength: 0,
     notes: '',
-    measuredBy: measuredBy,
     individualWeights: [] as number[]
   });
 
@@ -81,7 +79,6 @@ export default function RecordGrowthMeasurement({
         maxWeight: measurement.maxWeightGrams || measurement.maxWeight || 0,
         averageLength: measurement.averageLengthCm || measurement.length || 0,
         notes: measurement.notes || '',
-        measuredBy: measurement.measuredBy || measuredBy,
         individualWeights: measurement.individualWeights || []
       });
       if (measurement.individualWeights?.length > 0) {
@@ -97,7 +94,6 @@ export default function RecordGrowthMeasurement({
         maxWeight: 0,
         averageLength: 0,
         notes: '',
-        measuredBy: measuredBy,
         individualWeights: [] as number[]
       });
       setDetailedEntry(false);
@@ -232,7 +228,6 @@ export default function RecordGrowthMeasurement({
       stdDeviationGrams: Number(detailedEntry ? stats?.stdDev : 0) || 0,
       coefficientOfVariation: Number(detailedEntry ? stats?.cv : 0) || 0,
       averageLengthCm: Number(formData.averageLength) || 0,
-      measuredBy: formData.measuredBy || 'Caretaker',
       isEstimate: false,
       notes: formData.notes || ''
     };
@@ -263,11 +258,7 @@ export default function RecordGrowthMeasurement({
         fcrRating: 'GOOD',
         sgrRating: sgr >= 2.0 ? 'GOOD' : sgr >= 1.5 ? 'ACCEPTABLE' : 'POOR',
         overallRating: 'GOOD',
-        recommendations: [
-          'Growth rate is on target - continue current feeding',
-          'FCR is within acceptable range',
-          'Consider sorting fish to improve uniformity'
-        ]
+        
       };
 
       setSuccessData(res);
@@ -328,10 +319,7 @@ export default function RecordGrowthMeasurement({
                   {t('growthMeasurement.currentBatchInfo')}
                 </h3>
                 <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-600">{t('growthMeasurement.daysInCulture')}:</span>
-                    <span className="font-medium ml-2">{batch.daysInCulture} {t('growthMeasurement.days')}</span>
-                  </div>
+                 
                   {batch.lastWeight && (
                     <div>
                       <span className="text-gray-600">{t('growthMeasurement.lastWeight')}:</span>
@@ -398,97 +386,9 @@ export default function RecordGrowthMeasurement({
                 />
               </div>
 
-              {/* Detailed Entry Toggle */}
-              <div className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg">
-                <input
-                  type="checkbox"
-                  id="detailedEntry"
-                  checked={detailedEntry}
-                  onChange={(e) => setDetailedEntry(e.target.checked)}
-                  className="w-4 h-4 text-[#088395] border-gray-300 rounded focus:ring-[#088395]"
-                />
-                <label htmlFor="detailedEntry" className="text-sm font-medium text-gray-700">
-                  {t('growthMeasurement.enableDetailedEntry')}
-                </label>
-              </div>
+              
 
-              {detailedEntry ? (
-                <div className="space-y-3">
-                  <div>
-                    <Label>{t('growthMeasurement.bulkInput')}</Label>
-                    <Textarea
-                      placeholder={t('growthMeasurement.onePerLine')}
-                      value={bulkInput}
-                      onChange={(e) => setBulkInput(e.target.value)}
-                      rows={4}
-                      className="font-mono text-sm"
-                    />
-                    <Button
-                      size="sm"
-                      className="mt-2"
-                      onClick={handleParseBulkInput}
-                    >
-                      {t('growthMeasurement.parseInput')}
-                    </Button>
-                  </div>
-
-                  {stats && (
-                    <Card className="bg-[#F0FDF4] border-[#10B981]">
-                      <CardContent className="p-4">
-                        <h4 className="font-semibold text-sm mb-2">Statistics</h4>
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div>
-                            <span className="text-gray-600">Total:</span>
-                            <span className="font-medium ml-2">{stats.total.toFixed(1)}g ✓</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">{t('growthMeasurement.averageWeight')}:</span>
-                            <span className="font-medium ml-2">{stats.average.toFixed(1)}g</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">Min:</span>
-                            <span className="font-medium ml-2">{stats.min}g</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">Max:</span>
-                            <span className="font-medium ml-2">{stats.max}g</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">Std Dev:</span>
-                            <span className="font-medium ml-2">{stats.stdDev.toFixed(1)}g</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">CV:</span>
-                            <span className="font-medium ml-2">{stats.cv.toFixed(1)}%</span>
-                            {stats.cv < 15 && <span className="text-[#10B981] ml-1">({t('growthMeasurement.goodUniformity')})</span>}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>{t('growthMeasurement.smallestFish')} *</Label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={formData.minWeight}
-                      onChange={(e) => setFormData({ ...formData, minWeight: parseFloat(e.target.value) || 0 })}
-                    />
-                  </div>
-                  <div>
-                    <Label>{t('growthMeasurement.largestFish')} *</Label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={formData.maxWeight}
-                      onChange={(e) => setFormData({ ...formData, maxWeight: parseFloat(e.target.value) || 0 })}
-                    />
-                  </div>
-                </div>
-              )}
+        
             </div>
 
             {/* Length (Optional) */}
@@ -511,64 +411,9 @@ export default function RecordGrowthMeasurement({
               </div>
             </div>
 
-            {/* Calculations Preview */}
-            {averageWeight > 0 && (
-              <Card className="bg-[#FEF3C7] border-[#F59E0B]">
-                <CardContent className="p-4">
-                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5" />
-                    {t('growthMeasurement.calculationsPreview')}
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-600">{t('growthMeasurement.averageWeight')}:</span>
-                      <span className="font-bold ml-2 text-lg">{averageWeight.toFixed(1)}g</span>
-                    </div>
-                    {batch.lastWeight && (
-                      <div>
-                        <span className="text-gray-600">{t('growthMeasurement.weightGain')}:</span>
-                        <span className="font-bold ml-2 text-lg">
-                          +{weightGain.toFixed(1)}g (+{weightGainPercentage.toFixed(1)}%)
-                        </span>
-                      </div>
-                    )}
-                    <div className="col-span-2">
-                      <span className="text-gray-600">{t('growthMeasurement.estimatedSGR')}:</span>
-                      <Badge className={`${sgrRating.color} text-white ml-2`}>
-                        {sgr.toFixed(2)}%/{t('common.day')} {sgrRating.icon} {sgrRating.label}
-                      </Badge>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="text-gray-600">{t('growthMeasurement.estimatedBiomass')}:</span>
-                      <span className="font-bold ml-2 text-lg">{estimatedBiomass.toFixed(1)} {t('common.kg')}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+         
 
-            {/* Notes */}
-            <div className="space-y-4">
-              <h3 className="font-semibold text-gray-900 border-b pb-2">
-                {t('growthMeasurement.notes')}
-              </h3>
-              <div>
-                <Label>{t('growthMeasurement.notesOptional')}</Label>
-                <Textarea
-                  placeholder="Fish looking healthy, good color..."
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  rows={3}
-                />
-              </div>
-              <div>
-                <Label>{t('growthMeasurement.measuredBy')}</Label>
-                <Input
-                  value={formData.measuredBy}
-                  onChange={(e) => setFormData({ ...formData, measuredBy: e.target.value })}
-                />
-              </div>
-            </div>
+         
 
             {/* Negative Growth Warning */}
             {showNegativeGrowthWarning && (
@@ -649,10 +494,7 @@ export default function RecordGrowthMeasurement({
                         {successData.fcr} 🟢 {successData.fcrRating}
                       </Badge>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">{t('growthMeasurement.survival')}:</span>
-                      <span className="font-bold">{successData.survivalRate}% ✅</span>
-                    </div>
+                 
                   </div>
 
                   <div className="mt-4 pt-4 border-t">
@@ -666,24 +508,6 @@ export default function RecordGrowthMeasurement({
                 </CardContent>
               </Card>
 
-              {successData.recommendations && successData.recommendations.length > 0 && (
-                <Card className="bg-blue-50 border-blue-200">
-                  <CardContent className="p-4">
-                    <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                      <AlertCircle className="w-5 h-5 text-blue-600" />
-                      {t('growthMeasurement.recommendations')}
-                    </h4>
-                    <ul className="space-y-1 text-sm text-gray-700">
-                      {successData.recommendations.map((rec: string, idx: number) => (
-                        <li key={idx} className="flex items-start gap-2">
-                          <span className="text-blue-600">•</span>
-                          <span>{rec}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-              )}
 
               <div className="flex gap-3">
                 <Button

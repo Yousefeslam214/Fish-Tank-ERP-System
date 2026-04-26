@@ -251,7 +251,7 @@ const normalizeFoodType = (value: unknown): FoodTypeOption | null => {
     return null;
   }
 
-  const id = asString(record.id);
+  const id = asString(record.id) || asString(record._id);
   const name = asString(record.name);
   if (!id || !name) {
     return null;
@@ -280,14 +280,23 @@ const normalizeFishType = (value: unknown): FishTypeRecord | null => {
   }
 
   const allowedFoodTypesRaw = asArray(record.allowedFoodTypes);
-  const allowedFoodTypeIds = allowedFoodTypesRaw
+  const allowedFoodTypeIdsFromRelations = allowedFoodTypesRaw
     .map((entry) => {
       if (typeof entry === 'string') {
         return entry;
       }
-      return asString(asRecord(entry)?.id);
+      const relationRecord = asRecord(entry);
+      return asString(relationRecord?.id) || asString(relationRecord?._id);
     })
     .filter((entry): entry is string => Boolean(entry));
+
+  const allowedFoodTypeIdsFromField = asArray(record.allowedFoodTypeIds)
+    .map((entry) => asString(entry))
+    .filter((entry): entry is string => Boolean(entry));
+
+  const allowedFoodTypeIds = Array.from(
+    new Set([...allowedFoodTypeIdsFromField, ...allowedFoodTypeIdsFromRelations]),
+  );
 
   const allowedFoodTypes = allowedFoodTypesRaw
     .map(normalizeFoodType)

@@ -414,13 +414,14 @@ export function WaterQualityTab({
                                 </p>
                               </div>
                             )}
-                            {record.nitrate !== undefined && (
+                            {(record.turbidity !== undefined ||
+                              record.ntu !== undefined) && (
                               <div className="space-y-1">
                                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                                  Nitrate
+                                  Turbidity
                                 </p>
                                 <p className="font-bold text-gray-900">
-                                  {record.nitrate} mg/L
+                                  {record.turbidity ?? record.ntu} NTU
                                 </p>
                               </div>
                             )}

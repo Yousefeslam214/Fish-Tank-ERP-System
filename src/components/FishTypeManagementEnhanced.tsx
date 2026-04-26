@@ -345,8 +345,6 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
 
   const currentFarmLabel = selectedFarm?.name || 'Current Farm';
 
-  const foodTypeMap = useMemo(() => new Map(foodTypes.map((foodType) => [foodType.id, foodType])), [foodTypes]);
-
   const distributionTotal = useMemo(
     () => calculateDistributionTotal(formState.expectedGradeDistribution),
     [formState.expectedGradeDistribution],
@@ -678,20 +676,6 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
                   <p>DO Safe: {fishType.doSafe} mg/L</p>
                   <p>FCR Target: {fishType.fcrMin} - {fishType.fcrMax}</p>
                   <p>Survival Rate: {fishType.survivalRate}%</p>
-                  <div>
-                    <p className="font-medium text-gray-700 mb-1">Allowed Food Types</p>
-                    {fishType.allowedFoodTypeIds.length === 0 ? (
-                      <p className="text-xs text-gray-500">No food types assigned.</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-1">
-                        {fishType.allowedFoodTypeIds.map((foodTypeId) => (
-                          <Badge key={foodTypeId} variant="outline" className="text-xs">
-                            {foodTypeMap.get(foodTypeId)?.name || foodTypeId}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
                   <Button variant="outline" className="w-full" onClick={() => void openEditModal(fishType.id)}>
                     Edit
                   </Button>
@@ -1163,8 +1147,6 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
             </TabsContent>
 
             <TabsContent value="protein" className="space-y-4 mt-0 border border-[#D3E1E8] rounded-lg bg-white p-4">
-// Meal Frequency Rules section removed
-
               <Card className="bg-white border border-[#D3E1E8]">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center justify-between">
@@ -1244,139 +1226,78 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
                   ) : foodTypes.length === 0 ? (
                     <p className="text-sm text-gray-600">No food types available.</p>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {foodTypes.map((foodType) => {
-                        const checked = formState.allowedFoodTypeIds.includes(foodType.id);
-                        return (
-                          <label
-                            key={foodType.id}
-                            className={`border rounded-md p-3 text-sm flex items-center justify-between cursor-pointer transition-colors ${checked ? 'bg-[#DCF4F7] border-[#0D8FA3]' : 'bg-white border-[#C8D7DF] hover:border-[#0D8FA3]'
-                              }`}
-                          >
-                            <span className="flex items-center gap-2">
-                              <Wheat className="w-4 h-4 text-[#0D8FA3]" />
-                              {foodType.name}
-                            </span>
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={(event) => toggleAllowedFoodType(foodType.id, event.target.checked)}
-                              className="w-4 h-4 cursor-pointer"
-                            />
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                    (() => {
+                      const selectedFoodTypes = foodTypes.filter((foodType) =>
+                        formState.allowedFoodTypeIds.includes(foodType.id),
+                      );
+                      const nonSelectedFoodTypes = foodTypes.filter(
+                        (foodType) => !formState.allowedFoodTypeIds.includes(foodType.id),
+                      );
 
-              <Card className="bg-white border border-[#D3E1E8]">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm flex items-center justify-between">
-                    <span className="font-semibold">Expected Grade Distribution</span>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={addExpectedDistributionRow}
-                      disabled={isLoadingGradePricing || gradePricingOptions.length === 0}
-                    >
-                      <Plus className="w-3 h-3 mr-1" />
-                      Add Row
-                    </Button>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {!editingFishTypeId ? (
-                    <p className="text-xs text-amber-700 border border-amber-200 bg-amber-50 rounded-md p-2">
-                      Save the fish type first, then configure grade distribution from available Grade Pricing records.
-                    </p>
-                  ) : null}
-                  {gradePricingError ? (
-                    <p className="text-xs text-red-700 border border-red-200 bg-red-50 rounded-md p-2">{gradePricingError}</p>
-                  ) : null}
-                  {editingFishTypeId && isLoadingGradePricing ? (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Loading grade pricing options...
-                    </div>
-                  ) : null}
-                  {editingFishTypeId && !isLoadingGradePricing && gradePricingOptions.length === 0 ? (
-                    <p className="text-sm text-gray-500">No grade pricing records available for this fish type.</p>
-                  ) : null}
-                  {formState.expectedGradeDistribution.length === 0 ? (
-                    <p className="text-sm text-gray-500">No grade distribution configured.</p>
-                  ) : (
-                    formState.expectedGradeDistribution.map((row, index) => (
-                      <div key={`distribution-row-${index}`} className="grid grid-cols-1 sm:grid-cols-[1fr_140px_auto] gap-2 items-end p-2 border rounded-md bg-gray-50">
-                        <div>
-                          <Label className="text-xs font-medium text-gray-700">Grade Pricing ID</Label>
-                          <select
-                            value={row.gradePricingId}
-                            onChange={(event) =>
-                              updateExpectedDistributionRow(index, 'gradePricingId', event.target.value)
-                            }
-                            className="mt-1 h-9 w-full rounded-md border border-[#CBD5E1] bg-white px-3 text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#0D8FA3]/30"
-                            disabled={isLoadingGradePricing || gradePricingOptions.length === 0}
-                          >
-                            <option value="">Select grade pricing</option>
-                            {gradePricingOptions.map((pricing) => (
-                              <option key={pricing.id} value={pricing.id}>
-                                {pricing.gradeName} ({pricing.minWeight}-{pricing.maxWeight}g, {pricing.pricePerKg} EGP/kg)
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <Label className="text-xs font-medium text-gray-700">Percentage</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.01"
-                            value={row.percentage}
-                            onChange={(event) => updateExpectedDistributionRow(index, 'percentage', toNumber(event.target.value))}
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="hover:bg-red-50 hover:text-red-600"
-                          onClick={() => removeExpectedDistributionRow(index)}
+                      const renderFoodTypeOption = (foodType: FoodTypeOption, checked: boolean) => (
+                        <label
+                          key={foodType.id}
+                          className={`border rounded-md p-3 text-sm flex items-center justify-between cursor-pointer transition-colors ${checked ? 'bg-[#DCF4F7] border-[#0D8FA3]' : 'bg-white border-[#C8D7DF] hover:border-[#0D8FA3]'}`}
                         >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))
-                  )}
+                          <span className="flex items-center gap-2">
+                            <Wheat className="w-4 h-4 text-[#0D8FA3]" />
+                            {foodType.name}
+                          </span>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(event) => toggleAllowedFoodType(foodType.id, event.target.checked)}
+                            className="w-4 h-4 cursor-pointer"
+                          />
+                        </label>
+                      );
 
-                  {formState.expectedGradeDistribution.length > 0 && (
-                    <div className={`text-xs font-medium p-2 rounded-md ${Math.abs(distributionTotal - 100) <= 0.01
-                      ? 'bg-green-50 text-green-700 border border-green-200'
-                      : 'bg-red-50 text-red-700 border border-red-200'
-                      }`}>
-                      Total: {distributionTotal.toFixed(2)}%
-                    </div>
+                      return (
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-xs font-semibold text-[#0A4D68] mb-2">
+                              Selected ({selectedFoodTypes.length})
+                            </p>
+                            {selectedFoodTypes.length === 0 ? (
+                              <p className="text-sm text-gray-500 border rounded-md p-3 bg-gray-50">
+                                No selected food types.
+                              </p>
+                            ) : (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {selectedFoodTypes.map((foodType) =>
+                                  renderFoodTypeOption(foodType, true),
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <p className="text-xs font-semibold text-gray-600 mb-2">
+                              Not Selected ({nonSelectedFoodTypes.length})
+                            </p>
+                            {nonSelectedFoodTypes.length === 0 ? (
+                              <p className="text-sm text-gray-500 border rounded-md p-3 bg-gray-50">
+                                All food types are selected.
+                              </p>
+                            ) : (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {nonSelectedFoodTypes.map((foodType) =>
+                                  renderFoodTypeOption(foodType, false),
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()
                   )}
                 </CardContent>
               </Card>
 
-              <Card className="bg-white border border-[#D3E1E8]">
-                <CardContent className="pt-4 space-y-4">
-                  <div className="flex items-center justify-between border rounded-md p-3 bg-gray-50 hover:bg-gray-100 transition-colors">
-                    <div>
-                      <Label className="text-sm font-medium">Active Status</Label>
-                      <p className="text-xs text-gray-600 mt-1">Enable this fish type in operational flows</p>
-                    </div>
-                    <Switch
-                      checked={formState.isActive}
-                      onCheckedChange={(checked) => setFormState((previous) => ({ ...previous, isActive: checked }))}
-                    />
-                  </div>
+            
 
-                  <div>
+              <Card className="bg-white border border-[#D3E1E8]">
+                <CardContent className="pt-4 space-y-4"> <div>
                     <Label className="text-sm font-medium">Notes</Label>
                     <Textarea
                       rows={3}

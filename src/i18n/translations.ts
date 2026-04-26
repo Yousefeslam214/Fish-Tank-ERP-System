@@ -14,7 +14,6 @@ export const translations = {
       weightMeasurements: 'Weight Measurements',
       totalSampleWeight: 'Total Sample Weight (grams)',
       individualWeights: 'Individual Fish Weights (optional)',
-      enableDetailedEntry: 'Enable Detailed Entry',
       smallestFish: 'Smallest Fish (g)',
       largestFish: 'Largest Fish (g)',
       lengthOptional: 'Length (Optional)',
