@@ -15,6 +15,8 @@ interface FeedingHistoryTabProps {
   tankBatches: any[];
 }
 
+type FeedingStatus = "on-target" | "below" | "critical" | "above";
+
 export function FeedingHistoryTab({
   tankFeedingCalculation,
   feedingHistory,
@@ -25,8 +27,40 @@ export function FeedingHistoryTab({
   user,
   tankBatches,
 }: FeedingHistoryTabProps) {
-  const getStatusColor = (s: string) => {
-    switch (s.toLowerCase()) {
+  const normalizeStatus = (status: string = ""): FeedingStatus => {
+    const normalized = status
+      .toLowerCase()
+      .replace(/[_-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (normalized.includes("critical")) return "critical";
+    if (normalized.includes("above") || normalized.includes("over")) return "above";
+    if (
+      normalized.includes("on target") ||
+      normalized === "ok" ||
+      normalized === "optimal"
+    ) {
+      return "on-target";
+    }
+    return "below";
+  };
+
+  const getStatusLabel = (status: string = "") => {
+    switch (normalizeStatus(status)) {
+      case "on-target":
+        return "✅ On target";
+      case "critical":
+        return "❌ Critical";
+      case "above":
+        return "ℹ️ Above recommendation";
+      default:
+        return "⚠️ Below recommendation";
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (normalizeStatus(status)) {
       case "on-target":
         return "bg-[#10B981] text-white";
       case "below":
@@ -43,8 +77,14 @@ export function FeedingHistoryTab({
   const parseVal = (val: any) => {
     if (typeof val === "number") return val;
     if (typeof val === "string")
-      return parseFloat(val.replace(/[^\d.]/g, "")) || 0;
+      return parseFloat(val.replace(/[^\d.-]/g, "")) || 0;
     return 0;
+  };
+
+  const formatKg = (val: number) => {
+    if (!Number.isFinite(val)) return "0";
+    const rounded = Math.round(val * 10) / 10;
+    return Number.isInteger(rounded) ? `${rounded}` : rounded.toFixed(1);
   };
 
   const calcAchievementPercent = (
@@ -69,20 +109,20 @@ export function FeedingHistoryTab({
       "0",
   );
 
+  React.useEffect(() => {
+    console.log("Feeding History Records:", feedingRecords);
+  }, [feedingRecords]);
+
   return (
     <div className="space-y-4 pt-4">
-      {/* Today's Schedule */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>
-            Today's Feeding Schedule -{" "}
-            {new Date().toLocaleDateString(undefined, {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })}
-          </CardTitle>
-          <Button
+    
+
+  
+
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-gray-900">Feeding History Records</h3>
+ <Button
             size="sm"
             className="bg-[#088395] hover:bg-[#0A4D68]"
             onClick={() => setShowFeedingModal(true)}
@@ -90,187 +130,7 @@ export function FeedingHistoryTab({
             <Fish className="w-4 h-4 mr-2" />
             Record Feeding
           </Button>
-        </CardHeader>
-        <CardContent>
-          {tankFeedingCalculation && (
-            <div className="bg-[#0A4D68] text-white p-4 rounded-xl mb-4 flex items-center justify-between">
-              <div>
-                <p className="text-[10px] uppercase font-bold tracking-widest text-[#088395] mb-1">
-                  Recommended for Tank
-                </p>
-                <h4 className="text-xl font-black">
-                  {Math.round(dailyTarget)}{" "}
-                  kg/day
-                </h4>
-              </div>
-              <div className="text-right">
-                <p className="text-[10px] uppercase font-bold tracking-widest text-[#088395] mb-1">
-                  FCR Estimate
-                </p>
-                <p className="font-bold">
-                  {tankFeedingCalculation.currentFcr || "1.52"}
-                </p>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            {feedingHistory.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-4">
-                No feedings recorded yet today.
-              </p>
-            ) : (
-              feedingHistory.map((feeding, idx) => (
-                <div
-                  key={idx}
-                  className="border-l-4 border-[#088395] pl-4 py-2 bg-gray-50/50 rounded-r-lg"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-medium">
-                      {feeding.time} - Feeding Session
-                    </span>
-                    <Badge
-                      className={
-                        feeding.status === "on-target"
-                          ? "bg-[#10B981]"
-                          : "bg-[#F59E0B]"
-                      }
-                    >
-                      {feeding.status === "on-target"
-                        ? "✅ On target"
-                        : "⚠️ Below recommendation"}
-                    </Badge>
-                  </div>
-                  <div className="text-sm text-gray-600 space-y-1">
-                    <p>
-                      Amount: {feeding.fed} kg (Recommended:{" "}
-                      {feeding.recommended} kg)
-                    </p>
-                    <p>Food: {feeding.foodName || "Standard Feed"}</p>
-                    <p>Fed by: {feeding.operator || user.name}</p>
-                  </div>
-                </div>
-              ))
-            )}
-            <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-600 border border-dashed">
-              <p className="text-sm">
-                Next feeding due:{" "}
-                {feedingHistory.length > 0
-                  ? new Date(
-                      new Date().setHours(new Date().getHours() + 4),
-                    ).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
-                  : "Check schedule"}
-              </p>
-            </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Per-Batch Feeding Breakdown (Task 4.2) */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Per-Batch Feeding Breakdown</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 text-gray-600 font-bold uppercase text-[10px] tracking-widest">
-                <tr>
-                  <th className="px-4 py-3">Batch</th>
-                  <th className="px-4 py-3">Daily Feed (kg)</th>
-                  <th className="px-4 py-3">Fed Today</th>
-                  <th className="px-4 py-3">Remaining</th>
-                  <th className="px-4 py-3 text-right">Safety Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {tankBatches.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-4 py-8 text-center text-gray-500 italic"
-                    >
-                      No active batches to calculate feeding for.
-                    </td>
-                  </tr>
-                ) : (
-                  tankBatches.map((batch) => {
-                    const daily = parseVal(
-                      batch.feedingPlan?.dailyFeedingAmount ||
-                        batch.dailyFeedKg ||
-                        "0",
-                    );
-                    const fed = parseVal(
-                      batch.feedingPlan?.todayFed ??
-                        batch.fedTodayKg ??
-                        batch.todayFedKg ??
-                        daily,
-                    );
-                    const remaining = Math.max(0, daily - fed);
-                    const status =
-                      fed >= daily ? "OK" : fed > 0 ? "WARNING" : "STOPPED";
-
-                    return (
-                      <tr
-                        key={batch.id}
-                        className="hover:bg-gray-50/50 transition-colors"
-                      >
-                        <td className="px-4 py-4">
-                          <div className="font-bold text-gray-900">
-                            {" "}
-                            Batch:{" "}
-                            {batch.batchNumber ||
-                              batch.name ||
-                              batch.id?.slice(0, 6) ||
-                              "Unassigned"}
-                          </div>
-                          <div
-                            className="text-[10px] text-gray-400 font-mono"
-                            style={{ color: "#000000", fontWeight: "bolder" }}
-                          >
-                            ID:{" "}
-                            <span style={{ color: "#04b13d" }}>
-                              {batch.id.split("-")[0]}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 font-medium">
-                          {Math.round(daily)} kg
-                        </td>
-                        <td className="px-4 py-4 font-bold text-blue-600">
-                          {fed} kg
-                        </td>
-                        <td className="px-4 py-4 font-bold text-orange-600">
-                          {remaining.toFixed(1)} kg
-                        </td>
-                        <td className="px-4 py-4 text-right">
-                          <Badge
-                            className={`${status === "OK" ? "bg-green-100 text-green-700" : status === "WARNING" ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"} border-none font-black text-[9px] uppercase tracking-tighter`}
-                          >
-                            {status === "OK"
-                              ? "● Optimal"
-                              : status === "WARNING"
-                                ? "● Partial"
-                                : "● No Feed"}
-                          </Badge>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Feeding History Records */}
-      <div className="space-y-4">
-        <h3 className="font-semibold text-gray-900">Feeding History Records</h3>
-
         <div className="space-y-3">
           {feedingRecords.length === 0 ? (
             <p className="text-sm text-gray-500 text-center py-8">
@@ -287,25 +147,29 @@ export function FeedingHistoryTab({
                 ).getTime();
                 return dateB - dateA;
               })
-              .map((record) => {
+              .map((record, idx) => {
                 const fed = parseVal(
                   record.amountFed ?? record.weightFed ?? record.weightKg ?? 0,
                 );
                 const recommended = parseVal(
                   record.recommendedAmount ?? record.targetWeight ?? 0,
                 );
-                const status =
+                const status = normalizeStatus(
                   record.status ||
-                  (fed >= (recommended || 0.1) ? "on-target" : "below");
+                    (fed >= (recommended || 0.1) ? "on-target" : "below"),
+                );
                 const achievementVal = calcAchievementPercent(
                   fed,
                   recommended,
                   record.achievement,
                 );
+                const rowKey =
+                  record.id ||
+                  `${record.timestamp || record.createdAt || record.fedAt || "record"}_${idx}`;
 
                 return (
                   <Card
-                    key={record.id}
+                    key={rowKey}
                     className="bg-white shadow-sm hover:shadow-md transition-all group overflow-hidden border-l-4 border-l-[#10B981]"
                   >
                     <CardContent className="p-4 sm:p-6">
@@ -323,7 +187,7 @@ export function FeedingHistoryTab({
                               <Badge
                                 className={`${getStatusColor(status)} font-bold px-3 py-1 uppercase text-[10px] tracking-widest border-none shadow-sm`}
                               >
-                                {status.toUpperCase()}
+                                {(record.statusLabel || status).toUpperCase()}
                               </Badge>
                             </div>
                           </div>
@@ -334,7 +198,7 @@ export function FeedingHistoryTab({
                                 Amount Fed
                               </p>
                               <p className="font-bold text-gray-900">
-                                {record.amountFed || `${fed} kg`}
+                                {record.amountFed || `${formatKg(fed)} kg`}
                               </p>
                             </div>
                             <div className="space-y-1">
@@ -343,7 +207,7 @@ export function FeedingHistoryTab({
                               </p>
                               <p className="font-bold text-gray-900">
                                 {record.recommendedAmount ||
-                                  `${recommended} kg`}
+                                  `${formatKg(recommended)} kg`}
                               </p>
                             </div>
                             <div className="space-y-1">

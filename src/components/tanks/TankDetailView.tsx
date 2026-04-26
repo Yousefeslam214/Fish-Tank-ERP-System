@@ -93,6 +93,99 @@ const normalizeGrowthMeasurement = (measurement: any) => ({
     measurement?.overall?.rating,
 });
 
+const normalizeFeedingStatus = (status: any): 'on-target' | 'below' | 'critical' | 'above' => {
+  const normalized = String(status || '')
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (normalized.includes('critical')) return 'critical';
+  if (normalized.includes('above') || normalized.includes('over')) return 'above';
+  if (
+    normalized.includes('on target') ||
+    normalized === 'ok' ||
+    normalized === 'optimal'
+  ) {
+    return 'on-target';
+  }
+  if (normalized.includes('below') || normalized.includes('under') || normalized.includes('warning')) {
+    return 'below';
+  }
+  return 'below';
+};
+
+const parseFeedingWeight = (value: any): number => toFiniteNumber(value) ?? 0;
+
+const buildFeedingStatusLabel = (status: 'on-target' | 'below' | 'critical' | 'above') => {
+  switch (status) {
+    case 'on-target':
+      return '✅ On target';
+    case 'critical':
+      return '❌ Critical';
+    case 'above':
+      return 'ℹ️ Above recommendation';
+    case 'below':
+    default:
+      return '⚠️ Below recommendation';
+  }
+};
+
+const normalizeTodayFeedingEntry = (entry: any) => {
+  const status = normalizeFeedingStatus(entry?.status);
+  const fed = parseFeedingWeight(
+    entry?.amountFed ?? entry?.weightFed ?? entry?.weightKg ?? entry?.fed ?? 0,
+  );
+  const recommended = parseFeedingWeight(
+    entry?.recommendedAmount ?? entry?.recommended ?? entry?.targetWeight ?? 0,
+  );
+  const timestamp = entry?.timestamp || entry?.fedAt || entry?.date || entry?.createdAt;
+  const computedTime = timestamp
+    ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : '–';
+
+  return {
+    ...entry,
+    status,
+    statusLabel: entry?.statusLabel || buildFeedingStatusLabel(status),
+    time: entry?.time || computedTime,
+    fed,
+    recommended,
+    foodName:
+      typeof entry?.foodType === 'object'
+        ? entry?.foodType?.name || entry?.foodType?.brand || 'Standard Feed'
+        : entry?.foodType || entry?.foodTypeName || entry?.feedType || 'Standard Feed',
+    operator: entry?.fedBy || entry?.recordedBy || 'Operator',
+  };
+};
+
+const normalizeFeedingRecord = (record: any) => {
+  const fed = parseFeedingWeight(
+    record?.amountFed ?? record?.weightFed ?? record?.weightKg ?? 0,
+  );
+  const recommended = parseFeedingWeight(
+    record?.recommendedAmount ?? record?.targetWeight ?? 0,
+  );
+  const status = normalizeFeedingStatus(record?.status);
+  const achievement =
+    record?.achievement ||
+    `${recommended > 0 ? Math.round((fed / recommended) * 100) : 0}%`;
+
+  return {
+    ...record,
+    status,
+    statusLabel: record?.statusLabel || status.toUpperCase(),
+    amountFed: record?.amountFed || `${fed.toFixed(1)} kg`,
+    recommendedAmount: record?.recommendedAmount || `${recommended.toFixed(1)} kg`,
+    achievement,
+    foodType:
+      typeof record?.foodType === 'object'
+        ? record?.foodType
+        : record?.foodType || record?.foodTypeName || record?.feedType || 'N/A',
+    fedBy: record?.fedBy || record?.recordedBy || 'Operator',
+  };
+};
+
 export default function TankDetailView({ tank, onBack, user }: TankDetailViewProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [currentTank, setCurrentTank] = useState(tank);
@@ -103,6 +196,7 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
   const [batchesSummary, setBatchesSummary] = useState<any>(null);
   const [waterQualityRecords, setWaterQualityRecords] = useState<any[]>([]);
   const [feedingRecords, setFeedingRecords] = useState<any[]>([]);
+  const [todayFeedingRecords, setTodayFeedingRecords] = useState<any[]>([]);
   const [growthMetrics, setGrowthMetrics] = useState<any[]>([]);
   const [healthCheckRecords, setHealthCheckRecords] = useState<HealthCheckResponseDTO[]>([]);
   const [isActionRequired, setIsActionRequired] = useState(false);
@@ -162,8 +256,24 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
       setDashboardData(dashData);
       setGrowthMetrics(gmDataRaw);
 
+      const fdPayload =
+        fdDataRaw && typeof fdDataRaw === 'object' && !Array.isArray(fdDataRaw)
+          ? ((fdDataRaw as any).data ?? fdDataRaw)
+          : fdDataRaw;
+
+      const fdTodayListRaw = Array.isArray((fdPayload as any)?.todayFeedingList)
+        ? (fdPayload as any).todayFeedingList
+        : [];
+      const fdHistoryRaw = Array.isArray(fdPayload)
+        ? fdPayload
+        : Array.isArray((fdPayload as any)?.history)
+          ? (fdPayload as any).history
+          : Array.isArray((fdPayload as any)?.records)
+            ? (fdPayload as any).records
+            : [];
+
       let wqData = Array.isArray(wqDataRaw) ? wqDataRaw : [];
-      let fdData = Array.isArray(fdDataRaw) ? fdDataRaw : [];
+      let fdData = Array.isArray(fdHistoryRaw) ? fdHistoryRaw : [];
       let healthData: HealthCheckResponseDTO[] = [];
 
       if (Array.isArray(btData) && btData.length > 0) {
@@ -242,10 +352,23 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
               uniqueFdMap.set(`${rDate}_${r.weightKg || r.weightFed || r.amountFed}`, r);
             }
           });
-          setFeedingRecords(Array.from(uniqueFdMap.values()));
+          const normalizedFeedingRecords = Array.from(uniqueFdMap.values()).map(normalizeFeedingRecord);
+          setFeedingRecords(normalizedFeedingRecords);
+
+          const normalizedTodayFeeding =
+            fdTodayListRaw.length > 0
+              ? fdTodayListRaw.map(normalizeTodayFeedingEntry)
+              : [];
+          setTodayFeedingRecords(normalizedTodayFeeding);
         } catch (err) {
           console.warn('Failed to fetch batch records:', err);
+          setFeedingRecords(fdData.map(normalizeFeedingRecord));
+          setTodayFeedingRecords(fdTodayListRaw.map(normalizeTodayFeedingEntry));
         }
+      } else {
+        const normalizedFeedingRecords = fdData.map(normalizeFeedingRecord);
+        setFeedingRecords(normalizedFeedingRecords);
+        setTodayFeedingRecords(fdTodayListRaw.map(normalizeTodayFeedingEntry));
       }
 
       // Check if action is required
@@ -376,31 +499,42 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
   }, [waterQualityRecords]);
 
   const feedingHistory = useMemo(() => {
+    if (Array.isArray(todayFeedingRecords) && todayFeedingRecords.length > 0) {
+      return todayFeedingRecords.map(normalizeTodayFeedingEntry);
+    }
+
     if (!Array.isArray(feedingRecords)) return [];
     const today = new Date().toISOString().split('T')[0];
     return feedingRecords
-      .filter(r => {
+      .filter((r) => {
         const dateStr = r.timestamp || r.fedAt || r.date || r.createdAt || '';
         return dateStr.startsWith(today);
       })
-      .map(r => {
-        const parseWeight = (val: any) => {
-          if (typeof val === 'number') return val;
-          if (typeof val === 'string') return parseFloat(val.replace(/[^\d.]/g, '')) || 0;
-          return 0;
-        };
-        const fed = parseWeight(r.amountFed ?? r.weightFed ?? r.weightKg ?? 0);
-        const recommended = parseWeight(r.recommendedAmount ?? r.targetWeight ?? 0);
+      .map((r) => {
+        const fed = parseFeedingWeight(r.amountFed ?? r.weightFed ?? r.weightKg ?? 0);
+        const recommended = parseFeedingWeight(r.recommendedAmount ?? r.targetWeight ?? 0);
+        const status = normalizeFeedingStatus(r.status || (fed >= recommended ? 'on-target' : 'below'));
         return {
-          time: r.time || (r.timestamp || r.fedAt || r.createdAt ? new Date(r.timestamp || r.fedAt || r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '–'),
+          time:
+            r.time ||
+            (r.timestamp || r.fedAt || r.createdAt
+              ? new Date(r.timestamp || r.fedAt || r.createdAt).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : '–'),
           fed,
           recommended,
-          foodName: r.foodType?.name || r.foodType || r.foodTypeName || 'Standard Feed',
+          foodName:
+            typeof r.foodType === 'object'
+              ? r.foodType?.name || r.foodType?.brand || 'Standard Feed'
+              : r.foodType || r.foodTypeName || r.feedType || 'Standard Feed',
           operator: r.fedBy || r.recordedBy || 'Operator',
-          status: fed >= recommended ? 'on-target' : 'below'
+          status,
+          statusLabel: r.statusLabel || buildFeedingStatusLabel(status),
         };
       });
-  }, [feedingRecords]);
+  }, [feedingRecords, todayFeedingRecords]);
 
 
   return (
