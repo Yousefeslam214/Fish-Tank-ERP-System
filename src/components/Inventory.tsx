@@ -34,7 +34,6 @@ import Combobox, { type ComboboxItem } from "./Combobox";
 import { getFishTypes } from "../services/fishTypesApi";
 import { FEEDING_TASK_COMPLETED_EVENT } from "../services/taskApi";
 import {
-  createFeedPurchaseOrder,
   createFishPurchaseOrder,
   createMedicinePurchaseOrder,
   createProcurementSupplier,
@@ -52,7 +51,6 @@ import {
   deleteFeed,
   getMedicineInventory,
   getMedicineInventoryTotal,
-  updateMedicineBatchQuantity,
   deleteMedicineBatch,
 } from "../api/inventoryApi";
 
@@ -135,9 +133,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   const [batchForHealth, setBatchForHealth] = useState<any>(null);
   const [selectedMedicineBatch, setSelectedMedicineBatch] = useState<MedicineInventoryBatch | null>(null);
   const [isMedicineDetailsOpen, setIsMedicineDetailsOpen] = useState(false);
-  const [medicineAdjustmentMode, setMedicineAdjustmentMode] = useState<"set" | "deduct">("set");
-  const [medicineAdjustmentValue, setMedicineAdjustmentValue] = useState<string>("");
-  const [isMedicineSaving, setIsMedicineSaving] = useState(false);
   const [isMedicineDeleting, setIsMedicineDeleting] = useState(false);
 
   // Data loaders
@@ -192,15 +187,39 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       entry?.expiresAt,
       entry?.expireDate,
       entry?.expiry,
+      entry?.expiry_date,
+      entry?.expiration_date,
+      entry?.expiryAt,
+      entry?.expiration,
+      entry?.bestBefore,
+      entry?.bestBeforeDate,
+      entry?.foodType?.expiryDate,
+      entry?.foodType?.expirationDate,
+      entry?.foodType?.expiresAt,
     ];
 
+    let selectedValue: string | undefined;
+    let selectedTimestamp = Number.NEGATIVE_INFINITY;
+
     for (const candidate of candidates) {
-      if (typeof candidate === "string" && candidate.trim()) {
-        return candidate;
+      const raw = candidate instanceof Date ? candidate.toISOString() : String(candidate ?? "").trim();
+      if (!raw) {
+        continue;
+      }
+
+      const timestamp = new Date(raw).getTime();
+      if (!Number.isFinite(timestamp)) {
+        continue;
+      }
+
+      // Keep the farthest valid expiry date when multiple backend fields exist.
+      if (timestamp > selectedTimestamp) {
+        selectedTimestamp = timestamp;
+        selectedValue = raw;
       }
     }
 
-    return undefined;
+    return selectedValue;
   };
 
   const isReadyToAllocateStatus = (status: unknown): boolean => {
@@ -660,6 +679,11 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       return;
     }
 
+    if (newResourceData.resourceType === "feed" && !newResourceData.expiryDate) {
+      toast.error("Please choose the expiry date for feed");
+      return;
+    }
+
     if (
       newResourceData.expiryDate &&
       new Date(newResourceData.expiryDate).getTime() < new Date(newResourceData.receiveDate).getTime()
@@ -670,6 +694,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
     const receivedDateValue = newResourceData.receiveDate;
     const expiryDateValue = newResourceData.expiryDate || undefined;
+    const expiryIsoValue = expiryDateValue ? `${expiryDateValue}T00:00:00.000Z` : undefined;
 
     try {
       let response: any;
@@ -706,7 +731,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
             (typeof nestedFoodType === "object" ? nestedFoodType?.id || nestedFoodType?._id : "") ||
             selectedFeedOptionId,
         ).trim();
-        const supplierId = await ensureSupplierForResource("feed");
         const feedUnitCost = resolveUnitCost(
           selectedFoodTypeMeta?.unitCost,
           selectedFoodTypeMeta?.costPerKg,
@@ -714,17 +738,12 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           selectedFoodTypeMeta?.purchasePrice,
         );
         const feedTotalCost = Number((quantity * feedUnitCost).toFixed(2));
-
-        await createFeedPurchaseOrder({
-          supplierId,
-          items: [
-            {
-              foodTypeId: resolvedFoodTypeId,
-              quantityKg: quantity,
-              unitCost: feedUnitCost,
-            },
-          ],
-        });
+        const feedSupplier = String(
+          selectedFoodTypeMeta?.supplier ||
+            selectedFoodTypeMeta?.manufacturer ||
+            selectedFoodTypeMeta?.company ||
+            "PO Supplier",
+        );
 
         const buildFeedPayload = (withNestedFoodType: boolean): Record<string, unknown> => {
           const payload: Record<string, unknown> = {
@@ -733,24 +752,24 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
             quantity,
             initialQuantityKg: quantity,
             receivedDate: receivedDateValue,
+            receiveDate: receivedDateValue,
+            deliveryDate: receivedDateValue,
             packagingUnit: "KG",
             unitsReceived: Math.max(1, Math.ceil(quantity)),
             costPerKg: feedUnitCost,
             costPerUnit: feedUnitCost,
             totalCost: feedTotalCost,
             name: String(selectedFoodTypeMeta?.name || selectedFoodTypeMeta?.foodName || "Unknown Feed"),
-            supplier: String(
-              selectedFoodTypeMeta?.supplier ||
-                selectedFoodTypeMeta?.manufacturer ||
-                selectedFoodTypeMeta?.company ||
-                "PO Supplier",
-            ),
+            supplier: feedSupplier,
+            manufacturer: feedSupplier,
           };
           if (withNestedFoodType) {
             payload.foodType = { id: resolvedFoodTypeId };
           }
           if (expiryDateValue) {
             payload.expiryDate = expiryDateValue;
+            payload.expirationDate = expiryDateValue;
+            payload.expiresAt = expiryIsoValue;
           }
           return payload;
         };
@@ -885,46 +904,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
   const openMedicineDetails = (batch: MedicineInventoryBatch) => {
     setSelectedMedicineBatch(batch);
-    setMedicineAdjustmentMode("set");
-    setMedicineAdjustmentValue(String(batch.quantity));
     setIsMedicineDetailsOpen(true);
-  };
-
-  const handleMedicineQuantityUpdate = async () => {
-    if (!selectedMedicineBatch) return;
-
-    const rawValue = Number(medicineAdjustmentValue);
-    if (!Number.isFinite(rawValue) || rawValue < 0) {
-      toast.error("Please enter a valid quantity");
-      return;
-    }
-
-    const nextQuantity =
-      medicineAdjustmentMode === "deduct"
-        ? selectedMedicineBatch.quantity - rawValue
-        : rawValue;
-
-    if (nextQuantity < 0) {
-      toast.error("Deduction exceeds available quantity");
-      return;
-    }
-
-    try {
-      setIsMedicineSaving(true);
-      await updateMedicineBatchQuantity(selectedMedicineBatch.id, nextQuantity);
-      toast.success("Medicine quantity updated");
-
-      const updated = { ...selectedMedicineBatch, quantity: nextQuantity };
-      setSelectedMedicineBatch(updated);
-      setMedicineAdjustmentValue(String(nextQuantity));
-
-      await Promise.all([loadMedicine(), loadMedicineTotals()]);
-    } catch (error) {
-      console.error("Medicine quantity update failed", error);
-      toast.error("Failed to update medicine quantity");
-    } finally {
-      setIsMedicineSaving(false);
-    }
   };
 
   const handleDeleteMedicine = async (batch: MedicineInventoryBatch) => {
@@ -1124,9 +1104,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
   const getDaysUntilExpiry = (expiryDate?: string) => {
     if (!expiryDate) return null;
-    return Math.ceil(
-      (new Date(expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-    );
+    const expiryTimestamp = new Date(expiryDate).getTime();
+    if (!Number.isFinite(expiryTimestamp)) return null;
+    return Math.ceil((expiryTimestamp - Date.now()) / (1000 * 60 * 60 * 24));
   };
 
   // API inventory helpers
@@ -1384,7 +1364,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                       <th className="px-4 py-4">Batch Identity</th>
                       <th className="px-4 py-4">Status</th>
                       <th className="px-4 py-4">Quantity</th>
-                      <th className="px-4 py-4">Average Weight</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#f1f5f9]">
@@ -1397,7 +1376,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                             </div>
                             <div>
                               <div className="font-bold text-gray-900">{batch.fishTypeName || batch.species || 'Unknown Batch'}</div>
-                              <div className="text-[10px] text-gray-400 font-mono">ID: {batch.id}</div>
+                              <div className="text-[10px] text-gray-400 font-mono">ID: {batch.id?.split("-")[0] ?? batch.id}</div>
                               {batch.purchaseOrderId && (
                                 <div className="text-[10px] text-gray-500 mt-1">PO: {batch.purchaseOrderId.substring(0, 8)}...</div>
                               )}
@@ -1416,9 +1395,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                               className="h-1 w-24 [&>div]:bg-[#0A4D68]"
                             />
                           </div>
-                        </td>
-                        <td className="px-4 py-4 font-medium text-gray-700">
-                          {batch.averageWeight || 0}g
                         </td>
                       </tr>
                     ))}
@@ -1468,7 +1444,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                 >
                   <div>
                     <p className="font-semibold text-[#0A4D68]">{batch.fishTypeName || batch.species || "Fish Batch"}</p>
-                    <p className="text-xs text-gray-500 mt-1">Batch ID: {batch.id}</p>
+                      <p className="text-xs text-gray-500 mt-1">Batch ID: {batch.id?.split("-")[0] ?? batch.id}</p>
                     <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
                       <span>Qty: <span className="font-medium">{(batch.quantity ?? 0).toLocaleString()} fish</span></span>
                     </div>
@@ -1569,15 +1545,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                   >
                     <RefreshCw className="w-4 h-4" />
                   </Button>
-                  
-                  <Button 
-                    size="sm"
-                    className="bg-[#0A4D68] hover:bg-[#083d52] h-9"
-                    onClick={() => setIsAddResourcesOpen(true)}
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add resources
-                  </Button>
                 </div>
               </div>
             </CardHeader>
@@ -1612,10 +1579,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <p className="font-semibold text-[#0A4D68]">{itemName}</p>
-                              <Badge className={getTypeColor("feed")} variant="outline">
-                                Feed
-                              </Badge>
-                              {getStockStatusBadge(stockStatus)}
                             </div>
                             <p className="text-xs text-gray-600">
                               {item.supplier ? `Supplier: ${item.supplier}` : 'Stock available in storage'}
@@ -1624,8 +1587,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                               Stock level:{" "}
                               <span className="font-semibold">
                                 {quantity.toLocaleString()} {item.unit}
-                              </span>{" "}
-                              / {initialQuantity.toLocaleString()} {item.unit}
+                              </span>
                             </p>
                             {reorderLevel > 0 && (
                               <p className="text-xs text-gray-600">
@@ -1643,8 +1605,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                                   }`}
                               >
                                 Expires:{" "}
-                                {new Date(item.expiryDate).toLocaleDateString()}{" "}
-                                ({daysUntilExpiry} days)
+                                {new Date(item.expiryDate).toLocaleDateString()}
                               </p>
                             )}
                           </div>
@@ -1961,8 +1922,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           setIsMedicineDetailsOpen(open);
           if (!open) {
             setSelectedMedicineBatch(null);
-            setMedicineAdjustmentMode("set");
-            setMedicineAdjustmentValue("");
           }
         }}
       >
@@ -1970,7 +1929,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-[#0A4D68]">
               <Pill className="w-5 h-5" />
-              Medicine Batch Details
+              Medicine Details
             </DialogTitle>
           </DialogHeader>
 
@@ -2013,75 +1972,8 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                   </p>
                 </div>
               </div>
-
-              <div className="rounded-lg border p-3 space-y-3">
-                <p className="text-sm font-semibold text-gray-800">Inventory Adjustments</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label>Adjustment Type</Label>
-                    <Select
-                      value={medicineAdjustmentMode}
-                      onValueChange={(value: "set" | "deduct") => setMedicineAdjustmentMode(value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="set">Set exact quantity</SelectItem>
-                        <SelectItem value="deduct">Deduct used quantity</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>
-                      {medicineAdjustmentMode === "set" ? "New Quantity" : "Quantity to Deduct"}
-                    </Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={medicineAdjustmentValue}
-                      onChange={(e) => setMedicineAdjustmentValue(e.target.value)}
-                      placeholder="0"
-                    />
-                  </div>
-                </div>
-
-                <div className="text-xs text-gray-600">
-                  Resulting quantity:{" "}
-                  <span className="font-semibold">
-                    {Math.max(
-                      0,
-                      medicineAdjustmentMode === "deduct"
-                        ? selectedMedicineBatch.quantity - (Number(medicineAdjustmentValue) || 0)
-                        : Number(medicineAdjustmentValue) || 0,
-                    ).toLocaleString()}{" "}
-                    {selectedMedicineBatch.unit}
-                  </span>
-                </div>
-              </div>
             </div>
           )}
-
-          <DialogFooter className="flex items-center justify-between sm:justify-between">
-            <Button
-              variant="outline"
-              className="text-red-600 border-red-200 hover:bg-red-50"
-              onClick={() => selectedMedicineBatch && handleDeleteMedicine(selectedMedicineBatch)}
-              disabled={!selectedMedicineBatch || isMedicineDeleting || isMedicineSaving}
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              {isMedicineDeleting ? "Deleting..." : "Delete Batch"}
-            </Button>
-
-            <Button
-              onClick={handleMedicineQuantityUpdate}
-              className="bg-[#0A4D68] hover:bg-[#083d52]"
-              disabled={!selectedMedicineBatch || isMedicineSaving || isMedicineDeleting}
-            >
-              {isMedicineSaving ? "Saving..." : "Update Quantity"}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

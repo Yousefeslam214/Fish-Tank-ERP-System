@@ -85,12 +85,7 @@ export default function Sidebar({
       icon: ShoppingCart,
       comingSoon: true,
     },
-    {
-      id: "health",
-      label: "Health Library",
-      icon: Heart,
-      comingSoon: true,
-    },
+    { id: "health", label: "Health Library", icon: Heart },
   ];
 
   const visibleMenuItems = menuItems.filter(

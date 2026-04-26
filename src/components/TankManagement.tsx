@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
+import { useState, useEffect, useCallback, MouseEvent } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,27 +11,29 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "./ui/alert-dialog";
-import { toast } from "sonner";
-import { Fish, Droplet, AlertTriangle, Plus, Trash2 } from "lucide-react";
-import { Progress } from "./ui/progress";
-import { User, Farm } from "../types";
-import { apiGet, apiPost, apiDelete, apiPatch, apiPut } from "../api";
-import TankDetailView from "./tanks/TankDetailView";
-import { AddTankModal } from "./tanks/modals/AddTankModal";
-import { Pencil } from "lucide-react";
+} from './ui/alert-dialog';
+import { toast } from 'sonner';
+import { Activity, CheckCircle2, Droplet, Fish, HeartPulse, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Progress } from './ui/progress';
+import { User, Farm } from '../types';
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from '../api';
+import TankDetailView from './tanks/TankDetailView';
+import { AddTankModal } from './tanks/modals/AddTankModal';
+import { Pencil } from 'lucide-react';
+import { fetchAllTankHealthOverviews, TankHealthOverview } from '../services/tankHealthOverview';
+import { formatHealthStatus, getHealthStatusColor, recordRecoveredHealthCheck } from '../services/healthCheckApi';
 
 interface TankManagementProps {
   user: User;
   selectedFarm: Farm | null;
 }
 
-// ── API response shape for a single tank (matches actual /api/v1/tanks response) ──
 interface ApiTankBiomass {
   actual?: number;
   capacity?: number;
   unit?: string;
   overstockPercentage?: number | null;
+  volumeM3?: number;
 }
 interface ApiTankWaterQuality {
   overallStatus?: string;
@@ -58,9 +60,10 @@ interface RawApiTank {
   feeding: ApiTankFeeding | null;
   batches?: any[];
   assignedUserIds?: string[];
-  assignedUsers?: Array<
-    string | { id?: string; _id?: string; userId?: string }
-  >;
+  assignedUsers?: Array<string | { id?: string; _id?: string; userId?: string }>;
+  volumeCubicMeters?: number;
+  location?: string;
+  farmId?: string;
 }
 interface ApiTank {
   id: string;
@@ -72,6 +75,7 @@ interface ApiTank {
   biomass: number;
   capacity: number;
   volume: number;
+  location?: string;
   waterQuality: {
     overall: string;
     temp: { value: number; status: string };
@@ -88,148 +92,152 @@ interface ApiTank {
   batches?: any[];
 }
 
-export default function TankManagement({
-  user,
-  selectedFarm,
-}: TankManagementProps) {
-  const [viewMode, setViewMode] = useState<"list" | "detail">("list");
+const getBatchLabel = (batch: any) =>
+  batch?.batchNumber ? `Batch ${batch.batchNumber}` : `Batch ${String(batch?.id || '').slice(0, 8)}`;
+
+const formatDateTime = (value?: string) => {
+  if (!value) return 'Unknown';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+export default function TankManagement({ user, selectedFarm }: TankManagementProps) {
+  const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
   const [selectedTank, setSelectedTank] = useState<any>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-
-  // -- API state --
   const [tanks, setTanks] = useState<ApiTank[]>([]);
   const [tanksLoading, setTanksLoading] = useState(true);
   const [tanksError, setTanksError] = useState<string | null>(null);
   const [showAddTankModal, setShowAddTankModal] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<
-    "ALL" | "ACTIVE" | "INACTIVE" | "MAINTENANCE" | "EMPTY"
-  >("ALL");
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE' | 'EMPTY'>('ALL');
   const [editingTank, setEditingTank] = useState<any | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editTankId, setEditTankId] = useState<string | null>(null);
+  const [healthOverviewByTank, setHealthOverviewByTank] = useState<Record<string, TankHealthOverview>>({});
+  const [loadingHealthOverview, setLoadingHealthOverview] = useState(false);
+  const [improvingTankId, setImprovingTankId] = useState<string | null>(null);
 
   const currentFarm = selectedFarm;
 
-  // ── Fetch tanks from API ──
+  const loadHealthOverviews = useCallback(async (sourceTanks: ApiTank[]) => {
+    if (sourceTanks.length === 0) {
+      setHealthOverviewByTank({});
+      return;
+    }
+
+    setLoadingHealthOverview(true);
+    try {
+      const result = await fetchAllTankHealthOverviews(sourceTanks);
+      const nextMap = result.overviews.reduce<Record<string, TankHealthOverview>>((acc, overview) => {
+        acc[overview.tank.id] = overview;
+        return acc;
+      }, {});
+      setHealthOverviewByTank(nextMap);
+    } catch (error) {
+      toast.error(`Failed to load tank health data: ${(error as Error).message}`);
+    } finally {
+      setLoadingHealthOverview(false);
+    }
+  }, []);
+
   const fetchTanks = useCallback(async () => {
-    if (!currentFarm) return;
+    if (!currentFarm) {
+      setTanks([]);
+      setHealthOverviewByTank({});
+      setTanksLoading(false);
+      return;
+    }
+
     setTanksLoading(true);
     setTanksError(null);
     try {
-      const res = await apiGet<
-        { success: boolean; data: RawApiTank[] } | RawApiTank[]
-      >("/tanks");
+      const res = await apiGet<{ success: boolean; data: RawApiTank[] } | RawApiTank[]>('/tanks');
       const list: RawApiTank[] = Array.isArray(res)
         ? res
         : ((res as { success: boolean; data: RawApiTank[] }).data ?? []);
 
-      const normalised = list.map((t) => {
-        console.log("TANK RAW:", t);
-        // Map biomass from backend structure (nested object)
-        const bioObj = t.biomass as any;
+      const normalised = list.map((tank) => {
+        const bioObj = tank.biomass as ApiTankBiomass | undefined;
         const biomassKg = bioObj?.actual ?? 0;
         const capacityKg = bioObj?.capacity ?? 25000;
-
-        // Map water quality summary
-        const wq = t.waterQuality as ApiTankWaterQuality | undefined;
-
-        // Map feeding summary
-        const fd = t.feeding as ApiTankFeeding | undefined;
-
-        // Ensure we handle Arabic/other fish types correctly
-        const species =
-          t.fishType && t.fishType !== "None" ? t.fishType : "Empty/No Fish";
+        const wq = tank.waterQuality as ApiTankWaterQuality | undefined;
+        const fd = tank.feeding as ApiTankFeeding | undefined;
+        const species = tank.fishType && tank.fishType !== 'None' ? tank.fishType : 'Empty/No Fish';
 
         return {
-          ...t,
-          id: t.id || t._id || "",
+          ...tank,
+          id: tank.id || tank._id || '',
           species,
           biomass: biomassKg,
           capacity: capacityKg,
-          volume: t.volumeCubicMeters ?? bioObj?.volumeM3 ?? 50, // Fallback to 50 if missing
+          volume: tank.volumeCubicMeters ?? bioObj?.volumeM3 ?? 50,
           waterQuality: wq
             ? {
-                overall: (wq?.overallStatus ?? "unknown").toLowerCase(),
-                temp: {
-                  value: parseFloat((wq?.temperature ?? 0).toFixed(1)),
-                  status: "unknown",
-                },
-                do: {
-                  value: parseFloat((wq?.dissolvedOxygen ?? 0).toFixed(2)),
-                  status: "unknown",
-                },
-                ph: {
-                  value: parseFloat((wq?.ph ?? 0).toFixed(2)),
-                  status: "unknown",
-                },
-                nh3: {
-                  value: parseFloat((wq?.ammonia ?? 0).toFixed(4)),
-                  status: "unknown",
-                },
+                overall: (wq.overallStatus ?? 'unknown').toLowerCase(),
+                temp: { value: parseFloat((wq.temperature ?? 0).toFixed(1)), status: 'unknown' },
+                do: { value: parseFloat((wq.dissolvedOxygen ?? 0).toFixed(2)), status: 'unknown' },
+                ph: { value: parseFloat((wq.ph ?? 0).toFixed(2)), status: 'unknown' },
+                nh3: { value: parseFloat((wq.ammonia ?? 0).toFixed(4)), status: 'unknown' },
               }
             : null,
           feeding: fd
             ? {
-                todayMeals: fd?.currentMeal ?? 0,
-                totalMeals: fd?.totalMeals ?? 4,
-                todayFed: fd?.weightFed ?? 0,
-                recommended: fd?.targetWeight ?? 0,
+                todayMeals: fd.currentMeal ?? 0,
+                totalMeals: fd.totalMeals ?? 4,
+                todayFed: fd.weightFed ?? 0,
+                recommended: fd.targetWeight ?? 0,
               }
             : null,
         };
       });
 
-      setTanks(normalised as any[]);
+      setTanks(normalised as ApiTank[]);
+      await loadHealthOverviews(normalised as ApiTank[]);
     } catch (err) {
-      console.error("Fetch Tanks Error:", err);
+      console.error('Fetch Tanks Error:', err);
       setTanksError((err as Error).message);
     } finally {
       setTanksLoading(false);
     }
-  }, [currentFarm?.id]);
+  }, [currentFarm, loadHealthOverviews]);
 
-  // Keep selectedTank updated if the tanks list refreshes
   useEffect(() => {
-    if (viewMode === "detail" && selectedTank) {
-      const updated = tanks.find((t) => t.id === selectedTank.id);
-      if (updated) {
-        if (JSON.stringify(updated) !== JSON.stringify(selectedTank)) {
-          setSelectedTank(updated);
-        }
+    void fetchTanks();
+  }, [fetchTanks]);
+
+  useEffect(() => {
+    if (viewMode === 'detail' && selectedTank) {
+      const updated = tanks.find((tank) => tank.id === selectedTank.id);
+      if (updated && JSON.stringify(updated) !== JSON.stringify(selectedTank)) {
+        setSelectedTank(updated);
       }
     }
-  }, [tanks, viewMode, selectedTank]);
+  }, [selectedTank, tanks, viewMode]);
 
-  const handleAddTank = async (data: {
-    name: string;
-    capacity: number;
-    volume: number;
-    location: string;
-  }) => {
+  const handleAddTank = async (data: { name: string; capacity: number; volume: number; location: string }) => {
     try {
-      const payload = {
+      await apiPost('/tanks', {
         name: data.name,
-        location: data.location || "General",
+        location: data.location || 'General',
         volumeCubicMeters: data.volume,
-        status: "EMPTY",
-      };
-
-      await apiPost("/tanks", payload);
+        status: 'EMPTY',
+      });
       setShowAddTankModal(false);
-      fetchTanks();
-      toast.success("Tank created successfully");
+      await fetchTanks();
+      toast.success('Tank created successfully');
     } catch (err) {
-      console.error("Failed to create tank:", err);
-      toast.error("Failed to create tank: " + (err as Error).message);
+      toast.error(`Failed to create tank: ${(err as Error).message}`);
     }
   };
 
-  const handleUpdateTank = async (data: {
-    name: string;
-    capacity: number;
-    volume: number;
-    location: string;
-  }) => {
+  const handleUpdateTank = async (data: { name: string; capacity: number; volume: number; location: string }) => {
     if (!editTankId) return;
     try {
       const payload = {
@@ -239,23 +247,13 @@ export default function TankManagement({
         biomassLimit: data.capacity,
       };
 
-      // NOTE: The current backend (v1) does not expose a PATCH/PUT endpoint for tanks.
-      // This has been verified via OpenAPI documentation check.
-      // Attempting anyway as a fallback, but handling failure specifically.
       try {
         await apiPatch(`/tanks/${editTankId}`, payload);
-        toast.success("Tank updated successfully");
+        toast.success('Tank updated successfully');
       } catch (patchErr: any) {
-        if (patchErr.message.includes("404")) {
-          // Try PUT as secondary alternative
-          try {
-            await apiPut(`/tanks/${editTankId}`, payload);
-            toast.success("Tank updated successfully");
-          } catch (putErr) {
-            throw new Error(
-              "This feature is currently not supported by the backend API (404 Not Found). Please contact the system administrator.",
-            );
-          }
+        if (patchErr.message.includes('404')) {
+          await apiPut(`/tanks/${editTankId}`, payload);
+          toast.success('Tank updated successfully');
         } else {
           throw patchErr;
         }
@@ -264,10 +262,9 @@ export default function TankManagement({
       setShowEditModal(false);
       setEditTankId(null);
       setEditingTank(null);
-      fetchTanks();
+      await fetchTanks();
     } catch (err) {
-      console.error("Failed to update tank:", err);
-      toast.error("Failed to update tank: " + (err as Error).message);
+      toast.error(`Failed to update tank: ${(err as Error).message}`);
     }
   };
 
@@ -276,43 +273,74 @@ export default function TankManagement({
     try {
       await apiDelete(`/tanks/${deleteConfirmId}`);
       setDeleteConfirmId(null);
-      fetchTanks();
-      toast.success("Tank deleted successfully");
+      await fetchTanks();
+      toast.success('Tank deleted successfully');
     } catch (err) {
-      console.error("Failed to delete tank:", err);
-      toast.error("Failed to delete tank: " + (err as Error).message);
+      toast.error(`Failed to delete tank: ${(err as Error).message}`);
       setDeleteConfirmId(null);
     }
   };
 
-  useEffect(() => {
-    fetchTanks();
-  }, [fetchTanks]);
+  const handleMarkImproved = async (tankId: string, event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    const overview = healthOverviewByTank[tankId];
+    const activeRecord = overview?.latestActiveRecord;
+    if (!activeRecord) {
+      toast.error('No active health alert found for this tank.');
+      return;
+    }
 
-  const getStatusColor = (status: string) => {
-    const s = status.toLowerCase() === "critical" ? "active" : status.toLowerCase();
-    switch (s) {
-      case "warning":
-        return "bg-[#F59E0B]";
-      case "acceptable":
-        return "bg-[#3B82F6]";
-      case "optimal":
-        return "bg-[#10B981]";
-      case "active":
-        return "bg-[#10B981]";
-      case "maintenance":
-        return "bg-purple-500";
-      case "empty":
-        return "bg-gray-400";
-      default:
-        return "bg-gray-500";
+    setImprovingTankId(tankId);
+    try {
+      await recordRecoveredHealthCheck(activeRecord.batchId, activeRecord);
+      toast.success('Recovery report saved for this tank.');
+      await loadHealthOverviews(tanks);
+    } catch (error) {
+      toast.error(`Failed to save recovery report: ${(error as Error).message}`);
+    } finally {
+      setImprovingTankId(null);
     }
   };
 
-  const getStatusLabel = (status: string) => {
-    const s = status.toLowerCase();
-    if (s === "critical") return "ACTIVE";
-    return status.toUpperCase();
+  const getStatusColor = (status: string) => {
+    const normalized = status.toLowerCase();
+    switch (normalized) {
+      case 'critical':
+        return 'bg-[#EF4444]';
+      case 'warning':
+        return 'bg-[#F59E0B]';
+      case 'acceptable':
+        return 'bg-[#3B82F6]';
+      case 'optimal':
+      case 'active':
+        return 'bg-[#10B981]';
+      case 'maintenance':
+        return 'bg-purple-500';
+      case 'empty':
+        return 'bg-gray-400';
+      default:
+        return 'bg-gray-500';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    const normalized = status.toLowerCase();
+    switch (normalized) {
+      case 'critical':
+        return '🔴';
+      case 'warning':
+        return '🟡';
+      case 'acceptable':
+        return '🔵';
+      case 'optimal':
+        return '🟢';
+      case 'maintenance':
+        return '🔧';
+      case 'empty':
+        return '⚪';
+      default:
+        return '⚪';
+    }
   };
 
   if (viewMode === 'detail' && selectedTank) {
@@ -320,237 +348,315 @@ export default function TankManagement({
   }
 
   const filteredTanks = tanks.filter((tank) => {
-    if (statusFilter === "ALL") return true;
-    return (tank.status ?? "").toUpperCase() === statusFilter;
+    if (statusFilter === 'ALL') return true;
+    return (tank.status ?? '').toUpperCase() === statusFilter;
   });
 
   return (
     <div className="min-h-screen bg-[#F9FAFB]">
-      {/* Top Navigation Bar */}
-      <div className="bg-[#0A4D68] text-white px-6 py-4">
+      <div className="bg-[#0A4D68] px-6 py-4 text-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Droplet className="w-6 h-6" />
+            <Droplet className="h-6 w-6" />
             <span className="text-xl font-semibold">Tank Management</span>
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm">{currentFarm?.name}</span>
-            <div className="w-10 h-10 rounded-full bg-[#088395] flex items-center justify-center font-semibold">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#088395] font-semibold">
               {user.name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")
+                .split(' ')
+                .map((segment) => segment[0])
+                .join('')
                 .toUpperCase()}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 p-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-semibold text-gray-900">All Tanks</h1>
-          <Button
-            className="bg-[#088395] hover:bg-[#0A4D68]"
-            onClick={() => setShowAddTankModal(true)}
-          >
-            <Plus className="w-4 h-4 mr-2" />
+          <div>
+            <h1 className="text-3xl font-semibold text-gray-900">All Tanks</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Health status now includes live AI reports and recovery actions without opening the full tank view.
+            </p>
+          </div>
+          <Button className="bg-[#088395] hover:bg-[#0A4D68]" onClick={() => setShowAddTankModal(true)}>
+            <Plus className="mr-2 h-4 w-4" />
             Add New Tank
           </Button>
         </div>
 
-        {/* Status Filter Bar */}
         <div className="flex flex-wrap gap-2">
-          {["ALL", "ACTIVE", "INACTIVE", "MAINTENANCE", "EMPTY"].map(
-            (status) => (
-              <Button
-                key={status}
-                variant={statusFilter === status ? "default" : "outline"}
-                size="sm"
-                className={
-                  statusFilter === status
-                    ? "bg-[#088395] hover:bg-[#0A4D68]"
-                    : ""
-                }
-                onClick={() => setStatusFilter(status as any)}
-              >
-                {status}
-              </Button>
-            ),
-          )}
+          {['ALL', 'ACTIVE', 'INACTIVE', 'MAINTENANCE', 'EMPTY'].map((status) => (
+            <Button
+              key={status}
+              variant={statusFilter === status ? 'default' : 'outline'}
+              size="sm"
+              className={statusFilter === status ? 'bg-[#088395] hover:bg-[#0A4D68]' : ''}
+              onClick={() => setStatusFilter(status as typeof statusFilter)}
+            >
+              {status}
+            </Button>
+          ))}
         </div>
 
-        <AddTankModal
-          open={showAddTankModal}
-          onOpenChange={setShowAddTankModal}
-          onConfirm={handleAddTank}
-        />
+        <AddTankModal open={showAddTankModal} onOpenChange={setShowAddTankModal} onConfirm={handleAddTank} />
 
-        {/* Error banner */}
         {tanksError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
+          <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+            <Activity className="h-5 w-5 flex-shrink-0 text-red-500" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-red-800">
-                Failed to load tanks
-              </p>
-              <p className="text-xs text-red-600 mt-0.5">{tanksError}</p>
+              <p className="text-sm font-medium text-red-800">Failed to load tanks</p>
+              <p className="mt-0.5 text-xs text-red-600">{tanksError}</p>
             </div>
-            <Button size="sm" variant="outline" onClick={fetchTanks}>
+            <Button size="sm" variant="outline" onClick={() => void fetchTanks()}>
               Retry
             </Button>
           </div>
         )}
 
-        {/* Tank Grid */}
         {tanksLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Card key={i} className="bg-white shadow-sm animate-pulse">
-                <CardContent className="p-6 space-y-3">
-                  <div className="h-5 bg-gray-200 rounded w-1/2" />
-                  <div className="h-3 bg-gray-200 rounded w-1/3" />
-                  <div className="h-2 bg-gray-200 rounded w-full" />
-                  <div className="h-12 bg-gray-100 rounded" />
-                  <div className="h-10 bg-gray-100 rounded" />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3, 4, 5, 6].map((index) => (
+              <Card key={index} className="animate-pulse bg-white shadow-sm">
+                <CardContent className="space-y-3 p-6">
+                  <div className="h-5 w-1/2 rounded bg-gray-200" />
+                  <div className="h-3 w-1/3 rounded bg-gray-200" />
+                  <div className="h-2 w-full rounded bg-gray-200" />
+                  <div className="h-12 rounded bg-gray-100" />
+                  <div className="h-20 rounded bg-gray-100" />
                 </CardContent>
               </Card>
             ))}
           </div>
         ) : filteredTanks.length === 0 && !tanksError ? (
-          <div className="text-center py-16">
-            <Fish className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-600">
-              No {statusFilter !== "ALL" ? statusFilter.toLowerCase() : ""}{" "}
-              tanks found
-            </p>
+          <div className="py-16 text-center">
+            <Fish className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+            <p className="text-gray-600">No {statusFilter !== 'ALL' ? statusFilter.toLowerCase() : ''} tanks found</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredTanks.map((tank) => (
-              <Card
-                key={tank.id}
-                className="bg-white shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => {
-                  setSelectedTank(tank);
-                  setViewMode("detail");
-                }}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-lg">{tank.name}</CardTitle>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        className={`${getStatusColor(tank.status ?? "")} text-white text-[10px]`}
-                      >
-                        {getStatusLabel(tank.status ?? "unknown")}
-                      </Badge>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                          onClick={(e: React.MouseEvent) => {
-                            e.stopPropagation();
-                            setEditingTank({
-                              name: tank.name,
-                              location: tank.location || "General",
-                              capacity: tank.capacity || 25000,
-                              volume: tank.volume || 50,
-                            });
-                            setEditTankId(tank.id);
-                            setShowEditModal(true);
-                          }}
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                          onClick={(e: React.MouseEvent) => {
-                            e.stopPropagation();
-                            setDeleteConfirmId(tank.id);
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filteredTanks.map((tank) => {
+              const healthOverview = healthOverviewByTank[tank.id];
+              const activeRecord = healthOverview?.latestActiveRecord || null;
+              const activeBatch = healthOverview?.batchOverviews.find((batch) => batch.latestActiveRecord?.id === activeRecord?.id)?.batch;
+
+              return (
+                <Card
+                  key={tank.id}
+                  className="cursor-pointer bg-white shadow-sm transition-shadow hover:shadow-md"
+                  onClick={() => {
+                    setSelectedTank(tank);
+                    setViewMode('detail');
+                  }}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <CardTitle className="text-lg">{tank.name}</CardTitle>
+                        <p className="font-mono text-[10px] text-gray-400">ID: {tank.id}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className={`${getStatusColor(tank.status ?? '')} text-[10px] text-white`}>
+                          {(tank.status ?? 'unknown').toUpperCase()}
+                        </Badge>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-blue-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
+                            onClick={(event: MouseEvent<HTMLButtonElement>) => {
+                              event.stopPropagation();
+                              setEditingTank({
+                                name: tank.name,
+                                location: tank.location || 'General',
+                                capacity: tank.capacity || 25000,
+                                volume: tank.volume || 50,
+                              });
+                              setEditTankId(tank.id);
+                              setShowEditModal(true);
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-red-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                            onClick={(event: MouseEvent<HTMLButtonElement>) => {
+                              event.stopPropagation();
+                              setDeleteConfirmId(tank.id);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <p className="text-sm text-gray-600">{tank.species}</p>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Biomass */}
-                  <div>
-                    <div className="flex items-center justify-between text-sm mb-1">
-                      <span className="text-gray-600">Biomass</span>
-                      <span className="font-medium">
-                        {tank.biomass as number} / {tank.capacity} kg
-                      </span>
-                    </div>
-                    <Progress
-                      value={Math.min(
-                        ((tank.biomass as number) / (tank.capacity as number)) *
-                          100,
-                        100,
+                    <p className="text-sm text-gray-600">{tank.species}</p>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <div className="mb-1 flex items-center justify-between text-sm">
+                        <span className="text-gray-600">Biomass</span>
+                        <span className="font-medium">
+                          {tank.biomass} / {tank.capacity} kg
+                        </span>
+                      </div>
+                      <Progress value={Math.min((tank.biomass / tank.capacity) * 100, 100)} className="h-2" />
+                      {tank.biomass > tank.capacity && (
+                        <p className="mt-1 text-xs text-red-600">
+                          Overstocked by {Math.round(((tank.biomass - tank.capacity) / tank.capacity) * 100)}%
+                        </p>
                       )}
-                      className="h-2"
-                    />
-                    {(tank.biomass as number) > (tank.capacity as number) && (
-                      <p className="text-xs text-red-600 mt-1">
-                        ⚠️ Overstocked by{" "}
-                        {Math.round(
-                          (((tank.biomass as number) -
-                            (tank.capacity as number)) /
-                            (tank.capacity as number)) *
-                            100,
-                        )}
-                        %
-                      </p>
+                    </div>
+
+                    {tank.waterQuality ? (
+                      <div className="rounded-lg bg-gray-50 p-3">
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="text-sm font-medium">Water Quality</span>
+                          <span className="text-xs">
+                            {getStatusIcon(tank.waterQuality.overall)} {tank.waterQuality.overall}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-gray-600">Temp:</span>
+                            <span className="ml-1 font-medium">{tank.waterQuality.temp.value}°C</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">DO:</span>
+                            <span className="ml-1 font-medium">{tank.waterQuality.do.value} mg/L</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">pH:</span>
+                            <span className="ml-1 font-medium">{tank.waterQuality.ph.value}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">NH₃:</span>
+                            <span className="ml-1 font-medium">{tank.waterQuality.nh3.value} mg/L</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 py-4 text-center">
+                        <p className="text-xs italic text-gray-400">No water quality data</p>
+                      </div>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+
+                    {tank.feeding ? (
+                      <div className="rounded-lg bg-gray-50 p-3">
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="text-sm font-medium">Today's Feeding</span>
+                          <span className="text-xs">
+                            {tank.feeding.todayMeals}/{tank.feeding.totalMeals} meals
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-600">
+                            Fed: {tank.feeding.todayFed} / {tank.feeding.recommended} kg
+                          </span>
+                          {tank.feeding.recommended > 0 && (
+                            <span
+                              className={`font-medium ${
+                                tank.feeding.todayFed < tank.feeding.recommended ? 'text-yellow-600' : 'text-green-600'
+                              }`}
+                            >
+                              {Math.round((tank.feeding.todayFed / tank.feeding.recommended) * 100)}%
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 py-4 text-center">
+                        <p className="text-xs italic text-gray-400">No feeding plan</p>
+                      </div>
+                    )}
+
+                    <div className="rounded-2xl border border-[#D7E9EE] bg-[#F7FCFD] p-4">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                          <HeartPulse className="h-4 w-4 text-[#088395]" />
+                          Tank Health File
+                        </div>
+                        {loadingHealthOverview ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                        ) : healthOverview?.latestRecord ? (
+                          <Badge variant="outline" className={getHealthStatusColor(healthOverview.latestRecord.healthStatus)}>
+                            {formatHealthStatus(healthOverview.latestRecord.healthStatus)}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="border-slate-200 text-slate-500">
+                            No reports
+                          </Badge>
+                        )}
+                      </div>
+
+                      {!healthOverview || healthOverview.healthChecks.length === 0 ? (
+                        <p className="text-sm text-slate-500">
+                          No AI health reports have been recorded for this tank yet.
+                        </p>
+                      ) : healthOverview.requiresAttention && activeRecord ? (
+                        <div className="space-y-3">
+                          <div className="rounded-xl border border-rose-200 bg-rose-50 p-3">
+                            <p className="text-sm font-semibold text-rose-800">{activeRecord.bacterialType}</p>
+                            <p className="mt-1 text-xs text-rose-700">
+                              {activeBatch ? `${getBatchLabel(activeBatch)} • ` : ''}
+                              Last report: {formatDateTime(activeRecord.checkedAt)}
+                            </p>
+                          </div>
+                          <Button
+                            className="w-full bg-emerald-600 hover:bg-emerald-700"
+                            onClick={(event) => void handleMarkImproved(tank.id, event)}
+                            disabled={improvingTankId === tank.id}
+                          >
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                            {improvingTankId === tank.id ? 'Saving recovery...' : 'Mark Improved'}
+                          </Button>
+                        </div>
+                      ) : healthOverview.isRecovered ? (
+                        <div className="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                          <p className="text-sm font-semibold text-emerald-800">
+                            Recovered from {healthOverview.latestActiveRecord?.bacterialType || healthOverview.currentDiseaseLabel}
+                          </p>
+                          <p className="text-xs text-emerald-700">
+                            Recovery recorded on {formatDateTime(healthOverview.recoveredAt)}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                          <p className="text-sm font-semibold text-emerald-800">Latest report is healthy</p>
+                          <p className="mt-1 text-xs text-emerald-700">
+                            {formatDateTime(healthOverview.latestRecord?.checkedAt)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
 
-      <AlertDialog
-        open={!!deleteConfirmId}
-        onOpenChange={(open: boolean) => !open && setDeleteConfirmId(null)}
-      >
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(open: boolean) => !open && setDeleteConfirmId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Are you sure you want to delete this tank?
-            </AlertDialogTitle>
+            <AlertDialogTitle>Are you sure you want to delete this tank?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. All data associated with this tank,
-              including historical records and batches, might be affected or
-              lost.
+              This action cannot be undone. All data associated with this tank, including historical records and batches, might be affected or lost.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteTank}
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
+            <AlertDialogAction onClick={handleDeleteTank} className="bg-red-600 text-white hover:bg-red-700">
               Delete Tank
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <AddTankModal
-        open={showAddTankModal}
-        onOpenChange={setShowAddTankModal}
-        onConfirm={handleAddTank}
-        mode="add"
-      />
 
       <AddTankModal
         open={showEditModal}

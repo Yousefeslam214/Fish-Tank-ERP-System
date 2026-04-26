@@ -11,8 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
-import { Badge } from './ui/badge';
-import { CheckCircle, Fish, AlertCircle } from 'lucide-react';
+import { Fish, AlertCircle } from 'lucide-react';
 import { FishInventoryBatch } from '../types';
 import { mockTanks } from '../mockData';
 
@@ -199,17 +198,6 @@ export default function AllocateFishToTank({
                     <div>
                       <p className="text-xs text-gray-600">Available</p>
                       <p className="font-medium">{batch.quantity.toLocaleString()} fish</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600">Avg Weight</p>
-                      <p className="font-medium">{avgWeight || '0'} g</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600">Health Check</p>
-                      <Badge className="bg-green-100 text-green-800" variant="outline">
-                        <CheckCircle className="w-3 h-3 mr-1" />
-                        PASSED
-                      </Badge>
                     </div>
                   </div>
                 </div>
