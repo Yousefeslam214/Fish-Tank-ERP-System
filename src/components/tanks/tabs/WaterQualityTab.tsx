@@ -210,16 +210,7 @@ export function WaterQualityTab({
                       ))}
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3 text-xs mt-4 pt-4 border-t border-gray-100">
-                      <div className="space-y-1">
-                        <span className="text-gray-400 block font-bold uppercase text-[9px] tracking-widest">
-                          Action Required
-                        </span>
-                        <span className="font-bold text-gray-900">
-                          {assessment.actionRequired ? "YES" : "NONE"}
-                        </span>
-                      </div>
-                    </div>
+                  
                   </CardContent>
                 </Card>
               );
