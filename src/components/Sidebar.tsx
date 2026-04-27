@@ -125,7 +125,6 @@ export default function Sidebar({
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm truncate font-medium">{user.name}</p>
-            <p className="text-xs text-gray-300 capitalize">{user.role}</p>
           </div>
         </div>
       </div>
