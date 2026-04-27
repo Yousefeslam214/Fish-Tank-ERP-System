@@ -140,10 +140,10 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
 
   const currentTotalFed = parseWeightValue(
     batchRequirement?.fedTodayKg ??
-      batchRequirement?.todayFed ??
-      batchRequirement?.alreadyFedKg ??
-      tank?.feeding?.todayFed ??
-      0,
+    batchRequirement?.todayFed ??
+    batchRequirement?.alreadyFedKg ??
+    tank?.feeding?.todayFed ??
+    0,
   );
   const totalWithNewMeal = roundToOneDecimal(
     currentTotalFed + parseWeightValue(weightFed),
@@ -204,6 +204,11 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
       if (!selectedBatchId) {
         throw new Error('Please select a batch to record feeding for.');
       }
+
+      console.log('Sending feeding record request:', {
+        url: `/tanks/feeding-records/${selectedBatchId}`,
+        payload: payload
+      });
 
       const res = await apiPost<any>(`/tanks/feeding-records/${selectedBatchId}`, payload);
       console.log('Feeding record creation response:', res);
@@ -437,7 +442,7 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
                 />
               </div>
 
-              
+
 
               {showUnderfeedingWarning && (
                 <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl text-[10px] text-amber-200 leading-relaxed shadow-sm">
@@ -448,7 +453,7 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
             </div>
           </div>
 
-         
+
 
 
           <div className="flex gap-3 pt-4 border-t">

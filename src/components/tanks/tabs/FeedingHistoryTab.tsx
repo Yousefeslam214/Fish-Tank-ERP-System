@@ -139,16 +139,7 @@ export function FeedingHistoryTab({
                                 >
                                   {record.status || "PENDING"}
                                 </Badge>
-                                {record.statusLabel && (
-                                  <Badge
-                                    className={`${record.statusLabel.toUpperCase().includes("TARGET") || record.statusLabel.toUpperCase() === "OK"
-                                        ? "bg-[#10B981]"
-                                        : (record.statusLabel.toUpperCase().includes("CRITICAL") ? "bg-[#EF4444]" : "bg-[#F59E0B]")
-                                      } font-bold px-3 py-1 uppercase text-[10px] tracking-widest border-none shadow-sm text-white`}
-                                  >
-                                    {record.statusLabel}
-                                  </Badge>
-                                )}
+                                
                               </div>
                             </div>
                           </div>
@@ -218,18 +209,7 @@ export function FeedingHistoryTab({
                         </div>
 
                         <div className="flex sm:flex-col gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-11 px-4 bg-gray-50 border-gray-200 hover:border-[#088395] hover:bg-white hover:text-[#088395] transition-all font-bold uppercase text-[10px] tracking-widest rounded-xl"
-                            onClick={() => {
-                              setSelectedFeedingRecord(record);
-                              setShowFeedingDetailsModal(true);
-                            }}
-                          >
-                            <Search className="w-4 h-4 mr-2" />
-                            View Record
-                          </Button>
+                          
                         </div>
                       </div>
                     </CardContent>
