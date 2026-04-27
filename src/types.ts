@@ -11,15 +11,17 @@ export interface FishType {
   scientificName?: string;
   arabicName?: string;
   tempMin: number;
-  tempOptimal: number;
   tempMax: number;
   doMin: number;
-  doSafe: number;
+  doMax: number;
   phMin: number;
   phMax: number;
-  nh3Safe: number;
-  nh3Critical: number;
+  nh3Min: number;
+  nh3Max: number;
+  no2Min: number;
   no2Max: number;
+  turbidityMin: number;
+  turbidityMax: number;
   fcrMin: number;
   fcrMax: number;
   survivalRate: number;
@@ -308,6 +310,7 @@ export interface WaterQuality {
   nitrite: number;
   nitrate: number;
   salinity?: number;
+  turbidity?: number;
   timestamp: string;
   recordedBy: string;
 }

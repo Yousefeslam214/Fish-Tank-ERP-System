@@ -62,6 +62,8 @@ export interface FishTypeRecord {
   salinityMax?: number;
   alkalinityMin?: number;
   alkalinityMax?: number;
+  turbidityMin?: number;
+  turbidityMax?: number;
   fcrMin: number;
   fcrMax: number;
   survivalRate: number;
@@ -100,6 +102,8 @@ export interface FishTypeUpsertPayload {
   salinityMax?: number;
   alkalinityMin?: number;
   alkalinityMax?: number;
+  turbidityMin?: number;
+  turbidityMax?: number;
   fcrMin: number;
   fcrMax: number;
   survivalRate: number;
@@ -323,6 +327,8 @@ const normalizeFishType = (value: unknown): FishTypeRecord | null => {
     salinityMax: asNumber(record.salinityMax),
     alkalinityMin: asNumber(record.alkalinityMin),
     alkalinityMax: asNumber(record.alkalinityMax),
+    turbidityMin: asNumber(record.turbidityMin),
+    turbidityMax: asNumber(record.turbidityMax),
     fcrMin: asNumber(record.fcrMin) ?? 0,
     fcrMax: asNumber(record.fcrMax) ?? 0,
     survivalRate: asNumber(record.survivalRate) ?? 0,

@@ -57,31 +57,31 @@ const normalizeGrowthMeasurement = (measurement: any) => ({
   ...measurement,
   measuredAt: toValidDate(
     measurement?.measuredAt ??
-      measurement?.measurementDate ??
-      measurement?.date ??
-      measurement?.timestamp ??
-      measurement?.createdAt,
+    measurement?.measurementDate ??
+    measurement?.date ??
+    measurement?.timestamp ??
+    measurement?.createdAt,
   ),
   daysInCulture:
     toFiniteNumber(
       measurement?.daysInCulture ??
-        measurement?.dayInCulture ??
-        measurement?.day,
+      measurement?.dayInCulture ??
+      measurement?.day,
     ) ?? 0,
   sampleSize:
     toFiniteNumber(
       measurement?.sampleSize ??
-        measurement?.sampleCount ??
-        measurement?.numberOfFishSampled ??
-        measurement?.count,
+      measurement?.sampleCount ??
+      measurement?.numberOfFishSampled ??
+      measurement?.count,
     ) ?? 0,
   averageWeightGrams:
     toFiniteNumber(
       measurement?.averageWeightGrams ??
-        measurement?.averageWeight ??
-        measurement?.avgWeight ??
-        measurement?.weightGrams ??
-        measurement?.weight,
+      measurement?.averageWeight ??
+      measurement?.avgWeight ??
+      measurement?.weightGrams ??
+      measurement?.weight,
     ) ?? 0,
   sgr: toFiniteNumber(measurement?.sgr),
   fcr: toFiniteNumber(measurement?.fcr),
@@ -93,43 +93,13 @@ const normalizeGrowthMeasurement = (measurement: any) => ({
     measurement?.overall?.rating,
 });
 
-const normalizeFeedingStatus = (status: any): 'on-target' | 'below' | 'critical' | 'above' => {
-  const normalized = String(status || '')
-    .toLowerCase()
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  if (normalized.includes('critical')) return 'critical';
-  if (normalized.includes('above') || normalized.includes('over')) return 'above';
-  if (
-    normalized.includes('on target') ||
-    normalized === 'ok' ||
-    normalized === 'optimal'
-  ) {
-    return 'on-target';
-  }
-  if (normalized.includes('below') || normalized.includes('under') || normalized.includes('warning')) {
-    return 'below';
-  }
-  return 'below';
+const normalizeFeedingStatus = (status: any) => {
+  if (!status) return 'PENDING';
+  return status;
 };
 
 const parseFeedingWeight = (value: any): number => toFiniteNumber(value) ?? 0;
 
-const buildFeedingStatusLabel = (status: 'on-target' | 'below' | 'critical' | 'above') => {
-  switch (status) {
-    case 'on-target':
-      return '✅ On target';
-    case 'critical':
-      return '❌ Critical';
-    case 'above':
-      return 'ℹ️ Above recommendation';
-    case 'below':
-    default:
-      return '⚠️ Below recommendation';
-  }
-};
 
 const normalizeTodayFeedingEntry = (entry: any) => {
   const status = normalizeFeedingStatus(entry?.status);
@@ -146,8 +116,8 @@ const normalizeTodayFeedingEntry = (entry: any) => {
 
   return {
     ...entry,
-    status,
-    statusLabel: entry?.statusLabel || buildFeedingStatusLabel(status),
+    status: entry?.status || 'PENDING',
+    statusLabel: entry?.statusLabel,
     time: entry?.time || computedTime,
     fed,
     recommended,
@@ -173,8 +143,8 @@ const normalizeFeedingRecord = (record: any) => {
 
   return {
     ...record,
-    status,
-    statusLabel: record?.statusLabel || status.toUpperCase(),
+    status: record?.status || 'PENDING',
+    statusLabel: record?.statusLabel,
     amountFed: record?.amountFed || `${fed.toFixed(1)} kg`,
     recommendedAmount: record?.recommendedAmount || `${recommended.toFixed(1)} kg`,
     achievement,
@@ -256,6 +226,41 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
       setDashboardData(dashData);
       setGrowthMetrics(gmDataRaw);
 
+      // Process Growth Metrics Mega-Route Response
+      if (gmDataRaw && gmDataRaw.batches && Array.isArray(gmDataRaw.batches)) {
+        console.log('[GrowthDebug] Processing batches from mega-route:', gmDataRaw.batches.length);
+        gmDataRaw.batches.forEach((b: any) => {
+          const batchId = b.batchId || b.id;
+          if (!batchId) return;
+
+          // 1. Map history
+          if (b.history && Array.isArray(b.history)) {
+            const history = b.history.map(normalizeGrowthMeasurement);
+            console.log(`[GrowthDebug] Mapped history for batch ${batchId}:`, history.length);
+            setSelectedBatchGrowthHistory(prev => ({ ...prev, [batchId]: history }));
+          }
+
+          // 2. Map analysis (summary + charts)
+          const summary = b.summary || {};
+          const analysisData = {
+            summary,
+            charts: b.charts || {},
+            metrics: {
+              sgr: parseFloat(summary.currentSGR || summary.sgr || '0'),
+              fcr: parseFloat(summary.currentFCR || summary.fcr || '0'),
+              averageWeight: parseFloat(summary.currentAvgWeight || summary.averageWeight || '0')
+            },
+            sgrRating: summary.sgrRating || 'NORMAL',
+            fcrRating: summary.fcrRating || 'GOOD',
+          };
+          console.log(`[GrowthDebug] Mapped metrics for batch ${batchId}:`, {
+            rawSummary: summary,
+            parsedMetrics: analysisData.metrics
+          });
+          setBatchGrowthAnalysis(prev => ({ ...prev, [batchId]: analysisData }));
+        });
+      }
+
       const fdPayload =
         fdDataRaw && typeof fdDataRaw === 'object' && !Array.isArray(fdDataRaw)
           ? ((fdDataRaw as any).data ?? fdDataRaw)
@@ -282,8 +287,6 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
             btData.map(b => Promise.allSettled([
               apiGet<any>(`/tanks/water-quality/batch/${b.id}`),
               apiGet<any>(`/tanks/feeding-records/batch/${b.id}`),
-              apiGet<any>(`/tanks/growth/batch/${b.id}`),
-              apiGet<any>(`/tanks/growth/batch/${b.id}/analysis`),
               apiGet<any>(`/tanks/water-quality/batch/${b.id}/assessment`)
             ]))
           );
@@ -295,25 +298,11 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
           batchDetailsRes.forEach((res, idx) => {
             if (res.status === 'fulfilled') {
               const batchId = btData[idx].id;
-              const [wq, fd, growth, analysis, assessment] = res.value;
+              const [wq, fd, assessment] = res.value;
 
               if (wq.status === 'fulfilled') allBatchWq.push(...(wq.value.data ?? wq.value ?? []));
               if (fd.status === 'fulfilled') allBatchFd.push(...(fd.value.data ?? fd.value ?? []));
-              if (growth.status === 'fulfilled') {
-                const growthVal = growth.value;
-                const historyRaw = Array.isArray(growthVal)
-                  ? growthVal
-                  : (Array.isArray(growthVal.data)
-                    ? growthVal.data
-                    : (Array.isArray(growthVal.history)
-                      ? growthVal.history
-                      : (growthVal.data?.history || [])));
-                const history = historyRaw.map(normalizeGrowthMeasurement);
-                setSelectedBatchGrowthHistory(prev => ({ ...prev, [batchId]: history }));
-              }
-              if (analysis.status === 'fulfilled') {
-                setBatchGrowthAnalysis(prev => ({ ...prev, [batchId]: analysis.value.data ?? analysis.value }));
-              }
+
               if (assessment.status === 'fulfilled') {
                 setBatchAssessments(prev => ({ ...prev, [batchId]: assessment.value.data ?? assessment.value }));
               }
@@ -513,15 +502,15 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
       .map((r) => {
         const fed = parseFeedingWeight(r.amountFed ?? r.weightFed ?? r.weightKg ?? 0);
         const recommended = parseFeedingWeight(r.recommendedAmount ?? r.targetWeight ?? 0);
-        const status = normalizeFeedingStatus(r.status || (fed >= recommended ? 'on-target' : 'below'));
+        const status = r.status || 'PENDING';
         return {
           time:
             r.time ||
             (r.timestamp || r.fedAt || r.createdAt
               ? new Date(r.timestamp || r.fedAt || r.createdAt).toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
+                hour: '2-digit',
+                minute: '2-digit',
+              })
               : '–'),
           fed,
           recommended,
@@ -531,7 +520,7 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
               : r.foodType || r.foodTypeName || r.feedType || 'Standard Feed',
           operator: r.fedBy || r.recordedBy || 'Operator',
           status,
-          statusLabel: r.statusLabel || buildFeedingStatusLabel(status),
+          statusLabel: r.statusLabel,
         };
       });
   }, [feedingRecords, todayFeedingRecords]);
@@ -571,7 +560,7 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
       </div>
 
       <div className={`p-6 ${loadingDetails ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}`}>
-        
+
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="bg-white">

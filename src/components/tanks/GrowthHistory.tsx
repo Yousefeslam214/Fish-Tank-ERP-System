@@ -57,8 +57,8 @@ const toValidDate = (value: any): Date => {
   return Number.isNaN(date.getTime()) ? new Date() : date;
 };
 
-export default function GrowthHistory({ 
-  batch, 
+export default function GrowthHistory({
+  batch,
   measurements,
   language = 'en',
   onMeasurementAdded,
@@ -73,31 +73,31 @@ export default function GrowthHistory({
     ...measurement,
     measuredAt: toValidDate(
       (measurement as any).measuredAt ??
-        (measurement as any).measurementDate ??
-        (measurement as any).date ??
-        (measurement as any).timestamp ??
-        (measurement as any).createdAt,
+      (measurement as any).measurementDate ??
+      (measurement as any).date ??
+      (measurement as any).timestamp ??
+      (measurement as any).createdAt,
     ),
     daysInCulture:
       toFiniteNumber(
         (measurement as any).daysInCulture ??
-          (measurement as any).dayInCulture ??
-          (measurement as any).day,
+        (measurement as any).dayInCulture ??
+        (measurement as any).day,
       ) ?? 0,
     sampleSize:
       toFiniteNumber(
         (measurement as any).sampleSize ??
-          (measurement as any).sampleCount ??
-          (measurement as any).numberOfFishSampled ??
-          (measurement as any).count,
+        (measurement as any).sampleCount ??
+        (measurement as any).numberOfFishSampled ??
+        (measurement as any).count,
       ) ?? 0,
     averageWeightGrams:
       toFiniteNumber(
         (measurement as any).averageWeightGrams ??
-          (measurement as any).averageWeight ??
-          (measurement as any).avgWeight ??
-          (measurement as any).weightGrams ??
-          (measurement as any).weight,
+        (measurement as any).averageWeight ??
+        (measurement as any).avgWeight ??
+        (measurement as any).weightGrams ??
+        (measurement as any).weight,
       ) ?? 0,
     sgr: toFiniteNumber((measurement as any).sgr),
     fcr: toFiniteNumber((measurement as any).fcr),
@@ -113,8 +113,8 @@ export default function GrowthHistory({
     (new Date().getTime() - batch.stockedDate.getTime()) / (1000 * 60 * 60 * 24)
   );
 
-  const lastMeasurement = normalizedMeasurements.length > 0 
-    ? normalizedMeasurements[normalizedMeasurements.length - 1] 
+  const lastMeasurement = normalizedMeasurements.length > 0
+    ? normalizedMeasurements[0]
     : null;
 
   const getRatingColor = (rating?: string) => {
@@ -137,7 +137,7 @@ export default function GrowthHistory({
     }
   };
 
-  // Prepare chart data
+  // Prepare chart data - ensure sorted by day ascending for correct visualization
   const chartData = [
     {
       day: 0,
@@ -149,7 +149,7 @@ export default function GrowthHistory({
       weight: m.averageWeightGrams,
       sgr: m.sgr
     }))
-  ];
+  ].sort((a, b) => a.day - b.day);
 
   return (
     <div className={`space-y-6 ${isRTL ? 'rtl' : 'ltr'}`}>
@@ -163,7 +163,7 @@ export default function GrowthHistory({
             {batch.fishType} • {daysInCulture} {t('growthMeasurement.days')} {t('growthMeasurement.daysInCulture')}
           </p>
         </div>
-        <Button 
+        <Button
           className="bg-[#088395] hover:bg-[#0A4D68]"
           onClick={() => setShowRecordModal(true)}
         >
@@ -182,35 +182,35 @@ export default function GrowthHistory({
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="day" 
-                label={{ value: 'Days in Culture', position: 'insideBottom', offset: -5 }} 
+              <XAxis
+                dataKey="day"
+                label={{ value: 'Days in Culture', position: 'insideBottom', offset: -5 }}
               />
-              <YAxis 
+              <YAxis
                 yAxisId="left"
-                label={{ value: 'Weight (g)', angle: -90, position: 'insideLeft' }} 
+                label={{ value: 'Weight (g)', angle: -90, position: 'insideLeft' }}
               />
-              <YAxis 
+              <YAxis
                 yAxisId="right"
                 orientation="right"
-                label={{ value: 'SGR (%/day)', angle: 90, position: 'insideRight' }} 
+                label={{ value: 'SGR (%/day)', angle: 90, position: 'insideRight' }}
               />
               <Tooltip />
               <Legend />
-              <Line 
+              <Line
                 yAxisId="left"
-                type="monotone" 
-                dataKey="weight" 
-                stroke="#0A4D68" 
+                type="monotone"
+                dataKey="weight"
+                stroke="#0A4D68"
                 strokeWidth={3}
                 name="Average Weight (g)"
                 dot={{ r: 5 }}
               />
-              <Line 
+              <Line
                 yAxisId="right"
-                type="monotone" 
-                dataKey="sgr" 
-                stroke="#10B981" 
+                type="monotone"
+                dataKey="sgr"
+                stroke="#10B981"
                 strokeWidth={2}
                 name="SGR (%/day)"
                 dot={{ r: 4 }}
@@ -223,7 +223,7 @@ export default function GrowthHistory({
       {/* Timeline */}
       <div className="space-y-4">
         <h3 className="font-semibold text-gray-900">Measurement Timeline</h3>
-        
+
         <div className="space-y-4">
           {normalizedMeasurements.map((measurement, index) => (
             <Card key={measurement.id} className="bg-white shadow-sm border-l-4 border-l-[#088395]">
@@ -251,11 +251,6 @@ export default function GrowthHistory({
                         <div>
                           <p className="text-xs text-gray-600">{t('common.weight')}</p>
                           <p className="font-semibold">{measurement.averageWeightGrams.toFixed(1)}{t('common.g')}</p>
-                          {index > 0 && (
-                            <p className="text-xs text-[#10B981]">
-                              +{(measurement.averageWeightGrams - normalizedMeasurements[index - 1].averageWeightGrams).toFixed(1)}g
-                            </p>
-                          )}
                         </div>
                       </div>
 
@@ -287,15 +282,15 @@ export default function GrowthHistory({
                     </div>
                   </div>
 
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     variant="outline"
                     onClick={() => onViewDetails?.(measurement)}
                   >
                     {t('growthMeasurement.viewDetails')}
                   </Button>
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     variant="ghost"
                     className="text-gray-500 hover:text-[#0A4D68]"
                     onClick={() => {

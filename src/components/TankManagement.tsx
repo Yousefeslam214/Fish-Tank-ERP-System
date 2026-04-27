@@ -176,20 +176,20 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
           volume: tank.volumeCubicMeters ?? bioObj?.volumeM3 ?? 50,
           waterQuality: wq
             ? {
-                overall: (wq.overallStatus ?? 'unknown').toLowerCase(),
-                temp: { value: parseFloat((wq.temperature ?? 0).toFixed(1)), status: 'unknown' },
-                do: { value: parseFloat((wq.dissolvedOxygen ?? 0).toFixed(2)), status: 'unknown' },
-                ph: { value: parseFloat((wq.ph ?? 0).toFixed(2)), status: 'unknown' },
-                nh3: { value: parseFloat((wq.ammonia ?? 0).toFixed(4)), status: 'unknown' },
-              }
+              overall: (wq.overallStatus ?? 'unknown').toLowerCase(),
+              temp: { value: parseFloat((wq.temperature ?? 0).toFixed(1)), status: 'unknown' },
+              do: { value: parseFloat((wq.dissolvedOxygen ?? 0).toFixed(2)), status: 'unknown' },
+              ph: { value: parseFloat((wq.ph ?? 0).toFixed(2)), status: 'unknown' },
+              nh3: { value: parseFloat((wq.ammonia ?? 0).toFixed(4)), status: 'unknown' },
+            }
             : null,
           feeding: fd
             ? {
-                todayMeals: fd.currentMeal ?? 0,
-                totalMeals: fd.totalMeals ?? 4,
-                todayFed: fd.weightFed ?? 0,
-                recommended: fd.targetWeight ?? 0,
-              }
+              todayMeals: fd.currentMeal ?? 0,
+              totalMeals: fd.totalMeals ?? 4,
+              todayFed: fd.weightFed ?? 0,
+              recommended: fd.targetWeight ?? 0,
+            }
             : null,
         };
       });
@@ -466,7 +466,7 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
                       )}
                     </div>
 
-                   
+
                   </CardContent>
                 </Card>
               );

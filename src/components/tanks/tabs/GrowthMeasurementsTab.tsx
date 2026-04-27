@@ -30,32 +30,14 @@ export function GrowthMeasurementsTab({
   setSelectedGrowthRecord,
   setShowGrowthDetailsModal,
 }: GrowthMeasurementsTabProps) {
-  const [localAnalysis, setLocalAnalysis] = React.useState<any>(null);
-  const [isLoadingAnalysis, setIsLoadingAnalysis] = React.useState(false);
+  console.log('[GrowthDebug] GrowthMeasurementsTab received props:', {
+    selectedBatchId,
+    analysis: batchGrowthAnalysis[selectedBatchId || ''],
+    history: selectedBatchGrowthHistory[selectedBatchId || '']
+  });
 
   const activeBatchId = selectedBatchId || tankBatches[0]?.id;
   const activeBatch = tankBatches.find((b) => b.id === activeBatchId);
-
-  React.useEffect(() => {
-    if (activeBatchId) {
-      const fetchAnalysis = async () => {
-        setIsLoadingAnalysis(true);
-        try {
-          const res = await apiGet<any>(
-            `/tanks/growth/batch/${activeBatchId}/analysis`,
-          );
-          console.log("Batch growth analysis response:", res);
-          setLocalAnalysis(res.data ?? res);
-        } catch (err) {
-          console.error("Failed to fetch batch growth analysis:", err);
-          setLocalAnalysis(null);
-        } finally {
-          setIsLoadingAnalysis(false);
-        }
-      };
-      fetchAnalysis();
-    }
-  }, [activeBatchId]);
 
   if (tankBatches.length === 0) {
     return (
@@ -73,114 +55,26 @@ export function GrowthMeasurementsTab({
 
   const analysis = batchGrowthAnalysis[activeBatch.id];
   const history = selectedBatchGrowthHistory[activeBatch.id] || [];
-
-  React.useEffect(() => {
-    if (activeBatch) {
-      console.log(
-        "Active batch for growth tracking:",
-        activeBatch.id,
-        activeBatch,
-      );
-    }
-  }, [activeBatch]);
-
-  React.useEffect(() => {
-    if (history.length > 0) {
-      console.log(
-        "Batch growth history measurements:",
-        activeBatch.id,
-        history,
-      );
-    }
-  }, [history, activeBatch.id]);
-
-  const analysisData = localAnalysis || analysis;
-  const metrics = analysisData?.metrics || {};
+  const metrics = analysis?.metrics || {};
 
   const currentWeight =
     history.length > 0
-      ? history[history.length - 1].averageWeightGrams
+      ? history[0].averageWeightGrams
       : parseFloat(
-          activeBatch.weights?.currentAvg ||
-            activeBatch.weights?.current ||
-            activeBatch.currentAvgWeight ||
-            activeBatch.avgWeight ||
-            activeBatch.currentAvg ||
-            activeBatch.weights?.initial ||
-            activeBatch.initialAverageWeight ||
-            "0",
-        );
+        activeBatch.weights?.currentAvg ||
+        activeBatch.weights?.current ||
+        activeBatch.currentAvgWeight ||
+        activeBatch.avgWeight ||
+        activeBatch.currentAvg ||
+        activeBatch.weights?.initial ||
+        activeBatch.initialAverageWeight ||
+        "0",
+      );
 
   return (
     <div className="space-y-4 pt-4">
       {/* Batch Selector */}
-      <Card className="bg-gradient-to-r from-blue-50 to-white border-blue-100 shadow-sm">
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row md:items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                <Fish className="w-5 h-5" />
-              </div>
-              <div>
-                <Label className="font-bold text-gray-900">Batch Target</Label>
-                <div className="flex items-center gap-2">
-                  <p className="text-xs text-gray-500">
-                    Select a batch to manage growth data
-                  </p>
-                  {analysisData?.overallRating && (
-                    <Badge
-                      className={`${analysisData.overallRating === "GOOD" || analysisData.overallRating === "EXCELLENT" ? "bg-green-500" : "bg-amber-500"} text-[9px] h-4 uppercase font-bold`}
-                    >
-                      {analysisData.overallRating} Status
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {tankBatches.map((batch: any) => (
-                <Button
-                  key={batch.id}
-                  variant={activeBatchId === batch.id ? "default" : "outline"}
-                  className={`transition-all h-auto py-2 flex flex-col items-start ${activeBatchId === batch.id ? "bg-[#0A4D68] hover:bg-[#088395]" : "bg-white hover:bg-blue-50 border-blue-100"}`}
-                  onClick={() => setSelectedBatchId(batch.id)}
-                >
-                  <div className="flex items-center justify-between w-full gap-2">
-                    <span className="font-bold">
-                      {" "}
-                      Batch:{" "}
-                      {batch.batchNumber ||
-                        batch.name ||
-                        batch.id?.slice(0, 6) ||
-                        "Unassigned"}
-                    </span>
-                    <Badge
-                      className={`${activeBatchId === batch.id ? "bg-[#088395] text-white" : "bg-blue-100 text-blue-700"} text-[10px]`}
-                    >
-                      {(
-                        batch.counts?.current ??
-                        batch.currentCount ??
-                        batch.count ??
-                        0
-                      ).toLocaleString()}{" "}
-                      fish
-                    </Badge>
-                  </div>
-                  <span
-                    className="text-[10px] opacity-100 font-mono"
-                    style={{ color: "#ffffff", fontWeight: "bolder" }}
-                  >
-                    ID:{" "}
-                    <span style={{ color: "#8df4af" }}>
-                      {batch.id.split("-")[0]}
-                    </span>
-                  </span>
-                </Button>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      
 
       {/* Analysis Summary Cards */}
       {/* Horizontal Analysis Metrics Indicators - Forced Row */}
@@ -191,22 +85,16 @@ export function GrowthMeasurementsTab({
               <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest group-hover:text-blue-500">
                 Growth Rate (SGR)
               </p>
-              {!isLoadingAnalysis && (
-                <Badge
-                  className={`${analysisData?.sgrRating === "EXCELLENT" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"} border-none uppercase font-black text-[8px] h-4`}
-                >
-                  {analysisData?.sgrRating || "NORMAL"}
-                </Badge>
-              )}
+              <Badge
+                className={`${analysis?.sgrRating === "EXCELLENT" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"} border-none uppercase font-black text-[8px] h-4`}
+              >
+                {analysis?.sgrRating || "NORMAL"}
+              </Badge>
             </div>
             <div className="flex items-baseline gap-2">
-              {isLoadingAnalysis ? (
-                <RefreshCw className="w-4 h-4 animate-spin text-blue-400" />
-              ) : (
-                <h4 className="text-lg font-black text-gray-900">
-                  {metrics.sgr?.toFixed(2) || "---"}%
-                </h4>
-              )}
+              <h4 className="text-lg font-black text-gray-900">
+                {metrics.sgr?.toFixed(2) || "---"}%
+              </h4>
               <span className="text-[9px] text-gray-500">/day</span>
             </div>
           </CardContent>
@@ -218,22 +106,16 @@ export function GrowthMeasurementsTab({
               <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest group-hover:text-green-500">
                 Efficiency (FCR)
               </p>
-              {!isLoadingAnalysis && (
-                <Badge
-                  className={`${analysisData?.fcrRating === "POOR" ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"} border-none uppercase font-black text-[8px] h-4`}
-                >
-                  {analysisData?.fcrRating || "GOOD"}
-                </Badge>
-              )}
+              <Badge
+                className={`${analysis?.fcrRating === "POOR" ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"} border-none uppercase font-black text-[8px] h-4`}
+              >
+                {analysis?.fcrRating || "GOOD"}
+              </Badge>
             </div>
             <div className="flex items-baseline gap-2">
-              {isLoadingAnalysis ? (
-                <RefreshCw className="w-4 h-4 animate-spin text-green-400" />
-              ) : (
-                <h4 className="text-lg font-black text-gray-900">
-                  {metrics.fcr?.toFixed(2) || "---"}
-                </h4>
-              )}
+              <h4 className="text-lg font-black text-gray-900">
+                {metrics.fcr?.toFixed(2) || "---"}
+              </h4>
               <span className="text-[9px] text-gray-500">FCR</span>
             </div>
           </CardContent>
@@ -287,9 +169,9 @@ export function GrowthMeasurementsTab({
             activeBatch.fishType || activeBatch.species || currentTank.species,
           stockedDate: new Date(
             activeBatch.dates?.stockedDate ||
-              activeBatch.stockedDate ||
-              activeBatch.createdAt ||
-              Date.now(),
+            activeBatch.stockedDate ||
+            activeBatch.createdAt ||
+            Date.now(),
           ),
           initialCount:
             activeBatch.counts?.initial || activeBatch.initialCount || 0,
@@ -300,8 +182,8 @@ export function GrowthMeasurementsTab({
             0,
           initialWeight: parseFloat(
             activeBatch.weights?.initial ||
-              activeBatch.initialAverageWeight ||
-              "0",
+            activeBatch.initialAverageWeight ||
+            "0",
           ),
           lastWeight: currentWeight,
           lastMeasurementDate: activeBatch.dates?.lastMeasurement

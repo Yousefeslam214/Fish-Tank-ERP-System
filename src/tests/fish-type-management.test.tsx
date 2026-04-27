@@ -15,7 +15,6 @@ vi.mock('../services/fishTypesApi', async () => {
     getFishTypeById: vi.fn(),
     getFishTypes: vi.fn(),
     getFoodTypes: vi.fn(),
-    getMealFrequency: vi.fn(),
     getProteinRequirement: vi.fn(),
     updateFishType: vi.fn(),
   };
@@ -35,7 +34,6 @@ const getFishTypeByIdMock = vi.mocked(fishTypesApi.getFishTypeById);
 const updateFishTypeMock = vi.mocked(fishTypesApi.updateFishType);
 const createFishTypeMock = vi.mocked(fishTypesApi.createFishType);
 const feedingRateMock = vi.mocked(fishTypesApi.getFeedingRate);
-const mealFrequencyMock = vi.mocked(fishTypesApi.getMealFrequency);
 const proteinRequirementMock = vi.mocked(fishTypesApi.getProteinRequirement);
 const getPricingByFishTypeMock = vi.mocked(harvestApi.getPricingByFishType);
 
@@ -55,20 +53,17 @@ const sampleFishType = {
   arabicName: 'البلطي',
   description: 'Sample type',
   tempMin: 18,
-  tempOptimal: 28,
   tempMax: 32,
   doMin: 3,
-  doSafe: 5,
+  doMax: 8,
   phMin: 6.5,
   phMax: 8.5,
-  nh3Safe: 0.02,
-  nh3Critical: 0.05,
+  nh3Min: 0,
+  nh3Max: 0.05,
+  no2Min: 0,
   no2Max: 0.1,
-  no3Max: 40,
-  salinityMin: 0,
-  salinityMax: 12,
-  alkalinityMin: 50,
-  alkalinityMax: 300,
+  turbidityMin: 0,
+  turbidityMax: 10,
   fcrMin: 1.2,
   fcrMax: 1.6,
   survivalRate: 90,
@@ -81,7 +76,7 @@ const sampleFishType = {
     rates: [[20, 25, 30]],
   },
   mealFrequencyRules: [{ maxWeight: 10, mealsPerDay: 6 }],
-  criticalParameters: ['DO', 'NH3'],
+  criticalParameters: ['Dissolved Oxygen', 'Ammonia'],
   proteinRequirements: [{ minWeight: 0, maxWeight: 10, proteinPercentage: 40 }],
   expectedGradeDistribution: [{ gradePricingId: 'pricing-1', percentage: 100 }],
   allowedFoodTypeIds: ['food-1'],
@@ -111,11 +106,6 @@ describe('FishTypeManagementEnhanced', () => {
       weight: 45,
       temperature: 27,
       feedingRatePercentage: 12,
-    });
-    mealFrequencyMock.mockResolvedValue({
-      fishTypeId: 'fish-1',
-      weight: 45,
-      mealsPerDay: 4,
     });
     proteinRequirementMock.mockResolvedValue({
       fishTypeId: 'fish-1',
@@ -147,12 +137,10 @@ describe('FishTypeManagementEnhanced', () => {
 
     await waitFor(() => {
       expect(feedingRateMock).toHaveBeenCalledWith('fish-1', 45, 27);
-      expect(mealFrequencyMock).toHaveBeenCalledWith('fish-1', 45);
       expect(proteinRequirementMock).toHaveBeenCalledWith('fish-1', 45);
     });
 
     expect(await screen.findByText('12% body weight/day')).toBeInTheDocument();
-    expect(screen.getByText('4 meals/day')).toBeInTheDocument();
     expect(screen.getByText('32% protein')).toBeInTheDocument();
   });
 
@@ -167,13 +155,15 @@ describe('FishTypeManagementEnhanced', () => {
     expect(screen.getByRole('tab', { name: 'Basic Info' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Water Quality' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Feeding Rates' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Protein & Meals' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Protein' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Food Types' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: 'Water Quality' }));
-    expect(await screen.findByText('Water Quality Parameters')).toBeInTheDocument();
+    expect(await screen.findByText('Water Quality Thresholds (Min - Max)')).toBeInTheDocument();
     expect(screen.getAllByText('Temperature (°C)').length).toBeGreaterThan(0);
     expect(screen.getByText('Dissolved Oxygen (mg/L)')).toBeInTheDocument();
+    expect(screen.getByText('Ammonia (mg/L)')).toBeInTheDocument();
+    expect(screen.getByText('Turbidity (NTU)')).toBeInTheDocument();
     expect(screen.getByText('Performance Benchmarks')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create Fish Type' })).toBeInTheDocument();

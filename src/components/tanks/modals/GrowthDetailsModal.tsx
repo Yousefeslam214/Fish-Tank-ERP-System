@@ -87,26 +87,26 @@ export function GrowthDetailsModal({ open, onOpenChange, record, onDeleteSuccess
           </div>
 
           <div className="mt-8 bg-gray-50 p-4 rounded-xl space-y-3">
-             <div className="flex justify-between text-sm">
-                <span className="text-gray-500 font-medium">Min/Max Weight:</span>
-                <span className="text-gray-900 font-bold">
-                  {record.minWeightGrams || record.minWeight || 0}g - {record.maxWeightGrams || record.maxWeight || 0}g
-                </span>
-             </div>
-             <div className="flex justify-between text-sm">
-                <span className="text-gray-500 font-medium">Avg Length:</span>
-                <span className="text-gray-900 font-bold">{record.averageLengthCm || record.length || 'N/A'} cm</span>
-             </div>
-             <div className="flex justify-between text-sm">
-                <span className="text-gray-500 font-medium">Measured By:</span>
-                <span className="text-gray-900 font-bold">{record.measuredBy || 'Operator'}</span>
-             </div>
-             {record.notes && (
-               <div className="pt-2 border-t border-gray-200">
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Notes & Observations</p>
-                  <p className="text-sm text-gray-700 italic">"{record.notes}"</p>
-               </div>
-             )}
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500 font-medium">Min/Max Weight:</span>
+              <span className="text-gray-900 font-bold">
+                {record.minWeightGrams || record.minWeight || 0}g - {record.maxWeightGrams || record.maxWeight || 0}g
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500 font-medium">Avg Length:</span>
+              <span className="text-gray-900 font-bold">{record.averageLengthCm || record.length || 'N/A'} cm</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500 font-medium">Measured By:</span>
+              <span className="text-gray-900 font-bold">{record.measuredBy || 'Operator'}</span>
+            </div>
+            {record.notes && (
+              <div className="pt-2 border-t border-gray-200">
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Notes & Observations</p>
+                <p className="text-sm text-gray-700 italic">"{record.notes}"</p>
+              </div>
+            )}
           </div>
 
           <div className="mt-8 flex items-center justify-between gap-3">

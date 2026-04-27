@@ -34,7 +34,7 @@ export function FeedingDetailsModal({ open, onOpenChange, record, onDeleteSucces
 
   const fed = parseVal(record.amountFed ?? record.weightFed ?? record.weightKg ?? 0);
   const recommended = parseVal(record.recommendedAmount ?? record.targetWeight ?? 0);
-  const status = record.status || (fed >= (recommended || 0.1) ? 'on-target' : 'below');
+  const status = record.status || 'PENDING';
 
   const getStatusColor = (s: string) => {
     switch (s.toLowerCase()) {

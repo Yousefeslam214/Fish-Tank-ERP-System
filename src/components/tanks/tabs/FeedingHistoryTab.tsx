@@ -15,7 +15,6 @@ interface FeedingHistoryTabProps {
   tankBatches: any[];
 }
 
-type FeedingStatus = "on-target" | "below" | "critical" | "above";
 
 export function FeedingHistoryTab({
   tankFeedingCalculation,
@@ -27,52 +26,6 @@ export function FeedingHistoryTab({
   user,
   tankBatches,
 }: FeedingHistoryTabProps) {
-  const normalizeStatus = (status: string = ""): FeedingStatus => {
-    const normalized = status
-      .toLowerCase()
-      .replace(/[_-]+/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    if (normalized.includes("critical")) return "critical";
-    if (normalized.includes("above") || normalized.includes("over")) return "above";
-    if (
-      normalized.includes("on target") ||
-      normalized === "ok" ||
-      normalized === "optimal"
-    ) {
-      return "on-target";
-    }
-    return "below";
-  };
-
-  const getStatusLabel = (status: string = "") => {
-    switch (normalizeStatus(status)) {
-      case "on-target":
-        return "✅ On target";
-      case "critical":
-        return "❌ Critical";
-      case "above":
-        return "ℹ️ Above recommendation";
-      default:
-        return "⚠️ Below recommendation";
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (normalizeStatus(status)) {
-      case "on-target":
-        return "bg-[#10B981] text-white";
-      case "below":
-        return "bg-[#F59E0B] text-white";
-      case "critical":
-        return "bg-[#EF4444] text-white";
-      case "above":
-        return "bg-[#3B82F6] text-white";
-      default:
-        return "bg-gray-500 text-white";
-    }
-  };
 
   const parseVal = (val: any) => {
     if (typeof val === "number") return val;
@@ -105,8 +58,8 @@ export function FeedingHistoryTab({
 
   const dailyTarget = parseVal(
     tankFeedingCalculation?.recommendedAmount ||
-      tankFeedingCalculation?.totalRecommended ||
-      "0",
+    tankFeedingCalculation?.totalRecommended ||
+    "0",
   );
 
   React.useEffect(() => {
@@ -115,14 +68,14 @@ export function FeedingHistoryTab({
 
   return (
     <div className="space-y-4 pt-4">
-    
 
-  
+
+
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-gray-900">Feeding History Records</h3>
- <Button
+          <h3 className="font-semibold text-gray-900">Feeding History Records</h3>
+          <Button
             size="sm"
             className="bg-[#088395] hover:bg-[#0A4D68]"
             onClick={() => setShowFeedingModal(true)}
@@ -130,7 +83,7 @@ export function FeedingHistoryTab({
             <Fish className="w-4 h-4 mr-2" />
             Record Feeding
           </Button>
-          </div>
+        </div>
         <div className="space-y-3">
           {feedingRecords.length === 0 ? (
             <p className="text-sm text-gray-500 text-center py-8">
@@ -153,10 +106,6 @@ export function FeedingHistoryTab({
                 );
                 const recommended = parseVal(
                   record.recommendedAmount ?? record.targetWeight ?? 0,
-                );
-                const status = normalizeStatus(
-                  record.status ||
-                    (fed >= (recommended || 0.1) ? "on-target" : "below"),
                 );
                 const achievementVal = calcAchievementPercent(
                   fed,
@@ -184,11 +133,23 @@ export function FeedingHistoryTab({
                                 {record.formattedDate ||
                                   `${new Date(record.timestamp || record.fedAt || record.createdAt).toLocaleDateString()} at ${record.time || new Date(record.timestamp || record.fedAt || record.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
                               </span>
-                              <Badge
-                                className={`${getStatusColor(status)} font-bold px-3 py-1 uppercase text-[10px] tracking-widest border-none shadow-sm`}
-                              >
-                                {(record.statusLabel || status).toUpperCase()}
-                              </Badge>
+                              <div className="flex items-center gap-2">
+                                <Badge
+                                  className={`${record.status?.toUpperCase() === "COMPLETED" ? "bg-[#10B981]" : "bg-[#F59E0B]"} font-bold px-2 py-0.5 uppercase text-[9px] tracking-widest border-none shadow-sm text-white`}
+                                >
+                                  {record.status || "PENDING"}
+                                </Badge>
+                                {record.statusLabel && (
+                                  <Badge
+                                    className={`${record.statusLabel.toUpperCase().includes("TARGET") || record.statusLabel.toUpperCase() === "OK"
+                                        ? "bg-[#10B981]"
+                                        : (record.statusLabel.toUpperCase().includes("CRITICAL") ? "bg-[#EF4444]" : "bg-[#F59E0B]")
+                                      } font-bold px-3 py-1 uppercase text-[10px] tracking-widest border-none shadow-sm text-white`}
+                                  >
+                                    {record.statusLabel}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           </div>
 
@@ -229,14 +190,14 @@ export function FeedingHistoryTab({
                                 title={
                                   typeof record.foodType === "object"
                                     ? record.foodType?.name ||
-                                      record.foodType?.brand
+                                    record.foodType?.brand
                                     : record.foodType || record.feedType
                                 }
                               >
                                 {typeof record.foodType === "object"
                                   ? record.foodType?.name ||
-                                    record.foodType?.brand ||
-                                    "Standard Feed"
+                                  record.foodType?.brand ||
+                                  "Standard Feed"
                                   : record.foodType || record.feedType || "N/A"}
                               </p>
                             </div>

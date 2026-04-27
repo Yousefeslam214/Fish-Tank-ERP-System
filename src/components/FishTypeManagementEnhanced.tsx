@@ -42,20 +42,17 @@ interface FishTypeFormState {
   arabicName: string;
   description: string;
   tempMin: number;
-  tempOptimal: number;
   tempMax: number;
   doMin: number;
-  doSafe: number;
+  doMax: number;
   phMin: number;
   phMax: number;
-  nh3Safe: number;
-  nh3Critical: number;
+  nh3Min: number;
+  nh3Max: number;
+  no2Min: number;
   no2Max: number;
-  no3Max: number;
-  salinityMin: number;
-  salinityMax: number;
-  alkalinityMin: number;
-  alkalinityMax: number;
+  turbidityMin: number;
+  turbidityMax: number;
   fcrMin: number;
   fcrMax: number;
   survivalRate: number;
@@ -71,7 +68,7 @@ interface FishTypeFormState {
   isActive: boolean;
 }
 
-const CRITICAL_PARAMETER_OPTIONS = ['Temperature', 'DO', 'pH', 'NH3', 'NO2', 'NO3', 'Salinity'];
+const CRITICAL_PARAMETER_OPTIONS = ['Temperature', 'Dissolved Oxygen', 'pH', 'Ammonia', 'Nitrite', 'Turbidity'];
 
 const createDefaultFeedingRateMatrix = (): FeedingRateMatrix => ({
   weight_ranges: [
@@ -129,20 +126,17 @@ const getDefaultFormState = (): FishTypeFormState => ({
   arabicName: '',
   description: '',
   tempMin: 20,
-  tempOptimal: 28,
   tempMax: 32,
   doMin: 3,
-  doSafe: 5,
+  doMax: 8,
   phMin: 6.5,
   phMax: 8.5,
-  nh3Safe: 0.02,
-  nh3Critical: 0.05,
+  nh3Min: 0,
+  nh3Max: 0.05,
+  no2Min: 0,
   no2Max: 0.2,
-  no3Max: 40,
-  salinityMin: 0,
-  salinityMax: 12,
-  alkalinityMin: 50,
-  alkalinityMax: 300,
+  turbidityMin: 0,
+  turbidityMax: 10,
   fcrMin: 1.2,
   fcrMax: 1.8,
   survivalRate: 85,
@@ -164,20 +158,17 @@ const toFormState = (fishType: FishTypeRecord): FishTypeFormState => ({
   arabicName: fishType.arabicName || '',
   description: fishType.description || '',
   tempMin: fishType.tempMin,
-  tempOptimal: fishType.tempOptimal,
   tempMax: fishType.tempMax,
   doMin: fishType.doMin,
-  doSafe: fishType.doSafe,
+  doMax: fishType.doSafe || 0,
   phMin: fishType.phMin,
   phMax: fishType.phMax,
-  nh3Safe: fishType.nh3Safe,
-  nh3Critical: fishType.nh3Critical,
+  nh3Min: fishType.nh3Safe || 0,
+  nh3Max: fishType.nh3Critical || 0,
+  no2Min: 0,
   no2Max: fishType.no2Max,
-  no3Max: fishType.no3Max ?? 0,
-  salinityMin: fishType.salinityMin ?? 0,
-  salinityMax: fishType.salinityMax ?? 0,
-  alkalinityMin: fishType.alkalinityMin ?? 0,
-  alkalinityMax: fishType.alkalinityMax ?? 0,
+  turbidityMin: fishType.turbidityMin || 0,
+  turbidityMax: fishType.turbidityMax || 0,
   fcrMin: fishType.fcrMin,
   fcrMax: fishType.fcrMax,
   survivalRate: fishType.survivalRate,
@@ -277,20 +268,17 @@ const toUpsertPayload = (form: FishTypeFormState): FishTypeUpsertPayload => ({
   arabicName: form.arabicName.trim() || undefined,
   description: form.description.trim() || undefined,
   tempMin: form.tempMin,
-  tempOptimal: form.tempOptimal,
+  tempOptimal: (form.tempMin + form.tempMax) / 2,
   tempMax: form.tempMax,
   doMin: form.doMin,
-  doSafe: form.doSafe,
+  doSafe: form.doMax,
   phMin: form.phMin,
   phMax: form.phMax,
-  nh3Safe: form.nh3Safe,
-  nh3Critical: form.nh3Critical,
+  nh3Safe: form.nh3Min,
+  nh3Critical: form.nh3Max,
   no2Max: form.no2Max,
-  no3Max: form.no3Max,
-  salinityMin: form.salinityMin,
-  salinityMax: form.salinityMax,
-  alkalinityMin: form.alkalinityMin,
-  alkalinityMax: form.alkalinityMax,
+  turbidityMin: form.turbidityMin,
+  turbidityMax: form.turbidityMax,
   fcrMin: form.fcrMin,
   fcrMax: form.fcrMax,
   survivalRate: form.survivalRate,
@@ -673,7 +661,7 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
                   <p>Temp: {fishType.tempMin} - {fishType.tempMax} °C</p>
-                  <p>DO Safe: {fishType.doSafe} mg/L</p>
+                  <p>DO: {fishType.doMin} - {fishType.doSafe} mg/L</p>
                   <p>FCR Target: {fishType.fcrMin} - {fishType.fcrMax}</p>
                   <p>Survival Rate: {fishType.survivalRate}%</p>
                   <Button variant="outline" className="w-full" onClick={() => void openEditModal(fishType.id)}>
@@ -879,97 +867,43 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
 
             <TabsContent value="water" className="space-y-6 mt-0 border border-[#D3E1E8] rounded-lg bg-white p-4">
               <div>
-                <h3 className="text-lg font-semibold text-[#1F2937] mb-4">Water Quality Parameters</h3>
+                <h3 className="text-lg font-semibold text-[#1F2937] mb-4">Water Quality Thresholds (Min - Max)</h3>
 
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="text-sm font-semibold text-[#374151] mb-3">Temperature (°C)</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {[
-                        { key: 'tempMin', label: 'Minimum' },
-                        { key: 'tempOptimal', label: 'Optimal' },
-                        { key: 'tempMax', label: 'Maximum' },
-                      ].map(({ key, label }) => (
-                        <div key={key}>
-                          <Label className="text-xs text-gray-600">{label}</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {[
+                    { label: 'Temperature (°C)', minKey: 'tempMin', maxKey: 'tempMax', step: '0.1' },
+                    { label: 'Dissolved Oxygen (mg/L)', minKey: 'doMin', maxKey: 'doMax', step: '0.1' },
+                    { label: 'pH', minKey: 'phMin', maxKey: 'phMax', step: '0.1' },
+                    { label: 'Ammonia (mg/L)', minKey: 'nh3Min', maxKey: 'nh3Max', step: '0.01' },
+                    { label: 'Nitrite (mg/L)', minKey: 'no2Min', maxKey: 'no2Max', step: '0.01' },
+                    { label: 'Turbidity (NTU)', minKey: 'turbidityMin', maxKey: 'turbidityMax', step: '0.1' },
+                  ].map(({ label, minKey, maxKey, step }) => (
+                    <div key={label} className="p-3 border rounded-lg bg-gray-50/50 space-y-3">
+                      <h4 className="text-sm font-bold text-[#0A4D68] border-b pb-1">{label}</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs font-medium text-gray-500 mb-1 block">Minimum</Label>
                           <Input
                             type="number"
-                            value={formState[key as keyof FishTypeFormState] as number}
-                            onChange={(event) =>
-                              setFormState((previous) => ({
-                                ...previous,
-                                [key]: toNumber(event.target.value),
-                              }))
-                            }
+                            step={step}
+                            value={formState[minKey as keyof FishTypeFormState] as number}
+                            onChange={(e) => setFormState(prev => ({ ...prev, [minKey]: toNumber(e.target.value) }))}
+                            className="h-9 bg-white"
                           />
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {[
-                      {
-                        title: 'Dissolved Oxygen (mg/L)',
-                        fields: [
-                          { key: 'doMin', label: 'Minimum' },
-                          { key: 'doSafe', label: 'Safe' },
-                        ],
-                      },
-                      {
-                        title: 'pH Range',
-                        fields: [
-                          { key: 'phMin', label: 'Minimum' },
-                          { key: 'phMax', label: 'Maximum' },
-                        ],
-                      },
-                    ].map(({ title, fields }) => (
-                      <div key={title} className="space-y-3">
-                        <h4 className="text-sm font-semibold text-[#374151]">{title}</h4>
-                        <div className="grid grid-cols-2 gap-3">
-                          {fields.map(({ key, label }) => (
-                            <div key={key}>
-                              <Label className="text-xs text-gray-600">{label}</Label>
-                              <Input
-                                type="number"
-                                step="0.1"
-                                value={formState[key as keyof FishTypeFormState] as number}
-                                onChange={(event) =>
-                                  setFormState((previous) => ({
-                                    ...previous,
-                                    [key]: toNumber(event.target.value),
-                                  }))
-                                }
-                              />
-                            </div>
-                          ))}
+                        <div>
+                          <Label className="text-xs font-medium text-gray-500 mb-1 block">Maximum</Label>
+                          <Input
+                            type="number"
+                            step={step}
+                            value={formState[maxKey as keyof FishTypeFormState] as number}
+                            onChange={(e) => setFormState(prev => ({ ...prev, [maxKey]: toNumber(e.target.value) }))}
+                            className="h-9 bg-white"
+                          />
                         </div>
                       </div>
-                    ))}
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {[
-                      { key: 'nh3Safe', label: 'NH₃ Safe (mg/L)', step: '0.01' },
-                      { key: 'nh3Critical', label: 'NH₃ Critical (mg/L)', step: '0.01' },
-                      { key: 'no2Max', label: 'NO₂ Max (mg/L)', step: '0.1' },
-                    ].map(({ key, label, step }) => (
-                      <div key={key}>
-                        <Label className="text-xs font-medium text-gray-700">{label}</Label>
-                        <Input
-                          type="number"
-                          step={step}
-                          value={formState[key as keyof FishTypeFormState] as number}
-                          onChange={(event) =>
-                            setFormState((previous) => ({
-                              ...previous,
-                              [key]: toNumber(event.target.value),
-                            }))
-                          }
-                        />
-                      </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -998,9 +932,8 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
                       </div>
                     ))}
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {[
-                      { key: 'no3Max', label: 'NO₃ Max (mg/L)' },
                       { key: 'targetWeightForHarvest', label: 'Target Weight For Harvest (kg)' },
                       { key: 'defaultMarketPrice', label: 'Default Market Price (EGP/kg)' },
                     ].map(({ key, label }) => (
@@ -1294,18 +1227,18 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
                 </CardContent>
               </Card>
 
-            
+
 
               <Card className="bg-white border border-[#D3E1E8]">
                 <CardContent className="pt-4 space-y-4"> <div>
-                    <Label className="text-sm font-medium">Notes</Label>
-                    <Textarea
-                      rows={3}
-                      placeholder="Additional notes..."
-                      value={formState.notes}
-                      onChange={(event) => setFormState((previous) => ({ ...previous, notes: event.target.value }))}
-                    />
-                  </div>
+                  <Label className="text-sm font-medium">Notes</Label>
+                  <Textarea
+                    rows={3}
+                    placeholder="Additional notes..."
+                    value={formState.notes}
+                    onChange={(event) => setFormState((previous) => ({ ...previous, notes: event.target.value }))}
+                  />
+                </div>
                 </CardContent>
               </Card>
             </TabsContent>
