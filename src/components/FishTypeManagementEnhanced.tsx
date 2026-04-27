@@ -730,7 +730,7 @@ export default function FishTypeManagementEnhanced({ user, selectedFarm }: FishT
                   {feedingRateResult ? `${feedingRateResult.feedingRatePercentage}% body weight/day` : 'Run calculator'}
                 </CardContent>
               </Card>
-// Meal frequency card removed
+
               <Card className="bg-gray-50">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm">Protein Requirement</CardTitle>
