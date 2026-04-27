@@ -483,7 +483,9 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
         temp: r.temperature ?? r.temp,
         do: r.dissolvedOxygen ?? r.do,
         ph: r.pH ?? r.ph,
-        nh3: r.totalAmmonia ?? r.ammonia ?? r.nh3
+        nh3: r.totalAmmonia ?? r.ammonia ?? r.nh3,
+        no2: r.nitrite ?? r.no2 ?? 0,
+        ntu: r.turbidity ?? r.ntu ?? 0
       }));
   }, [waterQualityRecords]);
 

@@ -50,6 +50,7 @@ export default function Sidebar({
     { id: "harvest", label: "Harvest", icon: Scissors },
     { id: "fish-types", label: "Fish Types", icon: Fish },
     { id: "food-types", label: "Food Types", icon: Wheat },
+    { id: "health", label: "Health Library", icon: Heart },
     { id: "ai-assistant", label: "AI Assistant", icon: Bot },
     { id: "iot-management", label: "Sensors readings", icon: Cpu },
     { id: "farms", label: "Farms", icon: Tractor },
@@ -85,7 +86,7 @@ export default function Sidebar({
       icon: ShoppingCart,
       comingSoon: true,
     },
-    { id: "health", label: "Health Library", icon: Heart },
+    
   ];
 
   const visibleMenuItems = menuItems.filter(

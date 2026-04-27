@@ -30,7 +30,6 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
   const [phValue, setPhValue] = useState<number | string>('');
   const [totalAmmonia, setTotalAmmonia] = useState<number | string>('');
   const [nitrite, setNitrite] = useState<number | string>('');
-  const [nitrate, setNitrate] = useState<number | string>('');
 
   const [salinity, setSalinity] = useState('');
   const [alkalinity, setAlkalinity] = useState('');
@@ -83,7 +82,6 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
         setPhValue(initialRecord.pH ?? initialRecord.ph ?? 7.8);
         setTotalAmmonia(initialRecord.totalAmmonia ?? initialRecord.ammonia ?? 0.15);
         setNitrite(initialRecord.nitrite ?? initialRecord.no2 ?? 0.08);
-        setNitrate(initialRecord.nitrate ?? initialRecord.no3 ?? 20);
         setSalinity(initialRecord.salinity?.toString() ?? '');
         setAlkalinity(initialRecord.alkalinity?.toString() ?? '');
         setHardness(initialRecord.hardness?.toString() ?? '');
@@ -97,7 +95,6 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
         setPhValue('');
         setTotalAmmonia('');
         setNitrite('');
-        setNitrate('');
         setSalinity('');
         setAlkalinity('');
         setHardness('');
@@ -205,7 +202,7 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
       const numPh = typeof phValue === 'string' ? parseFloat(phValue) : phValue;
       const numAmmonia = typeof totalAmmonia === 'string' ? parseFloat(totalAmmonia) : totalAmmonia;
       const numNitrite = typeof nitrite === 'string' ? parseFloat(nitrite) : nitrite;
-      const numNitrate = typeof nitrate === 'string' ? parseFloat(nitrate) : nitrate;
+      const numNitrate = 0;
       const numTurbidity = typeof turbidity === 'string' ? parseFloat(turbidity) : turbidity;
 
       if (
@@ -313,14 +310,14 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
                   : sensorRegistered
                     ? 'border-yellow-200 bg-yellow-50 text-yellow-800'
                     : 'border-gray-200 bg-gray-50 text-gray-700'
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <span
                     className={`inline-block h-2.5 w-2.5 rounded-full ${
                       isLiveSensorConnected ? 'bg-green-500' : sensorRegistered ? 'bg-yellow-500' : 'bg-gray-400'
-                    }`}
+                      }`}
                   />
                   <span className="font-medium">
                     {sensorRegistrationLoading
@@ -388,11 +385,6 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
                 <p className="text-xs text-gray-600">mg/L</p>
               </div>
 
-              <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
-                <Label className="text-sm font-medium">Nitrate (NO3) *</Label>
-                <Input type="number" value={nitrate} onChange={(e) => setNitrate(e.target.value)} step={0.1} />
-                <p className="text-xs text-gray-600">mg/L</p>
-              </div>
 
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
                 <Label className="text-sm font-medium">Turbidity *</Label>
@@ -408,11 +400,11 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
             </div>
           </div>
 
-      
 
-     
 
-     
+
+
+
 
           <div className="flex gap-3 pt-2">
             <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>Cancel</Button>

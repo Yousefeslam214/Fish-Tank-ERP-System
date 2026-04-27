@@ -116,108 +116,107 @@ export function WaterQualityTab({
       {(Object.keys(localAssessments).length > 0 ||
         Object.keys(batchAssessments).length > 0 ||
         isLoadingAssessments) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          {isLoadingAssessments &&
-          Object.keys(localAssessments).length === 0 ? (
-            <Card className="md:col-span-2 py-8 flex flex-col items-center justify-center">
-              <RefreshCw className="w-6 h-6 animate-spin text-[#088395] mb-2" />
-              <p className="text-xs text-gray-500 font-medium">
-                Analyzing water quality assessments...
-              </p>
-            </Card>
-          ) : (
-            tankBatches.map((batch) => {
-              const assessmentRaw =
-                localAssessments[batch.id] || batchAssessments[batch.id];
-              if (!assessmentRaw) return null;
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            {isLoadingAssessments &&
+              Object.keys(localAssessments).length === 0 ? (
+              <Card className="md:col-span-2 py-8 flex flex-col items-center justify-center">
+                <RefreshCw className="w-6 h-6 animate-spin text-[#088395] mb-2" />
+                <p className="text-xs text-gray-500 font-medium">
+                  Analyzing water quality assessments...
+                </p>
+              </Card>
+            ) : (
+              tankBatches.map((batch) => {
+                const assessmentRaw =
+                  localAssessments[batch.id] || batchAssessments[batch.id];
+                if (!assessmentRaw) return null;
 
-              const assessment = assessmentRaw.data || assessmentRaw;
-              const status =
-                assessment.status || assessment.overallStatus || "OPTIMAL";
-              const isCritical = status === "CRITICAL";
-              const isWarning = status === "WARNING" || status === "CAUTION";
-              const params = assessment.parameters || {};
-              const parameterCards = [
-                { label: 'Temperature', data: params.temperature },
-                { label: 'Dissolved Oxygen', data: params.dissolvedOxygen || params.do },
-                { label: 'pH', data: params.pH || params.ph },
-                { label: 'Ammonia', data: params.ammonia || params.totalAmmonia || params.nh3 },
-                { label: 'Nitrite', data: params.nitrite || params.no2 },
-                { label: 'Turbidity', data: params.turbidity },
-              ];
+                const assessment = assessmentRaw.data || assessmentRaw;
+                const status =
+                  assessment.status || assessment.overallStatus || "OPTIMAL";
+                const isCritical = status === "CRITICAL";
+                const isWarning = status === "WARNING" || status === "CAUTION";
+                const params = assessment.parameters || {};
+                const parameterCards = [
+                  { label: 'Temperature', data: params.temperature },
+                  { label: 'Dissolved Oxygen', data: params.dissolvedOxygen || params.do },
+                  { label: 'pH', data: params.pH || params.ph },
+                  { label: 'Ammonia', data: params.ammonia || params.totalAmmonia || params.nh3 },
+                  { label: 'Nitrite', data: params.nitrite || params.no2 },
+                  { label: 'Turbidity', data: params.turbidity },
+                ];
 
-              return (
-                <Card
-                  key={batch.id}
-                  className={`border-l-4 ${isCritical ? "border-l-red-500" : isWarning ? "border-l-yellow-500" : "border-l-green-500"} group hover:shadow-md transition-all shadow-sm`}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <Activity
-                          className={`w-4 h-4 ${isCritical ? "text-red-500" : isWarning ? "text-yellow-500" : "text-green-500"}`}
-                        />
-                        <div>
-                          <span className="font-bold text-gray-900 block tracking-tight">
-                            Batch:{" "}
-                            {batch.batchNumber ||
-                              batch.name ||
-                              batch.id?.slice(0, 6) ||
-                              "Unassigned"}
-                          </span>
-                          <p
-                            className="text-sm text-gray-600"
-                            style={{ color: "#000000", fontWeight: "bolder" }}
-                          >
-                            ID:{" "}
-                            <span style={{ color: "#04b13d" }}>
-                              {batch.id.split("-")[0]}
+                return (
+                  <Card
+                    key={batch.id}
+                    className={`border-l-4 ${isCritical ? "border-l-red-500" : isWarning ? "border-l-yellow-500" : "border-l-green-500"} group hover:shadow-md transition-all shadow-sm`}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Activity
+                            className={`w-4 h-4 ${isCritical ? "text-red-500" : isWarning ? "text-yellow-500" : "text-green-500"}`}
+                          />
+                          <div>
+                            <span className="font-bold text-gray-900 block tracking-tight">
+                              Batch:{" "}
+                              {batch.batchNumber ||
+                                batch.name ||
+                                batch.id?.slice(0, 6) ||
+                                "Unassigned"}
                             </span>
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {isLoadingAssessments && (
-                          <RefreshCw className="w-3 h-3 animate-spin text-gray-400" />
-                        )}
-                        <Badge
-                          className={`${isCritical ? "bg-red-500" : isWarning ? "bg-yellow-500" : "bg-green-500"} font-bold uppercase text-[9px] tracking-wider`}
-                        >
-                          {status}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    <p className="text-sm text-gray-700 mb-4 font-medium leading-relaxed">
-                      {isCritical || isWarning
-                        ? "Action required to stabilize parameters."
-                        : "Water quality is within optimal range for this batch."}
-                    </p>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
-                      {parameterCards.map(({ label, data }) => (
-                        <div key={label} className="flex flex-col p-2 bg-gray-50 rounded-lg border border-gray-100">
-                          <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1 line-clamp-1">{label}</span>
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="font-bold text-[10px] text-gray-900 truncate">{data?.value ?? 'N/A'}</span>
-                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                              !data?.status ? 'bg-gray-300' :
-                              data.status === 'OPTIMAL' ? 'bg-green-500' :
-                              data.status === 'WARNING' ? 'bg-yellow-500' : 'bg-red-500'
-                            }`} />
+                            <p
+                              className="text-sm text-gray-600"
+                              style={{ color: "#000000", fontWeight: "bolder" }}
+                            >
+                              ID:{" "}
+                              <span style={{ color: "#04b13d" }}>
+                                {batch.id.split("-")[0]}
+                              </span>
+                            </p>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                        <div className="flex items-center gap-2">
+                          {isLoadingAssessments && (
+                            <RefreshCw className="w-3 h-3 animate-spin text-gray-400" />
+                          )}
+                          <Badge
+                            className={`${isCritical ? "bg-red-500" : isWarning ? "bg-yellow-500" : "bg-green-500"} font-bold uppercase text-[9px] tracking-wider`}
+                          >
+                            {status}
+                          </Badge>
+                        </div>
+                      </div>
 
-                  
-                  </CardContent>
-                </Card>
-              );
-            })
-          )}
-        </div>
-      )}
+                      <p className="text-sm text-gray-700 mb-4 font-medium leading-relaxed">
+                        {isCritical || isWarning
+                          ? "Action required to stabilize parameters."
+                          : "Water quality is within optimal range for this batch."}
+                      </p>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+                        {parameterCards.map(({ label, data }) => (
+                          <div key={label} className="flex flex-col p-2 bg-gray-50 rounded-lg border border-gray-100">
+                            <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1 line-clamp-1">{label}</span>
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-bold text-[10px] text-gray-900 truncate">{data?.value ?? 'N/A'}</span>
+                              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${!data?.status ? 'bg-gray-300' :
+                                  data.status === 'OPTIMAL' ? 'bg-green-500' :
+                                    data.status === 'WARNING' ? 'bg-yellow-500' : 'bg-red-500'
+                                }`} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+        )}
 
       {/* Chart */}
       <Card>
@@ -307,6 +306,26 @@ export function WaterQualityTab({
                 dot={{ r: 4, fill: "#EF4444", strokeWidth: 2, stroke: "#fff" }}
                 activeDot={{ r: 6 }}
                 name="NH₃ (mg/L)"
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="no2"
+                stroke="#A855F7"
+                strokeWidth={3}
+                dot={{ r: 4, fill: "#A855F7", strokeWidth: 2, stroke: "#fff" }}
+                activeDot={{ r: 6 }}
+                name="NO₂ (mg/L)"
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="ntu"
+                stroke="#8B4513"
+                strokeWidth={3}
+                dot={{ r: 4, fill: "#8B4513", strokeWidth: 2, stroke: "#fff" }}
+                activeDot={{ r: 6 }}
+                name="Turbidity (NTU)"
               />
             </LineChart>
           </ResponsiveContainer>
@@ -416,15 +435,15 @@ export function WaterQualityTab({
                             )}
                             {(record.turbidity !== undefined ||
                               record.ntu !== undefined) && (
-                              <div className="space-y-1">
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                                  Turbidity
-                                </p>
-                                <p className="font-bold text-gray-900">
-                                  {record.turbidity ?? record.ntu} NTU
-                                </p>
-                              </div>
-                            )}
+                                <div className="space-y-1">
+                                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                                    Turbidity
+                                  </p>
+                                  <p className="font-bold text-gray-900">
+                                    {record.turbidity ?? record.ntu} NTU
+                                  </p>
+                                </div>
+                              )}
                           </div>
                         </div>
 
