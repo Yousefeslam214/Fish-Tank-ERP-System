@@ -18,6 +18,11 @@ interface TankAssignmentsTabProps {
   user: any;
 }
 
+const isWorkerRole = (role: string) => {
+  const normalized = String(role || '').trim().toUpperCase();
+  return normalized === 'WORKER';
+};
+
 export function TankAssignmentsTab({ tank, user }: TankAssignmentsTabProps) {
   const farmId = tank?.farmId || user?.farmId || '';
   const storageKey = `tank-assignments:${farmId || 'global'}`;
@@ -95,12 +100,25 @@ export function TankAssignmentsTab({ tank, user }: TankAssignmentsTabProps) {
   }, [loadData]);
 
   const availableUsers = useMemo(
-    () => farmUsers.filter((item) => !assignedUserIds.includes(item.id)),
+    () =>
+      farmUsers.filter(
+        (item) => !assignedUserIds.includes(item.id) && isWorkerRole(item.role),
+      ),
     [farmUsers, assignedUserIds],
   );
 
   const assignedUsers = useMemo(
-    () => assignedUserIds.map((id) => farmUsers.find((u) => u.id === id) || { id, name: `User ${id.slice(0, 6)}`, role: 'UNKNOWN' }),
+    () =>
+      assignedUserIds
+        .map(
+          (id) =>
+            farmUsers.find((u) => u.id === id) || {
+              id,
+              name: `User ${id.slice(0, 6)}`,
+              role: 'UNKNOWN',
+            },
+        )
+        .filter((member) => isWorkerRole(member.role) || member.role === 'UNKNOWN'),
     [assignedUserIds, farmUsers],
   );
 

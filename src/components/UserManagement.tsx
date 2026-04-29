@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { RefreshCw, ShieldUser, UserPlus, Users, Search, Loader2 } from 'lucide-react';
 import { User, Farm } from '../types';
+import { apiGet } from '../api';
 import { mockFarms } from '../mockData';
 import { getMetadata, MetadataEnumEntry, MetadataModule } from '../services/metaApi';
 import {
@@ -20,6 +21,11 @@ import {
   updateUserRoleAndFarms,
   UserModuleAction,
 } from '../services/userManagementApi';
+import {
+  assignUserToTank,
+  getTankAssignedUserIds,
+  unassignUserFromTank,
+} from '../services/tankAssignmentApi';
 
 interface UserManagementProps {
   user: User;
@@ -50,6 +56,12 @@ interface EditUserModulesState {
   user: ManagedUserRecord | null;
   action: UserModuleAction;
   moduleIds: string[];
+}
+
+interface TankOption {
+  id: string;
+  name: string;
+  farmId: string;
 }
 
 const DEFAULT_FORM: StaffRegistrationForm = {
@@ -126,6 +138,11 @@ const getEnumOptionValues = (entries: MetadataEnumEntry[] | undefined, fallback:
   return values.length > 0 ? Array.from(new Set(values)) : fallback;
 };
 
+const isTechnicianRole = (role: string): boolean => {
+  const normalized = String(role || '').trim().toUpperCase();
+  return normalized === 'TECHNICIAN' || normalized === 'TECNICAN';
+};
+
 export default function UserManagement({ user, selectedFarm }: UserManagementProps) {
   const currentFarm = selectedFarm || mockFarms[0];
 
@@ -153,6 +170,11 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
     action: 'ADD',
     moduleIds: [],
   });
+  const [tankOptions, setTankOptions] = useState<TankOption[]>([]);
+  const [selectedTankId, setSelectedTankId] = useState('');
+  const [selectedTechnicianId, setSelectedTechnicianId] = useState('');
+  const [assignedTankUserIds, setAssignedTankUserIds] = useState<string[]>([]);
+  const [loadingTankAssignments, setLoadingTankAssignments] = useState(false);
 
   const roleOptions = useMemo(
     () => resolveRoleOptions(metadataEnums.userRoles),
@@ -202,6 +224,29 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
     });
   }, [searchTerm, users]);
 
+  const canManageTechnicianAssignments = String(user.role || '').trim().toLowerCase() === 'admin';
+
+  const technicianUsers = useMemo(
+    () => users.filter((entry) => isTechnicianRole(entry.role)),
+    [users],
+  );
+
+  const selectedTankAssignedTechnicians = useMemo(
+    () =>
+      assignedTankUserIds
+        .map((id) => technicianUsers.find((entry) => entry.id === id))
+        .filter((entry): entry is ManagedUserRecord => Boolean(entry)),
+    [assignedTankUserIds, technicianUsers],
+  );
+
+  const availableTechniciansForSelectedTank = useMemo(
+    () =>
+      technicianUsers.filter(
+        (entry) => !assignedTankUserIds.includes(entry.id),
+      ),
+    [assignedTankUserIds, technicianUsers],
+  );
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setErrorMessage(null);
@@ -234,6 +279,95 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  const loadTankOptions = useCallback(async () => {
+    try {
+      const payload = await apiGet<{ data?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>>('/tanks');
+      const list = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+      const normalized = list
+        .map((entry) => {
+          const id = String(entry?.id ?? entry?._id ?? '').trim();
+          if (!id) return null;
+          const farmId = String(entry?.farmId ?? entry?.farm ?? currentFarm.id ?? '').trim();
+          return {
+            id,
+            name: String(entry?.name ?? `Tank ${id.slice(0, 8)}`),
+            farmId,
+          } as TankOption;
+        })
+        .filter((entry): entry is TankOption => Boolean(entry))
+        .filter((entry) => !currentFarm?.id || entry.farmId === currentFarm.id);
+
+      setTankOptions(normalized);
+      if (normalized.length > 0) {
+        setSelectedTankId((previous) =>
+          previous && normalized.some((entry) => entry.id === previous)
+            ? previous
+            : normalized[0].id,
+        );
+      } else {
+        setSelectedTankId('');
+      }
+    } catch {
+      setTankOptions([]);
+      setSelectedTankId('');
+    }
+  }, [currentFarm.id]);
+
+  useEffect(() => {
+    if (!canManageTechnicianAssignments) return;
+    void loadTankOptions();
+  }, [canManageTechnicianAssignments, loadTankOptions]);
+
+  useEffect(() => {
+    if (!canManageTechnicianAssignments || !selectedTankId) {
+      setAssignedTankUserIds([]);
+      return;
+    }
+
+    setLoadingTankAssignments(true);
+    getTankAssignedUserIds(selectedTankId)
+      .then((ids) => setAssignedTankUserIds(Array.from(new Set(ids))))
+      .catch(() => setAssignedTankUserIds([]))
+      .finally(() => setLoadingTankAssignments(false));
+  }, [canManageTechnicianAssignments, selectedTankId]);
+
+  const assignTechnicianToTank = async () => {
+    if (!selectedTankId || !selectedTechnicianId) return;
+    try {
+      setSubmitting(true);
+      await assignUserToTank(selectedTankId, selectedTechnicianId);
+      const refreshedIds = await getTankAssignedUserIds(selectedTankId).catch(
+        () => [...assignedTankUserIds, selectedTechnicianId],
+      );
+      setAssignedTankUserIds(Array.from(new Set(refreshedIds)));
+      setSelectedTechnicianId('');
+      setSuccessMessage('Technician assigned to tank successfully.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to assign technician to tank.';
+      setErrorMessage(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const unassignTechnicianFromTank = async (technicianId: string) => {
+    if (!selectedTankId) return;
+    try {
+      setSubmitting(true);
+      await unassignUserFromTank(selectedTankId, technicianId);
+      const refreshedIds = await getTankAssignedUserIds(selectedTankId).catch(
+        () => assignedTankUserIds.filter((id) => id !== technicianId),
+      );
+      setAssignedTankUserIds(Array.from(new Set(refreshedIds)));
+      setSuccessMessage('Technician unassigned from tank successfully.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to unassign technician from tank.';
+      setErrorMessage(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const resetRegistrationForm = () => {
     setRegistrationForm({
@@ -458,6 +592,115 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
             </CardContent>
           </Card>
         )}
+
+        <Card className="bg-white shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Assign Technicians To Tanks
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!canManageTechnicianAssignments ? (
+              <p className="text-sm text-gray-600">
+                Only admin users can manage technician tank assignments.
+              </p>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="assign-tank">Tank</Label>
+                    <select
+                      id="assign-tank"
+                      className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm"
+                      value={selectedTankId}
+                      onChange={(event) => setSelectedTankId(event.target.value)}
+                    >
+                      {tankOptions.length === 0 && <option value="">No tanks available</option>}
+                      {tankOptions.map((tankEntry) => (
+                        <option key={`assign-tank-${tankEntry.id}`} value={tankEntry.id}>
+                          {formatNameWithId(tankEntry.name, tankEntry.id)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="assign-technician">Technician</Label>
+                    <select
+                      id="assign-technician"
+                      className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm"
+                      value={selectedTechnicianId}
+                      onChange={(event) => setSelectedTechnicianId(event.target.value)}
+                    >
+                      <option value="">Select technician</option>
+                      {availableTechniciansForSelectedTank.map((technicianEntry) => (
+                        <option
+                          key={`assign-technician-${technicianEntry.id}`}
+                          value={technicianEntry.id}
+                        >
+                          {formatNameWithId(technicianEntry.name, technicianEntry.id)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => void assignTechnicianToTank()}
+                    disabled={
+                      submitting ||
+                      !selectedTankId ||
+                      !selectedTechnicianId ||
+                      loadingTankAssignments
+                    }
+                  >
+                    Assign Technician
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => void loadTankOptions()}
+                    disabled={submitting}
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Reload Tanks
+                  </Button>
+                </div>
+
+                <div className="rounded-md border p-3 space-y-2">
+                  <p className="text-sm font-medium">Assigned Technicians</p>
+                  {loadingTankAssignments ? (
+                    <p className="text-sm text-gray-500">Loading assignments...</p>
+                  ) : selectedTankAssignedTechnicians.length === 0 ? (
+                    <p className="text-sm text-gray-500">No technicians assigned to this tank.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedTankAssignedTechnicians.map((technicianEntry) => (
+                        <Badge
+                          key={`assigned-technician-${technicianEntry.id}`}
+                          variant="outline"
+                          className="flex items-center gap-2"
+                        >
+                          <span>{technicianEntry.name}</span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-red-600 hover:text-red-700"
+                            onClick={() => void unassignTechnicianFromTank(technicianEntry.id)}
+                            disabled={submitting}
+                          >
+                            Remove
+                          </Button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
           <Card className="xl:col-span-2 bg-white shadow-sm">

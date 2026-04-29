@@ -131,11 +131,11 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
   }, [selectedBatchId, open, tankBatches]);
 
   const dailyRecommended = parseWeightValue(
-    batchRequirement?.totalDailyFeedKg ||
-    batchRequirement?.recommendedAmount ||
-    batchRequirement?.totalRecommended ||
-    tank?.feeding?.recommended ||
-    90,
+    batchRequirement?.totalDailyFeedKg ??
+    batchRequirement?.recommendedAmount ??
+    batchRequirement?.totalRecommended ??
+    tank?.feeding?.recommended ??
+    0,
   );
 
   const currentTotalFed = parseWeightValue(
