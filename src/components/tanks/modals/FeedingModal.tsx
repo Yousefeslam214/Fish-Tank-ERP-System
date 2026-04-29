@@ -169,17 +169,6 @@ export function FeedingModal({ open, onOpenChange, tank, batchId, tankBatches = 
     }
   }, [batchRequirement, availableFoodTypes]);
 
-  // Auto-populate weight fed based on remaining recommendation
-  useEffect(() => {
-    if (open && dailyRecommended > 0 && weightFed === 0) {
-      const remaining =
-        currentTotalFed > 0
-          ? Math.max(0, dailyRecommended - currentTotalFed)
-          : dailyRecommended;
-      setWeightFed(Number(remaining.toFixed(2)));
-    }
-  }, [open, dailyRecommended, currentTotalFed, weightFed]);
-
   const handleSave = async () => {
     if (!foodTypeId) {
       toast.error('Please select a food type');

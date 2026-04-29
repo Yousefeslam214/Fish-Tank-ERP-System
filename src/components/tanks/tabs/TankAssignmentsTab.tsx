@@ -132,9 +132,9 @@ export function TankAssignmentsTab({ tank, user }: TankAssignmentsTabProps) {
       setAssignedUserIds(unique);
       saveLocalAssignments(unique);
       setSelectedAssignee('');
-      toast.success('User assigned successfully');
+      toast.success('Worker assigned successfully');
     } catch (err) {
-      toast.error(`Failed to assign user: ${(err as Error).message}`);
+      toast.error(`Failed to assign worker: ${(err as Error).message}`);
     } finally {
       setBusy(false);
     }
@@ -150,9 +150,9 @@ export function TankAssignmentsTab({ tank, user }: TankAssignmentsTabProps) {
       const unique = Array.from(new Set(refreshed));
       setAssignedUserIds(unique);
       saveLocalAssignments(unique);
-      toast.success('User unassigned successfully');
+      toast.success('Worker unassigned successfully');
     } catch (err) {
-      toast.error(`Failed to unassign user: ${(err as Error).message}`);
+      toast.error(`Failed to unassign worker: ${(err as Error).message}`);
     } finally {
       setBusy(false);
     }
@@ -164,7 +164,7 @@ export function TankAssignmentsTab({ tank, user }: TankAssignmentsTabProps) {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
             <Users className="h-5 w-5 text-[#0A4D68]" />
-            Assigned Users
+            Assigned Workers
           </CardTitle>
           <Button variant="outline" size="sm" onClick={() => void loadData()} disabled={loading}>
             <RefreshCw className={`mr-1 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
@@ -185,7 +185,7 @@ export function TankAssignmentsTab({ tank, user }: TankAssignmentsTabProps) {
             <p className="text-sm font-medium mb-2">Current Team</p>
             <div className="flex flex-wrap gap-2">
               {assignedUsers.length === 0 && (
-                <p className="text-sm text-gray-500">No users assigned yet.</p>
+                <p className="text-sm text-gray-500">No workers assigned yet.</p>
               )}
               {assignedUsers.map((member) => (
                 <Badge key={member.id} variant="outline" className="flex items-center gap-2 pr-1">
@@ -206,11 +206,11 @@ export function TankAssignmentsTab({ tank, user }: TankAssignmentsTabProps) {
           </div>
 
           <div className="border-t pt-4">
-            <p className="text-sm font-medium mb-2">Assign New User</p>
+            <p className="text-sm font-medium mb-2">Assign New Worker</p>
             <div className="flex flex-col gap-2 md:flex-row">
               <Select value={selectedAssignee} onValueChange={setSelectedAssignee}>
                 <SelectTrigger className="md:max-w-md">
-                  <SelectValue placeholder="Select user" />
+                  <SelectValue placeholder="Select worker" />
                 </SelectTrigger>
                 <SelectContent>
                   {availableUsers.map((item) => (
@@ -222,7 +222,7 @@ export function TankAssignmentsTab({ tank, user }: TankAssignmentsTabProps) {
               </Select>
               <Button onClick={() => void handleAssign()} disabled={!selectedAssignee || busy}>
                 <UserPlus className="mr-1 h-4 w-4" />
-                Assign
+                Assign Worker
               </Button>
             </div>
           </div>

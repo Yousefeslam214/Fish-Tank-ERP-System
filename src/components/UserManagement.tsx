@@ -593,115 +593,6 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
           </Card>
         )}
 
-        <Card className="bg-white shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              Assign Technicians To Tanks
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!canManageTechnicianAssignments ? (
-              <p className="text-sm text-gray-600">
-                Only admin users can manage technician tank assignments.
-              </p>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="assign-tank">Tank</Label>
-                    <select
-                      id="assign-tank"
-                      className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm"
-                      value={selectedTankId}
-                      onChange={(event) => setSelectedTankId(event.target.value)}
-                    >
-                      {tankOptions.length === 0 && <option value="">No tanks available</option>}
-                      {tankOptions.map((tankEntry) => (
-                        <option key={`assign-tank-${tankEntry.id}`} value={tankEntry.id}>
-                          {formatNameWithId(tankEntry.name, tankEntry.id)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="assign-technician">Technician</Label>
-                    <select
-                      id="assign-technician"
-                      className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm"
-                      value={selectedTechnicianId}
-                      onChange={(event) => setSelectedTechnicianId(event.target.value)}
-                    >
-                      <option value="">Select technician</option>
-                      {availableTechniciansForSelectedTank.map((technicianEntry) => (
-                        <option
-                          key={`assign-technician-${technicianEntry.id}`}
-                          value={technicianEntry.id}
-                        >
-                          {formatNameWithId(technicianEntry.name, technicianEntry.id)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => void assignTechnicianToTank()}
-                    disabled={
-                      submitting ||
-                      !selectedTankId ||
-                      !selectedTechnicianId ||
-                      loadingTankAssignments
-                    }
-                  >
-                    Assign Technician
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => void loadTankOptions()}
-                    disabled={submitting}
-                  >
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Reload Tanks
-                  </Button>
-                </div>
-
-                <div className="rounded-md border p-3 space-y-2">
-                  <p className="text-sm font-medium">Assigned Technicians</p>
-                  {loadingTankAssignments ? (
-                    <p className="text-sm text-gray-500">Loading assignments...</p>
-                  ) : selectedTankAssignedTechnicians.length === 0 ? (
-                    <p className="text-sm text-gray-500">No technicians assigned to this tank.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {selectedTankAssignedTechnicians.map((technicianEntry) => (
-                        <Badge
-                          key={`assigned-technician-${technicianEntry.id}`}
-                          variant="outline"
-                          className="flex items-center gap-2"
-                        >
-                          <span>{technicianEntry.name}</span>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 px-2 text-red-600 hover:text-red-700"
-                            onClick={() => void unassignTechnicianFromTank(technicianEntry.id)}
-                            disabled={submitting}
-                          >
-                            Remove
-                          </Button>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
           <Card className="xl:col-span-2 bg-white shadow-sm">
             <CardHeader>
@@ -874,6 +765,115 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
             </CardContent>
           </Card>
         </div>
+
+        <Card className="bg-white shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Assign Technicians To Tanks
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!canManageTechnicianAssignments ? (
+              <p className="text-sm text-gray-600">
+                Only admin users can manage technician tank assignments.
+              </p>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="assign-tank">Tank</Label>
+                    <select
+                      id="assign-tank"
+                      className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm"
+                      value={selectedTankId}
+                      onChange={(event) => setSelectedTankId(event.target.value)}
+                    >
+                      {tankOptions.length === 0 && <option value="">No tanks available</option>}
+                      {tankOptions.map((tankEntry) => (
+                        <option key={`assign-tank-${tankEntry.id}`} value={tankEntry.id}>
+                          {formatNameWithId(tankEntry.name, tankEntry.id)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="assign-technician">Technician</Label>
+                    <select
+                      id="assign-technician"
+                      className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm"
+                      value={selectedTechnicianId}
+                      onChange={(event) => setSelectedTechnicianId(event.target.value)}
+                    >
+                      <option value="">Select technician</option>
+                      {availableTechniciansForSelectedTank.map((technicianEntry) => (
+                        <option
+                          key={`assign-technician-${technicianEntry.id}`}
+                          value={technicianEntry.id}
+                        >
+                          {formatNameWithId(technicianEntry.name, technicianEntry.id)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => void assignTechnicianToTank()}
+                    disabled={
+                      submitting ||
+                      !selectedTankId ||
+                      !selectedTechnicianId ||
+                      loadingTankAssignments
+                    }
+                  >
+                    Assign Technician
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => void loadTankOptions()}
+                    disabled={submitting}
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Reload Tanks
+                  </Button>
+                </div>
+
+                <div className="rounded-md border p-3 space-y-2">
+                  <p className="text-sm font-medium">Assigned Technicians</p>
+                  {loadingTankAssignments ? (
+                    <p className="text-sm text-gray-500">Loading assignments...</p>
+                  ) : selectedTankAssignedTechnicians.length === 0 ? (
+                    <p className="text-sm text-gray-500">No technicians assigned to this tank.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedTankAssignedTechnicians.map((technicianEntry) => (
+                        <Badge
+                          key={`assigned-technician-${technicianEntry.id}`}
+                          variant="outline"
+                          className="flex items-center gap-2"
+                        >
+                          <span>{technicianEntry.name}</span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-red-600 hover:text-red-700"
+                            onClick={() => void unassignTechnicianFromTank(technicianEntry.id)}
+                            disabled={submitting}
+                          >
+                            Remove
+                          </Button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
 
         <Card className="bg-white shadow-sm">
           <CardHeader className="pb-3">

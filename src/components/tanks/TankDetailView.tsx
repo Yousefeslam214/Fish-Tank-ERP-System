@@ -573,7 +573,7 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
             <TabsTrigger value="growth">Growth Measurements</TabsTrigger>
             <TabsTrigger value="health">Health Checks</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
-            <TabsTrigger value="users">Assign Users</TabsTrigger>
+              <TabsTrigger value="users">Assign Workers</TabsTrigger>
             <TabsTrigger value="sensor">Sensor</TabsTrigger>
           </TabsList>
 
