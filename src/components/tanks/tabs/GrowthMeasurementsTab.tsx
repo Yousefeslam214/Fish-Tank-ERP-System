@@ -1,6 +1,5 @@
 import React from "react";
 import { Card, CardContent } from "../../ui/card";
-import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import { Fish, RefreshCw } from "lucide-react";
@@ -81,15 +80,10 @@ export function GrowthMeasurementsTab({
       <div className="flex flex-row gap-3 w-full overflow-x-auto pb-2 no-scrollbar">
         <Card className="flex-1 bg-white border-blue-100 shadow-sm hover:shadow-md transition-all group border-l-4 border-l-blue-500">
           <CardContent className="p-3">
-            <div className="flex items-center justify-between mb-1">
+            <div className="mb-1">
               <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest group-hover:text-blue-500">
                 Growth Rate (SGR)
               </p>
-              <Badge
-                className={`${analysis?.sgrRating === "EXCELLENT" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"} border-none uppercase font-black text-[8px] h-4`}
-              >
-                {analysis?.sgrRating || "NORMAL"}
-              </Badge>
             </div>
             <div className="flex items-baseline gap-2">
               <h4 className="text-lg font-black text-gray-900">
@@ -102,15 +96,10 @@ export function GrowthMeasurementsTab({
 
         <Card className="flex-1 bg-white border-green-100 shadow-sm hover:shadow-md transition-all group border-l-4 border-l-green-500">
           <CardContent className="p-3">
-            <div className="flex items-center justify-between mb-1">
+            <div className="mb-1">
               <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest group-hover:text-green-500">
                 Efficiency (FCR)
               </p>
-              <Badge
-                className={`${analysis?.fcrRating === "POOR" ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"} border-none uppercase font-black text-[8px] h-4`}
-              >
-                {analysis?.fcrRating || "GOOD"}
-              </Badge>
             </div>
             <div className="flex items-baseline gap-2">
               <h4 className="text-lg font-black text-gray-900">
@@ -131,27 +120,6 @@ export function GrowthMeasurementsTab({
                 {currentWeight?.toFixed(1) || "0.0"}g
               </h4>
               <span className="text-[9px] text-gray-500">avg</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="flex-1 bg-white border-orange-100 shadow-sm hover:shadow-md transition-all group border-l-4 border-l-orange-500">
-          <CardContent className="p-3">
-            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-1 group-hover:text-orange-500">
-              Total Biomass
-            </p>
-            <div className="flex items-baseline gap-2">
-              <h4 className="text-lg font-black text-gray-900">
-                {(
-                  ((activeBatch.counts?.current ||
-                    activeBatch.currentCount ||
-                    activeBatch.count ||
-                    0) *
-                    (currentWeight || 0)) /
-                  1000
-                ).toLocaleString(undefined, { maximumFractionDigits: 1 })}
-              </h4>
-              <span className="text-[9px] text-gray-500">kg total</span>
             </div>
           </CardContent>
         </Card>

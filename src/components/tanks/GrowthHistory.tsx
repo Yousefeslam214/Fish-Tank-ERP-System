@@ -3,7 +3,7 @@ import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingUp, Calendar, Users, Scale, Settings } from 'lucide-react';
+import { TrendingUp, Calendar, Users, Scale } from 'lucide-react';
 import { getTranslation, Language } from '../../i18n/translations';
 import RecordGrowthMeasurement from './RecordGrowthMeasurement';
 
@@ -282,25 +282,6 @@ export default function GrowthHistory({
                     </div>
                   </div>
 
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onViewDetails?.(measurement)}
-                  >
-                    {t('growthMeasurement.viewDetails')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-gray-500 hover:text-[#0A4D68]"
-                    onClick={() => {
-                      setEditingMeasurement(measurement);
-                      setShowRecordModal(true);
-                    }}
-                  >
-                    <Settings className="w-4 h-4 mr-2" />
-                    Edit
-                  </Button>
                 </div>
               </CardContent>
             </Card>
