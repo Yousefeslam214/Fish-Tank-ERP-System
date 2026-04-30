@@ -1,34 +1,37 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
-import { ArrowLeft, RefreshCw, AlertTriangle } from 'lucide-react';
-import { apiGet } from '../../api';
-import { getHarvestPrediction } from '../../services/harvestApi';
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
+import { ArrowLeft, RefreshCw, AlertTriangle } from "lucide-react";
+import { apiGet } from "../../api";
+import { getHarvestPrediction } from "../../services/harvestApi";
 
 // Tab Components
-import { OverviewTab } from './tabs/OverviewTab';
-import { BatchesTab } from './tabs/BatchesTab';
-import { WaterQualityTab } from './tabs/WaterQualityTab';
-import { FeedingHistoryTab } from './tabs/FeedingHistoryTab';
-import { GrowthMeasurementsTab } from './tabs/GrowthMeasurementsTab';
-import { HealthChecksTab } from './tabs/HealthChecksTab';
+import { OverviewTab } from "./tabs/OverviewTab";
+import { BatchesTab } from "./tabs/BatchesTab";
+import { WaterQualityTab } from "./tabs/WaterQualityTab";
+import { FeedingHistoryTab } from "./tabs/FeedingHistoryTab";
+import { GrowthMeasurementsTab } from "./tabs/GrowthMeasurementsTab";
+import { HealthChecksTab } from "./tabs/HealthChecksTab";
 
-import { TankTasksTab } from './tabs/TankTasksTab';
-import { TankAssignmentsTab } from './tabs/TankAssignmentsTab';
-import { SensorTab } from './tabs/SensorTab';
+import { TankTasksTab } from "./tabs/TankTasksTab";
+import { TankAssignmentsTab } from "./tabs/TankAssignmentsTab";
+import { SensorTab } from "./tabs/SensorTab";
 
 // Modals
-import { FeedingModal } from './modals/FeedingModal';
-import { WaterQualityModal } from './modals/WaterQualityModal';
-import { WaterQualityDetailsModal } from './modals/WaterQualityDetailsModal';
-import { FeedingDetailsModal } from './modals/FeedingDetailsModal';
-import { GrowthDetailsModal } from './modals/GrowthDetailsModal';
-import { BatchHealthModal } from './modals/BatchHealthModal';
-import RecordGrowthMeasurement from './RecordGrowthMeasurement';
-import GrowthHistory from './GrowthHistory';
-import { getTankHealthHistory, HealthCheckResponseDTO } from '../../services/healthCheckApi';
+import { FeedingModal } from "./modals/FeedingModal";
+import { WaterQualityModal } from "./modals/WaterQualityModal";
+import { WaterQualityDetailsModal } from "./modals/WaterQualityDetailsModal";
+import { FeedingDetailsModal } from "./modals/FeedingDetailsModal";
+import { GrowthDetailsModal } from "./modals/GrowthDetailsModal";
+import { BatchHealthModal } from "./modals/BatchHealthModal";
+import RecordGrowthMeasurement from "./RecordGrowthMeasurement";
+import GrowthHistory from "./GrowthHistory";
+import {
+  getTankHealthHistory,
+  HealthCheckResponseDTO,
+} from "../../services/healthCheckApi";
 
 interface TankDetailViewProps {
   tank: any;
@@ -37,12 +40,12 @@ interface TankDetailViewProps {
 }
 
 const toFiniteNumber = (value: any): number | undefined => {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value === 'string') {
-    const parsed = Number.parseFloat(value.replace(/[^\d.-]/g, ''));
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value.replace(/[^\d.-]/g, ""));
     return Number.isFinite(parsed) ? parsed : undefined;
   }
-  if (value && typeof value === 'object' && 'value' in value) {
+  if (value && typeof value === "object" && "value" in value) {
     return toFiniteNumber((value as { value?: unknown }).value);
   }
   return undefined;
@@ -57,31 +60,31 @@ const normalizeGrowthMeasurement = (measurement: any) => ({
   ...measurement,
   measuredAt: toValidDate(
     measurement?.measuredAt ??
-    measurement?.measurementDate ??
-    measurement?.date ??
-    measurement?.timestamp ??
-    measurement?.createdAt,
+      measurement?.measurementDate ??
+      measurement?.date ??
+      measurement?.timestamp ??
+      measurement?.createdAt,
   ),
   daysInCulture:
     toFiniteNumber(
       measurement?.daysInCulture ??
-      measurement?.dayInCulture ??
-      measurement?.day,
+        measurement?.dayInCulture ??
+        measurement?.day,
     ) ?? 0,
   sampleSize:
     toFiniteNumber(
       measurement?.sampleSize ??
-      measurement?.sampleCount ??
-      measurement?.numberOfFishSampled ??
-      measurement?.count,
+        measurement?.sampleCount ??
+        measurement?.numberOfFishSampled ??
+        measurement?.count,
     ) ?? 0,
   averageWeightGrams:
     toFiniteNumber(
       measurement?.averageWeightGrams ??
-      measurement?.averageWeight ??
-      measurement?.avgWeight ??
-      measurement?.weightGrams ??
-      measurement?.weight,
+        measurement?.averageWeight ??
+        measurement?.avgWeight ??
+        measurement?.weightGrams ??
+        measurement?.weight,
     ) ?? 0,
   sgr: toFiniteNumber(measurement?.sgr),
   fcr: toFiniteNumber(measurement?.fcr),
@@ -94,12 +97,11 @@ const normalizeGrowthMeasurement = (measurement: any) => ({
 });
 
 const normalizeFeedingStatus = (status: any) => {
-  if (!status) return 'PENDING';
+  if (!status) return "PENDING";
   return status;
 };
 
 const parseFeedingWeight = (value: any): number => toFiniteNumber(value) ?? 0;
-
 
 const normalizeTodayFeedingEntry = (entry: any) => {
   const status = normalizeFeedingStatus(entry?.status);
@@ -109,23 +111,30 @@ const normalizeTodayFeedingEntry = (entry: any) => {
   const recommended = parseFeedingWeight(
     entry?.recommendedAmount ?? entry?.recommended ?? entry?.targetWeight ?? 0,
   );
-  const timestamp = entry?.timestamp || entry?.fedAt || entry?.date || entry?.createdAt;
+  const timestamp =
+    entry?.timestamp || entry?.fedAt || entry?.date || entry?.createdAt;
   const computedTime = timestamp
-    ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : '–';
+    ? new Date(timestamp).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "–";
 
   return {
     ...entry,
-    status: entry?.status || 'PENDING',
+    status: entry?.status || "PENDING",
     statusLabel: entry?.statusLabel,
     time: entry?.time || computedTime,
     fed,
     recommended,
     foodName:
-      typeof entry?.foodType === 'object'
-        ? entry?.foodType?.name || entry?.foodType?.brand || 'Standard Feed'
-        : entry?.foodType || entry?.foodTypeName || entry?.feedType || 'Standard Feed',
-    operator: entry?.fedBy || entry?.recordedBy || 'Operator',
+      typeof entry?.foodType === "object"
+        ? entry?.foodType?.name || entry?.foodType?.brand || "Standard Feed"
+        : entry?.foodType ||
+          entry?.foodTypeName ||
+          entry?.feedType ||
+          "Standard Feed",
+    operator: entry?.fedBy || entry?.recordedBy || "Operator",
   };
 };
 
@@ -143,21 +152,26 @@ const normalizeFeedingRecord = (record: any) => {
 
   return {
     ...record,
-    status: record?.status || 'PENDING',
+    status: record?.status || "PENDING",
     statusLabel: record?.statusLabel,
     amountFed: record?.amountFed || `${fed.toFixed(1)} kg`,
-    recommendedAmount: record?.recommendedAmount || `${recommended.toFixed(1)} kg`,
+    recommendedAmount:
+      record?.recommendedAmount || `${recommended.toFixed(1)} kg`,
     achievement,
     foodType:
-      typeof record?.foodType === 'object'
+      typeof record?.foodType === "object"
         ? record?.foodType
-        : record?.foodType || record?.foodTypeName || record?.feedType || 'N/A',
-    fedBy: record?.fedBy || record?.recordedBy || 'Operator',
+        : record?.foodType || record?.foodTypeName || record?.feedType || "N/A",
+    fedBy: record?.fedBy || record?.recordedBy || "Operator",
   };
 };
 
-export default function TankDetailView({ tank, onBack, user }: TankDetailViewProps) {
-  const [activeTab, setActiveTab] = useState('overview');
+export default function TankDetailView({
+  tank,
+  onBack,
+  user,
+}: TankDetailViewProps) {
+  const [activeTab, setActiveTab] = useState("overview");
   const [currentTank, setCurrentTank] = useState(tank);
   const [loadingDetails, setLoadingDetails] = useState(true);
   const [detailsError, setDetailsError] = useState<string | null>(null);
@@ -168,14 +182,23 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
   const [feedingRecords, setFeedingRecords] = useState<any[]>([]);
   const [todayFeedingRecords, setTodayFeedingRecords] = useState<any[]>([]);
   const [growthMetrics, setGrowthMetrics] = useState<any[]>([]);
-  const [healthCheckRecords, setHealthCheckRecords] = useState<HealthCheckResponseDTO[]>([]);
+  const [healthCheckRecords, setHealthCheckRecords] = useState<
+    HealthCheckResponseDTO[]
+  >([]);
   const [isActionRequired, setIsActionRequired] = useState(false);
   const [actionReason, setActionReason] = useState<string | null>(null);
-  const [tankFeedingCalculation, setTankFeedingCalculation] = useState<any>(null);
+  const [tankFeedingCalculation, setTankFeedingCalculation] =
+    useState<any>(null);
   const [predictionData, setPredictionData] = useState<any>(null);
-  const [batchGrowthAnalysis, setBatchGrowthAnalysis] = useState<Record<string, any>>({});
-  const [selectedBatchGrowthHistory, setSelectedBatchGrowthHistory] = useState<Record<string, any[]>>({});
-  const [batchAssessments, setBatchAssessments] = useState<Record<string, any>>({});
+  const [batchGrowthAnalysis, setBatchGrowthAnalysis] = useState<
+    Record<string, any>
+  >({});
+  const [selectedBatchGrowthHistory, setSelectedBatchGrowthHistory] = useState<
+    Record<string, any[]>
+  >({});
+  const [batchAssessments, setBatchAssessments] = useState<Record<string, any>>(
+    {},
+  );
 
   // Modals Visibility
   const [showFeedingModal, setShowFeedingModal] = useState(false);
@@ -188,18 +211,25 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
   const [showGrowthDetailsModal, setShowGrowthDetailsModal] = useState(false);
   const [selectedGrowthRecord, setSelectedGrowthRecord] = useState<any>(null);
   const [showRecordGrowthModal, setShowRecordGrowthModal] = useState(false);
-  const [selectedBatchForUpdate, setSelectedBatchForUpdate] = useState<any>(null);
+  const [selectedBatchForUpdate, setSelectedBatchForUpdate] =
+    useState<any>(null);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
 
   // Health & Quarantine states
   const [showHealthModal, setShowHealthModal] = useState(false);
-  const [healthModalMode, setHealthModalMode] = useState<'health' | 'quarantine'>('health');
-  const [selectedBatchForHealth, setSelectedBatchForHealth] = useState<any>(null);
-  const [inlineHealthCheckBatchId, setInlineHealthCheckBatchId] = useState<string | null>(null);
+  const [healthModalMode, setHealthModalMode] = useState<
+    "health" | "quarantine"
+  >("health");
+  const [selectedBatchForHealth, setSelectedBatchForHealth] =
+    useState<any>(null);
+  const [inlineHealthCheckBatchId, setInlineHealthCheckBatchId] = useState<
+    string | null
+  >(null);
 
   // Growth History Modal (legacy)
   const [showGrowthHistoryModal, setShowGrowthHistoryModal] = useState(false);
-  const [selectedBatchForHistory, setSelectedBatchForHistory] = useState<any>(null);
+  const [selectedBatchForHistory, setSelectedBatchForHistory] =
+    useState<any>(null);
   const [batchGrowthHistory, setBatchGrowthHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
@@ -212,23 +242,45 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
         apiGet<any>(`/tanks/${tank.id}/water-quality`),
         apiGet<any>(`/tanks/${tank.id}/feeding-history`),
         apiGet<any>(`/tanks/${tank.id}/growth-metrics`),
-        apiGet<any>(`/tanks/${tank.id}/batches`)
+        apiGet<any>(`/tanks/${tank.id}/batches`),
       ]);
 
-      const dashData = dashRes.status === 'fulfilled' ? (dashRes.value.data ?? dashRes.value) : null;
-      const wqDataRaw = wqRes.status === 'fulfilled' ? (wqRes.value.data ?? wqRes.value ?? []) : [];
-      const fdDataRaw = fdRes.status === 'fulfilled' ? (fdRes.value.data ?? fdRes.value ?? []) : [];
-      const gmDataRaw = gmRes.status === 'fulfilled' ? (gmRes.value.data ?? gmRes.value ?? []) : [];
-      const btResult = btRes.status === 'fulfilled' ? (btRes.value.data ?? btRes.value ?? {}) : {};
-      const btData = Array.isArray(btResult) ? btResult : (btResult.batches || []);
-      const btSummary = Array.isArray(btResult) ? null : (btResult.summary || null);
+      const dashData =
+        dashRes.status === "fulfilled"
+          ? (dashRes.value.data ?? dashRes.value)
+          : null;
+      const wqDataRaw =
+        wqRes.status === "fulfilled"
+          ? (wqRes.value.data ?? wqRes.value ?? [])
+          : [];
+      const fdDataRaw =
+        fdRes.status === "fulfilled"
+          ? (fdRes.value.data ?? fdRes.value ?? [])
+          : [];
+      const gmDataRaw =
+        gmRes.status === "fulfilled"
+          ? (gmRes.value.data ?? gmRes.value ?? [])
+          : [];
+      const btResult =
+        btRes.status === "fulfilled"
+          ? (btRes.value.data ?? btRes.value ?? {})
+          : {};
+      const btData = Array.isArray(btResult)
+        ? btResult
+        : btResult.batches || [];
+      const btSummary = Array.isArray(btResult)
+        ? null
+        : btResult.summary || null;
 
       setDashboardData(dashData);
       setGrowthMetrics(gmDataRaw);
 
       // Process Growth Metrics Mega-Route Response
       if (gmDataRaw && gmDataRaw.batches && Array.isArray(gmDataRaw.batches)) {
-        console.log('[GrowthDebug] Processing batches from mega-route:', gmDataRaw.batches.length);
+        console.log(
+          "[GrowthDebug] Processing batches from mega-route:",
+          gmDataRaw.batches.length,
+        );
         gmDataRaw.batches.forEach((b: any) => {
           const batchId = b.batchId || b.id;
           if (!batchId) return;
@@ -236,8 +288,14 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
           // 1. Map history
           if (b.history && Array.isArray(b.history)) {
             const history = b.history.map(normalizeGrowthMeasurement);
-            console.log(`[GrowthDebug] Mapped history for batch ${batchId}:`, history.length);
-            setSelectedBatchGrowthHistory(prev => ({ ...prev, [batchId]: history }));
+            console.log(
+              `[GrowthDebug] Mapped history for batch ${batchId}:`,
+              history.length,
+            );
+            setSelectedBatchGrowthHistory((prev) => ({
+              ...prev,
+              [batchId]: history,
+            }));
           }
 
           // 2. Map analysis (summary + charts)
@@ -246,23 +304,28 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
             summary,
             charts: b.charts || {},
             metrics: {
-              sgr: parseFloat(summary.currentSGR || summary.sgr || '0'),
-              fcr: parseFloat(summary.currentFCR || summary.fcr || '0'),
-              averageWeight: parseFloat(summary.currentAvgWeight || summary.averageWeight || '0')
+              sgr: parseFloat(summary.currentSGR || summary.sgr || "0"),
+              fcr: parseFloat(summary.currentFCR || summary.fcr || "0"),
+              averageWeight: parseFloat(
+                summary.currentAvgWeight || summary.averageWeight || "0",
+              ),
             },
-            sgrRating: summary.sgrRating || 'NORMAL',
-            fcrRating: summary.fcrRating || 'GOOD',
+            sgrRating: summary.sgrRating || "NORMAL",
+            fcrRating: summary.fcrRating || "GOOD",
           };
           console.log(`[GrowthDebug] Mapped metrics for batch ${batchId}:`, {
             rawSummary: summary,
-            parsedMetrics: analysisData.metrics
+            parsedMetrics: analysisData.metrics,
           });
-          setBatchGrowthAnalysis(prev => ({ ...prev, [batchId]: analysisData }));
+          setBatchGrowthAnalysis((prev) => ({
+            ...prev,
+            [batchId]: analysisData,
+          }));
         });
       }
 
       const fdPayload =
-        fdDataRaw && typeof fdDataRaw === 'object' && !Array.isArray(fdDataRaw)
+        fdDataRaw && typeof fdDataRaw === "object" && !Array.isArray(fdDataRaw)
           ? ((fdDataRaw as any).data ?? fdDataRaw)
           : fdDataRaw;
 
@@ -284,27 +347,36 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
       if (Array.isArray(btData) && btData.length > 0) {
         try {
           const batchDetailsRes = await Promise.allSettled(
-            btData.map(b => Promise.allSettled([
-              apiGet<any>(`/tanks/water-quality/batch/${b.id}`),
-              apiGet<any>(`/tanks/feeding-records/batch/${b.id}`),
-              apiGet<any>(`/tanks/water-quality/batch/${b.id}/assessment`)
-            ]))
+            btData.map((b) =>
+              Promise.allSettled([
+                apiGet<any>(`/tanks/water-quality/batch/${b.id}`),
+                apiGet<any>(`/tanks/feeding-records/batch/${b.id}`),
+                apiGet<any>(`/tanks/water-quality/batch/${b.id}/assessment`),
+              ]),
+            ),
           );
 
           const allBatchWq: any[] = [];
           const allBatchFd: any[] = [];
-          healthData = await getTankHealthHistory(btData.map((batch: any) => batch.id));
+          healthData = await getTankHealthHistory(
+            btData.map((batch: any) => batch.id),
+          );
 
           batchDetailsRes.forEach((res, idx) => {
-            if (res.status === 'fulfilled') {
+            if (res.status === "fulfilled") {
               const batchId = btData[idx].id;
               const [wq, fd, assessment] = res.value;
 
-              if (wq.status === 'fulfilled') allBatchWq.push(...(wq.value.data ?? wq.value ?? []));
-              if (fd.status === 'fulfilled') allBatchFd.push(...(fd.value.data ?? fd.value ?? []));
+              if (wq.status === "fulfilled")
+                allBatchWq.push(...(wq.value.data ?? wq.value ?? []));
+              if (fd.status === "fulfilled")
+                allBatchFd.push(...(fd.value.data ?? fd.value ?? []));
 
-              if (assessment.status === 'fulfilled') {
-                setBatchAssessments(prev => ({ ...prev, [batchId]: assessment.value.data ?? assessment.value }));
+              if (assessment.status === "fulfilled") {
+                setBatchAssessments((prev) => ({
+                  ...prev,
+                  [batchId]: assessment.value.data ?? assessment.value,
+                }));
               }
             }
           });
@@ -312,11 +384,13 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
           // Deduplicate Water Quality
           const combinedWq = [...wqData, ...allBatchWq];
           const uniqueWqMap = new Map();
-          combinedWq.forEach(r => {
+          combinedWq.forEach((r) => {
             const rDate = r.measuredAt || r.createdAt;
             if (r.id) {
               const existing = uniqueWqMap.get(r.id);
-              const exDate = existing ? (existing.measuredAt || existing.createdAt) : null;
+              const exDate = existing
+                ? existing.measuredAt || existing.createdAt
+                : null;
               if (!existing || new Date(rDate) > new Date(exDate)) {
                 uniqueWqMap.set(r.id, r);
               }
@@ -329,19 +403,29 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
           // Deduplicate Feeding
           const combinedFd = [...fdData, ...allBatchFd];
           const uniqueFdMap = new Map();
-          combinedFd.forEach(r => {
+          combinedFd.forEach((r) => {
             const rDate = r.timestamp || r.fedAt || r.date || r.createdAt;
             if (r.id) {
               const existing = uniqueFdMap.get(r.id);
-              const exDate = existing ? (existing.timestamp || existing.fedAt || existing.date || existing.createdAt) : null;
+              const exDate = existing
+                ? existing.timestamp ||
+                  existing.fedAt ||
+                  existing.date ||
+                  existing.createdAt
+                : null;
               if (!existing || new Date(rDate) > new Date(exDate)) {
                 uniqueFdMap.set(r.id, r);
               }
             } else {
-              uniqueFdMap.set(`${rDate}_${r.weightKg || r.weightFed || r.amountFed}`, r);
+              uniqueFdMap.set(
+                `${rDate}_${r.weightKg || r.weightFed || r.amountFed}`,
+                r,
+              );
             }
           });
-          const normalizedFeedingRecords = Array.from(uniqueFdMap.values()).map(normalizeFeedingRecord);
+          const normalizedFeedingRecords = Array.from(uniqueFdMap.values()).map(
+            normalizeFeedingRecord,
+          );
           setFeedingRecords(normalizedFeedingRecords);
 
           const normalizedTodayFeeding =
@@ -350,9 +434,11 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
               : [];
           setTodayFeedingRecords(normalizedTodayFeeding);
         } catch (err) {
-          console.warn('Failed to fetch batch records:', err);
+          console.warn("Failed to fetch batch records:", err);
           setFeedingRecords(fdData.map(normalizeFeedingRecord));
-          setTodayFeedingRecords(fdTodayListRaw.map(normalizeTodayFeedingEntry));
+          setTodayFeedingRecords(
+            fdTodayListRaw.map(normalizeTodayFeedingEntry),
+          );
         }
       } else {
         const normalizedFeedingRecords = fdData.map(normalizeFeedingRecord);
@@ -362,25 +448,35 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
 
       // Check if action is required
       try {
-        const actionRes = await apiGet<any>(`/tanks/water-quality/status/requiring-action`);
+        const actionRes = await apiGet<any>(
+          `/tanks/water-quality/status/requiring-action`,
+        );
         const actionData = actionRes.data ?? actionRes;
         if (Array.isArray(actionData)) {
-          const tankAction = actionData.find((a: any) => a.tankId === tank.id || a.id === tank.id);
+          const tankAction = actionData.find(
+            (a: any) => a.tankId === tank.id || a.id === tank.id,
+          );
           if (tankAction) {
             setIsActionRequired(true);
-            setActionReason(tankAction.reason || tankAction.message || 'Parameters outside safe range');
+            setActionReason(
+              tankAction.reason ||
+                tankAction.message ||
+                "Parameters outside safe range",
+            );
           } else {
             setIsActionRequired(false);
             setActionReason(null);
           }
         }
-      } catch (e) { }
+      } catch (e) {}
 
       // Fetch Tank Level Feeding Calculation
       try {
-        const tankCalcRes = await apiGet<any>(`/tanks/feeding-records/calculation/tank/${tank.id}`);
+        const tankCalcRes = await apiGet<any>(
+          `/tanks/feeding-records/calculation/tank/${tank.id}`,
+        );
         setTankFeedingCalculation(tankCalcRes.data ?? tankCalcRes);
-      } catch (e) { }
+      } catch (e) {}
 
       setWaterQualityRecords(wqData);
       setHealthCheckRecords(healthData);
@@ -400,18 +496,33 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
             status: dashData.tankInfo?.status || prev.status,
             biomass: dashData.capacity?.currentLoadKg || prev.biomass,
             volume: dashData.tankInfo?.volumeCubicMeters || prev.volume,
-            waterQuality: wq ? {
-              overall: (wq.overallStatus || wq.overall || 'unknown').toLowerCase(),
-              temp: { value: wq.temperature || wq.temp?.value || 0, status: 'unknown' },
-              do: { value: wq.dissolvedOxygen || wq.do?.value || 0, status: 'unknown' },
-              ph: { value: wq.ph || wq.phValue || 0, status: 'unknown' },
-              nh3: { value: wq.ammonia || wq.totalAmmonia || 0, status: 'unknown' },
-            } : prev.waterQuality
+            waterQuality: wq
+              ? {
+                  overall: (
+                    wq.overallStatus ||
+                    wq.overall ||
+                    "unknown"
+                  ).toLowerCase(),
+                  temp: {
+                    value: wq.temperature || wq.temp?.value || 0,
+                    status: "unknown",
+                  },
+                  do: {
+                    value: wq.dissolvedOxygen || wq.do?.value || 0,
+                    status: "unknown",
+                  },
+                  ph: { value: wq.ph || wq.phValue || 0, status: "unknown" },
+                  nh3: {
+                    value: wq.ammonia || wq.totalAmmonia || 0,
+                    status: "unknown",
+                  },
+                }
+              : prev.waterQuality,
           };
         });
       }
     } catch (err) {
-      console.error('Failed to fetch tank details:', err);
+      console.error("Failed to fetch tank details:", err);
       setDetailsError((err as Error).message);
     } finally {
       setLoadingDetails(false);
@@ -429,7 +540,11 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
         const data = await getHarvestPrediction(selectedBatchId);
         setPredictionData(data);
       } catch (err) {
-        console.warn('Failed to fetch harvest prediction for batch:', selectedBatchId, err);
+        console.warn(
+          "Failed to fetch harvest prediction for batch:",
+          selectedBatchId,
+          err,
+        );
       }
     };
     fetchPrediction();
@@ -441,11 +556,15 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
       const res = await apiGet<any>(`/tanks/growth/batch/${batchId}`);
       const data = res.data ?? res;
       const mappedHistory = (
-        Array.isArray(data) ? data : Array.isArray(data.history) ? data.history : []
+        Array.isArray(data)
+          ? data
+          : Array.isArray(data.history)
+            ? data.history
+            : []
       ).map(normalizeGrowthMeasurement);
       setBatchGrowthHistory(mappedHistory);
     } catch (err) {
-      console.error('Failed to fetch batch growth history:', err);
+      console.error("Failed to fetch batch growth history:", err);
     } finally {
       setLoadingHistory(false);
     }
@@ -464,28 +583,35 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
   };
 
   const handleHealthCheck = (batch: any) => {
-    setActiveTab('health');
+    setActiveTab("health");
     setInlineHealthCheckBatchId(batch?.id || tankBatches[0]?.id || null);
   };
 
   const handleQuarantine = (batch: any) => {
     setSelectedBatchForHealth(batch);
-    setHealthModalMode('quarantine');
+    setHealthModalMode("quarantine");
     setShowHealthModal(true);
   };
 
   const waterQualityHistory = useMemo(() => {
     if (!Array.isArray(waterQualityRecords)) return [];
     return [...waterQualityRecords]
-      .sort((a, b) => new Date(a.measuredAt || a.createdAt).getTime() - new Date(b.measuredAt || b.createdAt).getTime())
-      .map(r => ({
-        date: new Date(r.measuredAt || r.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      .sort(
+        (a, b) =>
+          new Date(a.measuredAt || a.createdAt).getTime() -
+          new Date(b.measuredAt || b.createdAt).getTime(),
+      )
+      .map((r) => ({
+        date: new Date(r.measuredAt || r.createdAt).toLocaleDateString(
+          undefined,
+          { month: "short", day: "numeric" },
+        ),
         temp: r.temperature ?? r.temp,
         do: r.dissolvedOxygen ?? r.do,
         ph: r.pH ?? r.ph,
         nh3: r.totalAmmonia ?? r.ammonia ?? r.nh3,
         no2: r.nitrite ?? r.no2 ?? 0,
-        ntu: r.turbidity ?? r.ntu ?? 0
+        ntu: r.turbidity ?? r.ntu ?? 0,
       }));
   }, [waterQualityRecords]);
 
@@ -495,39 +621,61 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
     }
 
     if (!Array.isArray(feedingRecords)) return [];
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split("T")[0];
     return feedingRecords
       .filter((r) => {
-        const dateStr = r.timestamp || r.fedAt || r.date || r.createdAt || '';
+        const dateStr = r.timestamp || r.fedAt || r.date || r.createdAt || "";
         return dateStr.startsWith(today);
       })
       .map((r) => {
-        const fed = parseFeedingWeight(r.amountFed ?? r.weightFed ?? r.weightKg ?? 0);
-        const recommended = parseFeedingWeight(r.recommendedAmount ?? r.targetWeight ?? 0);
-        const status = r.status || 'PENDING';
+        const fed = parseFeedingWeight(
+          r.amountFed ?? r.weightFed ?? r.weightKg ?? 0,
+        );
+        const recommended = parseFeedingWeight(
+          r.recommendedAmount ?? r.targetWeight ?? 0,
+        );
+        const status = r.status || "PENDING";
         return {
           time:
             r.time ||
             (r.timestamp || r.fedAt || r.createdAt
-              ? new Date(r.timestamp || r.fedAt || r.createdAt).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })
-              : '–'),
+              ? new Date(
+                  r.timestamp || r.fedAt || r.createdAt,
+                ).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "–"),
           fed,
           recommended,
           foodName:
-            typeof r.foodType === 'object'
-              ? r.foodType?.name || r.foodType?.brand || 'Standard Feed'
-              : r.foodType || r.foodTypeName || r.feedType || 'Standard Feed',
-          operator: r.fedBy || r.recordedBy || 'Operator',
+            typeof r.foodType === "object"
+              ? r.foodType?.name || r.foodType?.brand || "Standard Feed"
+              : r.foodType || r.foodTypeName || r.feedType || "Standard Feed",
+          operator: r.fedBy || r.recordedBy || "Operator",
           status,
           statusLabel: r.statusLabel,
         };
       });
   }, [feedingRecords, todayFeedingRecords]);
+  const [hovered, setHovered] = useState<string | null>(null);
+  const getStyle = (value: string): React.CSSProperties => {
+    const isActive = activeTab === value;
+    const isHovered = hovered === value;
 
-
+    return {
+      padding: "8px 12px",
+      cursor: "pointer",
+      transition: "all 0.2s ease",
+      borderRadius: "6px",
+      backgroundColor: isActive || isHovered ? "#0077ff" : "transparent",
+      color: isActive
+        ? "#fff" // ✅ active = BLACK text
+        : isHovered
+          ? "#fff" // hover = WHITE text
+          : "#000", // default = BLACK
+    };
+  };
   return (
     <div className="bg-[#F9FAFB] min-h-full">
       {/* Top Navigation */}
@@ -544,15 +692,23 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
           <div className="flex items-center justify-between flex-1">
             <div>
               <div className="flex items-baseline gap-2">
-                <h1 className="text-xl font-semibold">{currentTank.name || tank.name}</h1>
-                <span className="text-xs text-blue-200 font-mono opacity-80">ID: {(currentTank.id || tank.id).split('-')[0]}</span>
+                <h1 className="text-xl font-semibold">
+                  {currentTank.name || tank.name}
+                </h1>
+                <span className="text-xs text-blue-200 font-mono opacity-80">
+                  ID: {(currentTank.id || tank.id).split("-")[0]}
+                </span>
               </div>
               <p className="text-sm text-gray-300">
-                {currentTank.volume || tank.volume}m³ volume · Stocking density: {Math.round((currentTank.biomass / (currentTank.volume || 50)))} kg/m³
+                {currentTank.volume || tank.volume}m³ volume · Stocking density:{" "}
+                {Math.round(currentTank.biomass / (currentTank.volume || 50))}{" "}
+                kg/m³
               </p>
             </div>
             <div className="flex items-center gap-3">
-              {loadingDetails && <RefreshCw className="w-4 h-4 animate-spin text-gray-300" />}
+              {loadingDetails && (
+                <RefreshCw className="w-4 h-4 animate-spin text-gray-300" />
+              )}
               {/* <Badge className={`${currentTank.status === 'critical' || currentTank.status === 'CRITICAL' ? 'bg-[#EF4444]' : (currentTank.status === 'warning' || currentTank.status === 'WARNING') ? 'bg-[#F59E0B]' : 'bg-[#10B981]'} text-white text-sm px-3 py-1`}>
                 {(currentTank.status || 'ACTIVE').toUpperCase()}
               </Badge> */}
@@ -561,22 +717,98 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
         </div>
       </div>
 
-      <div className={`p-6 ${loadingDetails ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}`}>
+      <div
+        className={`p-6 ${loadingDetails ? "opacity-50 pointer-events-none transition-opacity" : "transition-opacity"}`}
+      >
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="space-y-4"
+        >
+          <TabsList
+            style={{ backgroundColor: "#fff", display: "flex", gap: "6px" }}
+          >
+            <TabsTrigger
+              value="overview"
+              style={getStyle("overview")}
+              onMouseEnter={() => setHovered("overview")}
+              onMouseLeave={() => setHovered(null)}
+            >
+              Overview
+            </TabsTrigger>
 
+            <TabsTrigger
+              value="batches"
+              style={getStyle("batches")}
+              onMouseEnter={() => setHovered("batches")}
+              onMouseLeave={() => setHovered(null)}
+            >
+              Batches
+            </TabsTrigger>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="bg-white">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="batches">Batches</TabsTrigger>
-            <TabsTrigger value="water">Water Quality</TabsTrigger>
-            <TabsTrigger value="feeding">Feeding History</TabsTrigger>
-            <TabsTrigger value="growth">Growth Measurements</TabsTrigger>
-            <TabsTrigger value="health">Health Checks</TabsTrigger>
-            <TabsTrigger value="tasks">Tasks</TabsTrigger>
-              <TabsTrigger value="users">Assign Workers</TabsTrigger>
-            <TabsTrigger value="sensor">Sensor</TabsTrigger>
+            <TabsTrigger
+              value="water"
+              style={getStyle("water")}
+              onMouseEnter={() => setHovered("water")}
+              onMouseLeave={() => setHovered(null)}
+            >
+              Water Quality
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="feeding"
+              style={getStyle("feeding")}
+              onMouseEnter={() => setHovered("feeding")}
+              onMouseLeave={() => setHovered(null)}
+            >
+              Feeding History
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="growth"
+              style={getStyle("growth")}
+              onMouseEnter={() => setHovered("growth")}
+              onMouseLeave={() => setHovered(null)}
+            >
+              Growth Measurements
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="health"
+              style={getStyle("health")}
+              onMouseEnter={() => setHovered("health")}
+              onMouseLeave={() => setHovered(null)}
+            >
+              Health Checks
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="tasks"
+              style={getStyle("tasks")}
+              onMouseEnter={() => setHovered("tasks")}
+              onMouseLeave={() => setHovered(null)}
+            >
+              Tasks
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="users"
+              style={getStyle("users")}
+              onMouseEnter={() => setHovered("users")}
+              onMouseLeave={() => setHovered(null)}
+            >
+              Assign Workers
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="sensor"
+              style={getStyle("sensor")}
+              onMouseEnter={() => setHovered("sensor")}
+              onMouseLeave={() => setHovered(null)}
+            >
+              Sensor
+            </TabsTrigger>
           </TabsList>
-
           <TabsContent value="overview">
             <OverviewTab
               dashboardData={dashboardData}
@@ -645,7 +877,11 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
               tankBatches={tankBatches}
               healthChecks={healthCheckRecords}
               loading={loadingDetails}
-              onCreate={(batch) => setInlineHealthCheckBatchId(batch?.id || tankBatches[0]?.id || null)}
+              onCreate={(batch) =>
+                setInlineHealthCheckBatchId(
+                  batch?.id || tankBatches[0]?.id || null,
+                )
+              }
               createBatchId={inlineHealthCheckBatchId}
               onDismissCreate={() => setInlineHealthCheckBatchId(null)}
               onCreateSuccess={() => {
@@ -656,8 +892,7 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
             />
           </TabsContent>
 
-          <TabsContent value="predictions">
-          </TabsContent>
+          <TabsContent value="predictions"></TabsContent>
 
           <TabsContent value="tasks">
             <TankTasksTab user={user} tank={currentTank} />
@@ -674,7 +909,10 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
       </div>
 
       {/* Legacy Growth History Dialog */}
-      <Dialog open={showGrowthHistoryModal} onOpenChange={setShowGrowthHistoryModal}>
+      <Dialog
+        open={showGrowthHistoryModal}
+        onOpenChange={setShowGrowthHistoryModal}
+      >
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Batch Growth History</DialogTitle>
@@ -688,18 +926,40 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
             <GrowthHistory
               batch={{
                 id: selectedBatchForHistory.id,
-                batchNumber: selectedBatchForHistory.batchNumber || `Batch ${selectedBatchForHistory.id.substring(0, 8)}`,
+                batchNumber:
+                  selectedBatchForHistory.batchNumber ||
+                  `Batch ${selectedBatchForHistory.id.substring(0, 8)}`,
                 tankName: currentTank.name,
-                fishType: selectedBatchForHistory.species || selectedBatchForHistory.fishType || currentTank.species,
-                stockedDate: new Date(selectedBatchForHistory.dates?.stockedDate || selectedBatchForHistory.stockedDate || Date.now()),
-                initialCount: selectedBatchForHistory.counts?.initial || selectedBatchForHistory.initialCount || 0,
-                currentCount: selectedBatchForHistory.counts?.current || selectedBatchForHistory.currentCount || 0,
-                initialWeight: typeof selectedBatchForHistory.weights?.initial === 'number'
-                  ? selectedBatchForHistory.weights.initial
-                  : parseFloat(selectedBatchForHistory.weights?.initial || selectedBatchForHistory.initialAverageWeight || '0')
+                fishType:
+                  selectedBatchForHistory.species ||
+                  selectedBatchForHistory.fishType ||
+                  currentTank.species,
+                stockedDate: new Date(
+                  selectedBatchForHistory.dates?.stockedDate ||
+                    selectedBatchForHistory.stockedDate ||
+                    Date.now(),
+                ),
+                initialCount:
+                  selectedBatchForHistory.counts?.initial ||
+                  selectedBatchForHistory.initialCount ||
+                  0,
+                currentCount:
+                  selectedBatchForHistory.counts?.current ||
+                  selectedBatchForHistory.currentCount ||
+                  0,
+                initialWeight:
+                  typeof selectedBatchForHistory.weights?.initial === "number"
+                    ? selectedBatchForHistory.weights.initial
+                    : parseFloat(
+                        selectedBatchForHistory.weights?.initial ||
+                          selectedBatchForHistory.initialAverageWeight ||
+                          "0",
+                      ),
               }}
               measurements={batchGrowthHistory}
-              onMeasurementAdded={() => fetchBatchGrowthHistory(selectedBatchForHistory.id)}
+              onMeasurementAdded={() =>
+                fetchBatchGrowthHistory(selectedBatchForHistory.id)
+              }
             />
           ) : (
             <div className="py-12 text-center text-gray-500">
@@ -766,16 +1026,37 @@ export default function TankDetailView({ tank, onBack, user }: TankDetailViewPro
           onClose={() => setShowRecordGrowthModal(false)}
           batch={{
             id: selectedBatchForUpdate.id,
-            batchNumber: selectedBatchForUpdate.batchNumber || `Batch ${selectedBatchForUpdate.id.substring(0, 8)}`,
+            batchNumber:
+              selectedBatchForUpdate.batchNumber ||
+              `Batch ${selectedBatchForUpdate.id.substring(0, 8)}`,
             tankName: currentTank.name,
             tankId: currentTank.id,
-            fishType: selectedBatchForUpdate.species || selectedBatchForUpdate.fishType || currentTank.species,
-            daysInCulture: selectedBatchForUpdate.ageInDays || selectedBatchForUpdate.age || selectedBatchForUpdate.daysInCulture || 0,
-            lastWeight: typeof selectedBatchForUpdate.weights?.currentAvg === 'number'
-              ? selectedBatchForUpdate.weights.currentAvg
-              : parseFloat(selectedBatchForUpdate.weights?.currentAvg || selectedBatchForUpdate.currentAverageWeight || selectedBatchForUpdate.avgWeight || '0'),
-            lastMeasurementDate: selectedBatchForUpdate.dates?.lastSampled ? new Date(selectedBatchForUpdate.dates.lastSampled) : undefined,
-            currentCount: selectedBatchForUpdate.counts?.current || selectedBatchForUpdate.currentCount || selectedBatchForUpdate.count || 0
+            fishType:
+              selectedBatchForUpdate.species ||
+              selectedBatchForUpdate.fishType ||
+              currentTank.species,
+            daysInCulture:
+              selectedBatchForUpdate.ageInDays ||
+              selectedBatchForUpdate.age ||
+              selectedBatchForUpdate.daysInCulture ||
+              0,
+            lastWeight:
+              typeof selectedBatchForUpdate.weights?.currentAvg === "number"
+                ? selectedBatchForUpdate.weights.currentAvg
+                : parseFloat(
+                    selectedBatchForUpdate.weights?.currentAvg ||
+                      selectedBatchForUpdate.currentAverageWeight ||
+                      selectedBatchForUpdate.avgWeight ||
+                      "0",
+                  ),
+            lastMeasurementDate: selectedBatchForUpdate.dates?.lastSampled
+              ? new Date(selectedBatchForUpdate.dates.lastSampled)
+              : undefined,
+            currentCount:
+              selectedBatchForUpdate.counts?.current ||
+              selectedBatchForUpdate.currentCount ||
+              selectedBatchForUpdate.count ||
+              0,
           }}
           onSuccess={() => {
             setShowRecordGrowthModal(false);
