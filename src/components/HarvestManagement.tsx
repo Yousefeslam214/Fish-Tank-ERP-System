@@ -41,6 +41,7 @@ import { apiGet } from '../api';
 
 interface HarvestManagementProps {
   farmId: string;
+  userRole?: string;
 }
 
 type WorkflowStep = 1 | 2 | 3 | 4;
@@ -94,7 +95,12 @@ const eventMatchesFarm = (
   return activeMatch || tankMatch || knownTanks.length === 0;
 };
 
-export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
+const canAccessDashboard = (role?: string): boolean => {
+  const normalizedRole = String(role || '').trim().toLowerCase();
+  return normalizedRole === 'admin' || normalizedRole === 'manager';
+};
+
+export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [workflowStep, setWorkflowStep] = useState<WorkflowStep>(1);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
@@ -184,7 +190,9 @@ export const HarvestManagement = ({ farmId }: HarvestManagementProps) => {
         getHarvestTanks(),
         getFishTypes(false),
         getMetadata(),
-        apiGet<any>('/dashboard'),
+        canAccessDashboard(userRole)
+          ? apiGet<any>('/dashboard')
+          : Promise.resolve(null),
       ]);
 
       setHarvestEvents(events);

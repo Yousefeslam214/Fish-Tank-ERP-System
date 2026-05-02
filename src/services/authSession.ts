@@ -45,6 +45,9 @@ const deriveNameFromEmail = (email: string): string => {
 
 const normalizeRole = (role?: string): UserRole => {
   const value = role?.toLowerCase();
+  if (value === 'tecnican') {
+    return 'technician';
+  }
   if (
     value === 'admin' ||
     value === 'manager' ||
@@ -173,12 +176,20 @@ export const getStoredAppUser = (): User | null => {
       return null;
     }
 
+    const sessionRole = (() => {
+      const storedSession = parseStoredSession(localStorage.getItem(AUTH_SESSION_KEY));
+      if (!storedSession?.user?.id || storedSession.user.id !== id) {
+        return undefined;
+      }
+      return storedSession.user.role;
+    })();
+
     return {
       id,
       name: typeof parsed.name === 'string' && parsed.name.trim() ? parsed.name : deriveNameFromEmail(email),
       email,
       phone: typeof parsed.phone === 'string' && parsed.phone.trim() ? parsed.phone : 'N/A',
-      role: normalizeRole(typeof parsed.role === 'string' ? parsed.role : undefined),
+      role: normalizeRole(sessionRole || (typeof parsed.role === 'string' ? parsed.role : undefined)),
       farmId: typeof parsed.farmId === 'string' ? parsed.farmId : undefined,
       modules: normalizeModules(parsed.modules),
     };

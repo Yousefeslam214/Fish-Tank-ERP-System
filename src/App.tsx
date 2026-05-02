@@ -35,6 +35,11 @@ import {
   resolveAllowedPages,
 } from "./services/moduleAccess";
 
+const canAccessDashboard = (role?: string): boolean => {
+  const normalizedRole = String(role || "").trim().toLowerCase();
+  return normalizedRole === "admin" || normalizedRole === "manager";
+};
+
 export default function App() {
 
 
@@ -51,6 +56,14 @@ export default function App() {
     }
     return resolveAllowedPages(currentUser);
   }, [currentUser]);
+  const effectiveAllowedPages = useMemo(() => {
+    if (!currentUser) {
+      return ["dashboard"];
+    }
+    return allowedPages.filter(
+      (pageId) => pageId !== "dashboard" || canAccessDashboard(currentUser.role),
+    );
+  }, [allowedPages, currentUser]);
 
   useEffect(() => {
     const user = getStoredAppUser();
@@ -321,10 +334,16 @@ export default function App() {
   useEffect(() => {
     if (!currentUser) return;
 
-    if (!isPageAllowed(currentPage, allowedPages)) {
-      setCurrentPage(allowedPages[0] || "dashboard");
+    if (currentPage === "dashboard" && !canAccessDashboard(currentUser.role)) {
+      const fallbackPage = effectiveAllowedPages[0] || "tanks";
+      setCurrentPage(fallbackPage);
+      return;
     }
-  }, [allowedPages, currentPage, currentUser]);
+
+    if (!isPageAllowed(currentPage, effectiveAllowedPages)) {
+      setCurrentPage(effectiveAllowedPages[0] || "tanks");
+    }
+  }, [currentPage, currentUser, effectiveAllowedPages]);
 
   const fetchFarms = async (user: User) => {
     try {
@@ -356,7 +375,7 @@ export default function App() {
   };
 
   const handlePageChange = (page: string) => {
-    if (!isPageAllowed(page, allowedPages)) {
+    if (!isPageAllowed(page, effectiveAllowedPages)) {
       return;
     }
     setCurrentPage(page);
@@ -381,12 +400,14 @@ export default function App() {
         onLogout={handleLogout}
         user={currentUser}
         notifications={notifications}
-        allowedPages={allowedPages}
+        allowedPages={effectiveAllowedPages}
         moduleLabelMap={moduleLabelMap}
       />
 
       <div className="flex-1 overflow-auto">
-        {currentPage === "dashboard" && (
+        {currentPage === "dashboard" &&
+          isPageAllowed("dashboard", effectiveAllowedPages) &&
+          canAccessDashboard(currentUser.role) && (
           <Dashboard user={currentUser} selectedFarm={selectedFarm} />
         )}
         {currentPage === "tanks" && (
@@ -427,7 +448,7 @@ export default function App() {
           <SalesModule
             user={currentUser}
             selectedFarm={selectedFarm}
-            allowedPages={allowedPages}
+            allowedPages={effectiveAllowedPages}
             onNavigateToPage={handlePageChange}
           />
         )}
@@ -441,7 +462,10 @@ export default function App() {
           <UserManagement user={currentUser} selectedFarm={selectedFarm} />
         )}
         {currentPage === "harvest" && (
-          <HarvestManagement farmId={selectedFarm?.id || "farm-1"} />
+          <HarvestManagement
+            farmId={selectedFarm?.id || "farm-1"}
+            userRole={currentUser.role}
+          />
         )}
       </div>
       <Toaster />
