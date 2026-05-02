@@ -104,12 +104,15 @@ export interface StartHarvestPayload {
 }
 
 export interface AddHarvestGradingPayload {
-  fishTypeId: string;
-  gradeId: string;
-  weight: number;
-  count: number;
+  pricingId: string;
+  sourceBatchId: string;
+  weightKg: number;
+  count?: number;
   condition?: HarvestCondition;
-  sourceBatchId?: string;
+  // Legacy compatibility fields
+  fishTypeId?: string;
+  gradeId?: string;
+  weight?: number;
 }
 
 export interface CompleteHarvestPayload {
@@ -230,6 +233,27 @@ const postWithFallback = async (
     method: 'POST',
     body: fallbackBody,
   });
+};
+
+const shouldRetryLegacyGradingPayload = (error: unknown): boolean => {
+  if (!(error instanceof ApiClientError)) {
+    return false;
+  }
+
+  if (error.status === 404 || error.status === 405) {
+    return true;
+  }
+
+  if (error.status !== 400) {
+    return false;
+  }
+
+  const message = String(error.message || '').toLowerCase();
+  return (
+    message.includes('pricingid should not exist') ||
+    message.includes('sourcebatchid should not exist') ||
+    message.includes('weightkg should not exist')
+  );
 };
 
 const normalizePricing = (value: unknown): FishGradePricingRecord | null => {
@@ -401,27 +425,41 @@ export const addHarvestGradingRecord = async (
   eventId: string,
   payload: AddHarvestGradingPayload,
 ): Promise<HarvestGradingRecord> => {
+  const weightValue = payload.weightKg ?? payload.weight;
+  const gradeValue = payload.pricingId || payload.gradeId;
+
   const primaryBody = {
-    fishTypeId: payload.fishTypeId,
-    gradeId: payload.gradeId,
-    weight: payload.weight,
-    count: payload.count,
+    pricingId: gradeValue,
+    sourceBatchId: payload.sourceBatchId,
+    weightKg: weightValue,
     condition: payload.condition,
   };
 
   const fallbackBody = {
-    pricingId: payload.gradeId,
+    fishTypeId: payload.fishTypeId,
+    gradeId: gradeValue,
+    weight: weightValue,
+    count: payload.count,
     sourceBatchId: payload.sourceBatchId,
-    weightKg: payload.weight,
     condition: payload.condition,
   };
+  let response: unknown;
 
-  const response = await postWithFallback(
-    `/harvest/events/${eventId}/grading`,
-    `/harvest/events/${eventId}/grading`,
-    primaryBody,
-    fallbackBody,
-  );
+  try {
+    response = await requestJson(`/harvest/events/${eventId}/grading`, {
+      method: 'POST',
+      body: primaryBody,
+    });
+  } catch (error) {
+    if (!shouldRetryLegacyGradingPayload(error)) {
+      throw error;
+    }
+
+    response = await requestJson(`/harvest/events/${eventId}/grading`, {
+      method: 'POST',
+      body: fallbackBody,
+    });
+  }
 
   const data = unwrapApiData<unknown>(response);
   const grading = normalizeGrading(data);
@@ -429,11 +467,11 @@ export const addHarvestGradingRecord = async (
     const fallback: HarvestGradingRecord = {
       id: `local-${Date.now()}`,
       fishTypeId: payload.fishTypeId,
-      gradeId: payload.gradeId,
-      pricingId: payload.gradeId,
+      gradeId: gradeValue || '',
+      pricingId: gradeValue || '',
       sourceBatchId: payload.sourceBatchId,
-      weightKg: payload.weight,
-      count: payload.count,
+      weightKg: weightValue || 0,
+      count: payload.count || 0,
       condition: payload.condition || 'GOOD',
       pricePerKg: 0,
       totalValue: 0,

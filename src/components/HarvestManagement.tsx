@@ -80,6 +80,8 @@ const formatDate = (value?: string): string => {
 };
 
 const formatNumber = (value: number): string => value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const eventMatchesFarm = (
   event: HarvestEventRecord,
@@ -444,6 +446,18 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
       setGlobalError('Harvest event, fish type, and grade are required.');
       return;
     }
+    if (!selectedBatchId) {
+      setGlobalError('Source batch is required for grading.');
+      return;
+    }
+    if (!UUID_PATTERN.test(selectedPricingId)) {
+      setGlobalError('Selected pricing is invalid. Please choose a valid grade.');
+      return;
+    }
+    if (!UUID_PATTERN.test(selectedBatchId)) {
+      setGlobalError('Selected batch is invalid. Please reselect tank batch.');
+      return;
+    }
 
     const parsedWeight = Number(gradingWeightKg);
     if (!Number.isFinite(parsedWeight) || parsedWeight <= 0) {
@@ -451,17 +465,17 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
       return;
     }
     const parsedCount = Number(gradingCount);
-    if (!Number.isFinite(parsedCount) || parsedCount <= 0) {
-      setGlobalError('Enter a valid fish count.');
-      return;
-    }
+    const normalizedCount =
+      Number.isFinite(parsedCount) && parsedCount > 0
+        ? parsedCount
+        : undefined;
 
     const payload: AddHarvestGradingPayload = {
       fishTypeId: selectedFishTypeId,
-      gradeId: selectedPricingId,
-      sourceBatchId: selectedBatchId || undefined,
-      weight: parsedWeight,
-      count: parsedCount,
+      pricingId: selectedPricingId,
+      sourceBatchId: selectedBatchId,
+      weightKg: parsedWeight,
+      count: normalizedCount,
       condition: gradingCondition,
     };
 
@@ -850,7 +864,13 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                       <Button
                         className="bg-[#088395] hover:bg-[#0A4D68]"
                         onClick={() => void handleAddGrading()}
-                        disabled={isSubmittingStepAction || !selectedFishTypeId || !selectedPricingId || !gradingWeightKg || !gradingCount}
+                        disabled={
+                          isSubmittingStepAction ||
+                          !selectedFishTypeId ||
+                          !selectedPricingId ||
+                          !selectedBatchId ||
+                          !gradingWeightKg
+                        }
                       >
                         {isSubmittingStepAction ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                         Add Grading
