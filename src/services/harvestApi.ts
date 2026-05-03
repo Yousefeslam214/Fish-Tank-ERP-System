@@ -189,11 +189,19 @@ const normalizeGrading = (value: unknown): HarvestGradingRecord | null => {
     return null;
   }
 
-  const id = asString(record.id);
-  const gradeId = asString(record.gradeId) || asString(record.pricingId);
-  if (!id || !gradeId) {
-    return null;
-  }
+  const pricingRecord = asRecord(record.pricing);
+  const gradeRecord = asRecord(record.grade);
+  const id =
+    asString(record.id) ||
+    asString(record._id) ||
+    asString(record.gradingId) ||
+    `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const gradeId =
+    asString(record.gradeId) ||
+    asString(record.pricingId) ||
+    asString(pricingRecord?.id) ||
+    asString(gradeRecord?.id) ||
+    'UNKNOWN';
 
   return {
     id,
@@ -204,7 +212,10 @@ const normalizeGrading = (value: unknown): HarvestGradingRecord | null => {
     weightKg: extractNumber(record.weightKg ?? record.weight),
     count: extractNumber(record.count ?? record.fishCount),
     condition: asString(record.condition) || 'GOOD',
-    gradeName: asString(record.gradeName) || asString(asRecord(record.grade)?.name),
+    gradeName:
+      asString(record.gradeName) ||
+      asString(gradeRecord?.name) ||
+      asString(pricingRecord?.gradeName),
     gradeType: asString(record.gradeType),
     pricePerKg: extractNumber(record.pricePerKg),
     totalValue: extractNumber(record.totalValue),
@@ -486,12 +497,27 @@ export const completeHarvestEvent = async (
   eventId: string,
   payload: CompleteHarvestPayload,
 ): Promise<HarvestEventRecord> => {
-  const response = await postWithFallback(
-    `/harvest/events/${eventId}/complete`,
-    `/harvest/events/${eventId}/complete`,
-    { notes: payload.notes || '' },
-    {},
-  );
+  let response: unknown;
+  try {
+    response = await requestJson(`/harvest/events/${eventId}/complete`, {
+      method: 'POST',
+    });
+  } catch (error) {
+    if (!(error instanceof ApiClientError) || error.status !== 400) {
+      throw error;
+    }
+
+    const message = String(error.message || '').toLowerCase();
+    if (!message.includes('should not be empty') && !message.includes('required')) {
+      throw error;
+    }
+
+    response = await requestJson(`/harvest/events/${eventId}/complete`, {
+      method: 'POST',
+      body: {},
+    });
+  }
+
   const data = unwrapApiData<unknown>(response);
   const event = normalizeHarvestEvent(data);
   if (!event) {

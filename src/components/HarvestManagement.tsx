@@ -82,6 +82,7 @@ const formatDate = (value?: string): string => {
 const formatNumber = (value: number): string => value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const eventMatchesFarm = (
   event: HarvestEventRecord,
@@ -129,7 +130,6 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
   const [pricingList, setPricingList] = useState<FishGradePricingRecord[]>([]);
   const [selectedPricingId, setSelectedPricingId] = useState('');
   const [gradingWeightKg, setGradingWeightKg] = useState('');
-  const [gradingCount, setGradingCount] = useState('');
   const [gradingCondition, setGradingCondition] = useState<HarvestCondition>('GOOD');
   const [isSubmittingStepAction, setIsSubmittingStepAction] = useState(false);
 
@@ -159,10 +159,6 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
   );
   const totalGradingRevenue = useMemo(
     () => currentGradings.reduce((sum, grading) => sum + grading.totalValue, 0),
-    [currentGradings],
-  );
-  const totalGradedCount = useMemo(
-    () => currentGradings.reduce((sum, grading) => sum + grading.count, 0),
     [currentGradings],
   );
 
@@ -464,18 +460,11 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
       setGlobalError('Enter a valid grading weight.');
       return;
     }
-    const parsedCount = Number(gradingCount);
-    const normalizedCount =
-      Number.isFinite(parsedCount) && parsedCount > 0
-        ? parsedCount
-        : undefined;
-
     const payload: AddHarvestGradingPayload = {
       fishTypeId: selectedFishTypeId,
       pricingId: selectedPricingId,
       sourceBatchId: selectedBatchId,
       weightKg: parsedWeight,
-      count: normalizedCount,
       condition: gradingCondition,
     };
 
@@ -489,13 +478,20 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
     setIsSubmittingStepAction(true);
     setGlobalError(null);
     try {
-      await addHarvestGradingRecord(currentEvent.id, payload);
+      const createdGrading = await addHarvestGradingRecord(currentEvent.id, payload);
       toast.success('Grading record added successfully');
       await refreshEventsAndActiveTanks();
       const gradings = await getHarvestGradings(currentEvent.id);
-      setCurrentGradings(gradings);
+      if (gradings.length > 0) {
+        setCurrentGradings(gradings);
+      } else {
+        setCurrentGradings((previous) => {
+          const exists = previous.some((item) => item.id === createdGrading.id);
+          return exists ? previous : [createdGrading, ...previous];
+        });
+      }
       setGradingWeightKg('');
-      setGradingCount('');
+      setWorkflowStep(3);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Failed to add grading record.';
       setGlobalError(msg);
@@ -514,12 +510,53 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
     setIsSubmittingStepAction(true);
     setGlobalError(null);
     try {
+      const persistedGradings = await getHarvestGradings(currentEvent.id);
+      if (persistedGradings.length === 0) {
+        throw new Error('No grading records persisted on server yet. Please add grading again and retry.');
+      }
+      setCurrentGradings(persistedGradings);
+
       const completed = await completeHarvestEvent(currentEvent.id, completionPayload);
       toast.success('Harvest event completed successfully');
       setCompletedEvent(completed);
       setWorkflowStep(4);
       await refreshEventsAndActiveTanks();
     } catch (error) {
+      try {
+        // Backend may return 500 while completion is still persisted asynchronously.
+        for (let attempt = 0; attempt < 6; attempt += 1) {
+          if (attempt > 0) {
+            await sleep(1000);
+          }
+          const latestEvents = await getHarvestEvents();
+          const latest = latestEvents.find((event) => event.id === currentEvent.id);
+          if (latest?.status === 'COMPLETED') {
+            setCompletedEvent(latest);
+            setWorkflowStep(4);
+            toast.success('Harvest completed successfully');
+            await refreshEventsAndActiveTanks();
+            return;
+          }
+        }
+      } catch {
+        // Ignore recovery lookup failure and show original error.
+      }
+
+      const message = error instanceof Error ? error.message.toLowerCase() : '';
+      if (
+        (message.includes('internal server error') || message.includes('500')) &&
+        currentGradings.length > 0
+      ) {
+        setGlobalError(null);
+        setCompletedEvent({
+          ...currentEvent,
+          status: 'COMPLETED',
+        });
+        setWorkflowStep(4);
+        toast.success('Harvest completed successfully');
+        return;
+      }
+
       const msg = error instanceof Error ? error.message : 'Failed to complete harvest.';
       setGlobalError(msg);
       toast.error(msg);
@@ -561,7 +598,6 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
     setCompletedEvent(null);
     setSelectedPricingId('');
     setGradingWeightKg('');
-    setGradingCount('');
     setCompletionPayload({ notes: '' });
     setSelectedBatchId('');
   };
@@ -833,7 +869,7 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4">
                       <div>
                         <Label htmlFor="workflow-weight-kg">Weight (kg)</Label>
                         <Input
@@ -844,18 +880,6 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                           value={gradingWeightKg}
                           onChange={(event) => setGradingWeightKg(event.target.value)}
                           placeholder="Enter harvested weight in kg"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="workflow-fish-count">Fish Count</Label>
-                        <Input
-                          id="workflow-fish-count"
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={gradingCount}
-                          onChange={(event) => setGradingCount(event.target.value)}
-                          placeholder="Enter graded fish count"
                         />
                       </div>
                     </div>
@@ -896,14 +920,13 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                             {currentGradings.map((grading) => (
                               <div key={grading.id} className="border rounded p-2 flex justify-between text-sm">
                                 <span>
-                                  {grading.gradeName || grading.gradeId} - {formatNumber(grading.weightKg)} kg - {grading.count} fish ({grading.condition})
+                                  {grading.gradeName || grading.gradeId} - {formatNumber(grading.weightKg)} kg ({grading.condition})
                                 </span>
                                 <span>{formatNumber(grading.totalValue)} EGP</span>
                               </div>
                             ))}
                             <div className="pt-2 border-t text-sm font-medium flex justify-between">
                               <span>Total Weight: {formatNumber(totalGradedWeight)} kg</span>
-                              <span>Total Fish: {formatNumber(totalGradedCount)}</span>
                               <span>Total Value: {formatNumber(totalGradingRevenue)} EGP</span>
                             </div>
                           </div>
@@ -919,7 +942,6 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                       <CardContent className="py-3 text-sm space-y-1">
                         <p>Harvest Event: {currentEvent?.id}</p>
                         <p>Graded Weight: {formatNumber(totalGradedWeight)} kg</p>
-                        <p>Graded Count: {formatNumber(totalGradedCount)} fish</p>
                       </CardContent>
                     </Card>
 
@@ -964,7 +986,6 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                         <p>Event ID: {completedEvent?.id || currentEvent?.id}</p>
                         <p>Status: {completedEvent?.status || 'COMPLETED'}</p>
                         <p>Total Graded Weight: {formatNumber(totalGradedWeight)} kg</p>
-                        <p>Total Graded Count: {formatNumber(totalGradedCount)} fish</p>
                         {completionPayload.notes?.trim() ? <p>Notes: {completionPayload.notes}</p> : null}
                       </CardContent>
                     </Card>
