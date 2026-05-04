@@ -357,29 +357,35 @@ export function BatchesTab({
                         "1.52"}
                     </p>
                   </div>
-                  <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                    <p className="text-xs text-gray-600 mb-1">Feed Cost</p>
-                    <p className="text-lg font-semibold">
-                      {batch.costs?.feedCost ?? "6,750 EGP"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                    <p className="text-xs text-gray-600 mb-1">
-                      Cost Basis (Fish Purchase)
-                    </p>
-                    <p className="text-lg font-semibold">
-                      {batch.costs?.costBasis ?? "12,000 EGP"}
-                    </p>
-                  </div>
                   <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
                     <p className="text-xs text-gray-600 mb-1">Stocked Date</p>
                     <p className="text-lg font-semibold">
                       {batch.dates?.stockedDate ?? "Dec 28, 2025"}
                     </p>
                   </div>
+                  {/* <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                    <p className="text-xs text-gray-600 mb-1">Feed Cost</p>
+                    <p className="text-lg font-semibold">
+                      {batch.costs?.feedCost ?? "6,750 EGP"}
+                    </p>
+                  </div> */}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                    <p className="text-xs text-gray-600 mb-1">
+                      Cost Basis (Fish Purchase)
+                    </p>
+                    <p className="text-lg font-semibold">
+                      {batch.costs?.costBasis ?? "12,000 EGP"}
+                    </p>
+                  </div> */}
+                  {/* <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                    <p className="text-xs text-gray-600 mb-1">Stocked Date</p>
+                    <p className="text-lg font-semibold">
+                      {batch.dates?.stockedDate ?? "Dec 28, 2025"}
+                    </p>
+                  </div> */}
                 </div>
 
                 <div className="mt-4 bg-gray-50 p-3 rounded-lg">
@@ -402,13 +408,9 @@ export function BatchesTab({
                         Assigned Feed Type
                       </p>
                       <p className="font-semibold text-sm mb-1">
-                        {batch.feedingPlan?.assignedFeedType ||
-                          "Grower 30% 3mm Floating"}
+                        {batch.feedingPlan?.assignedFeedType} 
                       </p>
-                      <p className="text-xs text-gray-600">
-                        {batch.feedingPlan?.optimalLabel ||
-                          "Optimal for current weight range"}
-                      </p>
+                      
                     </div>
                     <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
                       <p className="text-xs text-gray-600 mb-2">
@@ -418,10 +420,10 @@ export function BatchesTab({
                         {batch.feedingPlan?.dailyFeedingAmount ||
                           "45 kg/day (2.5% body weight)"}
                       </p>
-                      <p className="text-xs text-gray-600">
+                      {/* <p className="text-xs text-gray-600">
                         Distributed over {batch.feedingPlan?.mealsPerDay || 4}{" "}
                         meals
-                      </p>
+                      </p> */}
                     </div>
                   </div>
                 
