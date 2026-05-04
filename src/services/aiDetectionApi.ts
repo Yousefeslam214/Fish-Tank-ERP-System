@@ -1,5 +1,10 @@
 import type { CreateHealthCheckDTO, HealthStatus } from './healthCheckApi';
 import { resolveHealthReportTemplate } from './healthKnowledgeBase';
+import {
+  HealthLibraryRecommendation,
+  listHealthLibraryConfigurations,
+  resolveHealthLibraryRecommendation,
+} from './healthLibraryApi';
 
 export interface AIPredictionClass {
   class: string;
@@ -41,6 +46,7 @@ export interface AutomatedHealthReport {
   mappedHealthStatus: HealthStatus;
   isKnownClassification: boolean;
   saveBlockedReason?: string;
+  libraryRecommendation?: HealthLibraryRecommendation | null;
 }
 
 const DEFAULT_AI_API_BASE = 'https://yousseftallal-ai-fisherman.hf.space';
@@ -124,6 +130,7 @@ export const mapPredictionToHealthStatus = (
 
 export const buildAutomatedHealthReportFromAnalysis = (
   analysis: AIPredictResponse,
+  libraryRecommendation?: HealthLibraryRecommendation | null,
 ): AutomatedHealthReport => {
   const topPrediction = analysis.top_prediction;
   const confidencePercent = confidenceToPercent(topPrediction?.confidence ?? 0);
@@ -139,6 +146,15 @@ export const buildAutomatedHealthReportFromAnalysis = (
   const saveBlockedReason = isKnownClassification
     ? undefined
     : 'The AI marked this image as unknown or not a valid fish disease case, so it cannot be saved to history.';
+  const adminRecommendationLines = libraryRecommendation?.recommendations?.length
+    ? [
+      ...(libraryRecommendation.level ? [`Level: ${libraryRecommendation.level}`] : []),
+      ...(libraryRecommendation.status ? [`Status: ${libraryRecommendation.status}`] : []),
+      ...(libraryRecommendation.risk ? [`Risk: ${libraryRecommendation.risk}`] : []),
+      ...(libraryRecommendation.medicineName ? [`Medicine: ${libraryRecommendation.medicineName}`] : []),
+      ...libraryRecommendation.recommendations,
+    ]
+    : [];
 
   return {
     topPredictionLabel,
@@ -149,23 +165,61 @@ export const buildAutomatedHealthReportFromAnalysis = (
     mappedHealthStatus,
     isKnownClassification,
     saveBlockedReason,
+    libraryRecommendation: libraryRecommendation || null,
     payload: {
       checkType: 'TARGETED',
       healthStatus: diseaseDetected ? mappedHealthStatus : 'HEALTHY',
       bacterialType: isKnownClassification ? template.title : 'Unknown / Unrecognized Result',
       bacterialLoadPercentage: Number(confidencePercent.toFixed(2)),
       treatmentSuggestion: isKnownClassification
-        ? template.treatmentProtocol.join(' ')
+        ? (adminRecommendationLines.length
+          ? adminRecommendationLines.join(' ')
+          : 'No Disease Library level matched this disease and confidence range.')
         : 'No treatment protocol is generated for unknown or invalid classifications.',
-      dosageInstructions: isKnownClassification ? template.dosageInstructions : undefined,
-      suggestedDuration: isKnownClassification ? template.suggestedDuration : undefined,
+      dosageInstructions: undefined,
+      suggestedDuration: undefined,
       feedingAdvice: isKnownClassification
-        ? template.feedingGuidance.join(' ')
+        ? (libraryRecommendation?.feedingGuidance?.join(' ') || libraryRecommendation?.message || libraryRecommendation?.risk || undefined)
         : 'Run another check with a clear fish image before taking action.',
-      medicineId: isKnownClassification ? template.medicineId : undefined,
+      medicineId: undefined,
       checkedAt: analysis.timestamp || new Date().toISOString(),
     },
   };
+};
+
+const resolveLibraryRecommendationFromAnalysis = (
+  analysis: AIPredictResponse,
+  configs: Parameters<typeof resolveHealthLibraryRecommendation>[0] = [],
+) => {
+  const topPrediction = analysis.top_prediction;
+  const label = topPrediction?.class || '';
+  const template = resolveHealthReportTemplate(label);
+  const confidencePercent = confidenceToPercent(topPrediction?.confidence ?? 0);
+  const isKnownClassification = isKnownDiseaseClassification(label);
+
+  return isKnownClassification
+    ? resolveHealthLibraryRecommendation(
+      configs,
+      [label, template.key, template.title, ...template.aliases],
+      confidencePercent,
+      isHealthyPrediction(label),
+    )
+    : null;
+};
+
+export const buildAutomatedHealthReportWithLibrary = async (
+  analysis: AIPredictResponse,
+): Promise<AutomatedHealthReport> => {
+  try {
+    const configs = await listHealthLibraryConfigurations();
+    const recommendation = resolveLibraryRecommendationFromAnalysis(analysis, configs);
+    return buildAutomatedHealthReportFromAnalysis(analysis, recommendation);
+  } catch {
+    return buildAutomatedHealthReportFromAnalysis(
+      analysis,
+      resolveLibraryRecommendationFromAnalysis(analysis),
+    );
+  }
 };
 
 export const buildHealthCheckDraftFromAnalysis = (

@@ -23,7 +23,7 @@ import {
 import {
   AIPredictResponse,
   AutomatedHealthReport,
-  buildAutomatedHealthReportFromAnalysis,
+  buildAutomatedHealthReportWithLibrary,
   getAnnotatedImageSrc,
   predictFishDisease,
 } from '../../../services/aiDetectionApi';
@@ -94,7 +94,7 @@ export function HealthCheckModal({
     setIsAnalyzing(true);
     try {
       const result = await predictFishDisease(selectedFile);
-      const automatedReport = buildAutomatedHealthReportFromAnalysis(result);
+      const automatedReport = await buildAutomatedHealthReportWithLibrary(result);
       setAnalysis(result);
       setReport(automatedReport);
       toast.success('AI report generated.');
@@ -128,10 +128,7 @@ export function HealthCheckModal({
         bacterialType: report.payload.bacterialType,
         bacterialLoadPercentage: report.payload.bacterialLoadPercentage,
         treatmentSuggestion: report.payload.treatmentSuggestion,
-        dosageInstructions: report.payload.dosageInstructions,
-        suggestedDuration: report.payload.suggestedDuration,
         feedingAdvice: report.payload.feedingAdvice,
-        medicineId: report.payload.medicineId,
         checkedAt: report.payload.checkedAt,
       });
       toast.success('Health report saved to batch history.');
@@ -146,7 +143,7 @@ export function HealthCheckModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88vh] overflow-hidden sm:max-w-3xl">
+      <DialogContent className="max-h-[88vh] overflow-hidden sm:max-w-6xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Stethoscope className="h-5 w-5 text-[#088395]" />
@@ -157,7 +154,7 @@ export function HealthCheckModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,560px)] lg:items-start lg:justify-start">
+        <div className="grid gap-6 lg:grid-cols-[430px_minmax(0,640px)] lg:items-start lg:justify-start">
           <div className="space-y-4">
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <div className="grid gap-4 md:grid-cols-2">
@@ -187,7 +184,7 @@ export function HealthCheckModal({
               onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
             />
 
-            <div className="grid w-fit grid-cols-2 gap-2">
+            <div className="grid w-fit grid-cols-2 gap-3">
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Original image</p>
@@ -203,7 +200,7 @@ export function HealthCheckModal({
                     </Button>
                   )}
                 </div>
-                <div className="h-32 w-32 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 sm:h-36 sm:w-36">
+                <div className="h-44 w-44 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 sm:h-52 sm:w-52">
                   {previewUrl ? (
                     <button
                       type="button"
@@ -243,7 +240,7 @@ export function HealthCheckModal({
                     </Button>
                   )}
                 </div>
-                <div className="h-32 w-32 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 sm:h-36 sm:w-36">
+                <div className="h-44 w-44 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 sm:h-52 sm:w-52">
                   {annotatedImageSrc ? (
                     <button
                       type="button"
@@ -297,21 +294,21 @@ export function HealthCheckModal({
             </div>
 
             {expandedImage && (
-              <div className="w-full max-w-[280px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
+              <div className="w-full max-w-[430px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{expandedImage.title}</p>
                   <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setExpandedImage(null)}>
                     Hide
                   </Button>
                 </div>
-                <div className="flex h-[220px] items-center justify-center overflow-auto rounded-xl bg-slate-50">
-                  <img src={expandedImage.src} alt={expandedImage.title} className="max-h-[200px] w-auto max-w-full object-contain p-2" />
+                <div className="flex h-[320px] items-center justify-center overflow-auto rounded-xl bg-slate-50">
+                  <img src={expandedImage.src} alt={expandedImage.title} className="max-h-[300px] w-auto max-w-full object-contain p-2" />
                 </div>
               </div>
             )}
           </div>
 
-          <div className="min-w-0 max-w-[560px] space-y-4">
+          <div className="min-w-0 max-w-[640px] space-y-4">
             <div className="rounded-2xl border border-[#D7E9EE] bg-white p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -345,6 +342,8 @@ export function HealthCheckModal({
                   batchLabel={selectedBatch ? getBatchLabel(selectedBatch) : undefined}
                   topPredictionLabel={report.topPredictionDisplay}
                   title="Fixed AI Health Report"
+                  libraryRecommendation={report.libraryRecommendation}
+                  requireLibraryRecommendation
                 />
                 <DialogFooter>
                   <Button variant="outline" onClick={() => onOpenChange(false)}>

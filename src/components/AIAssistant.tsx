@@ -16,7 +16,7 @@ import {
   AIHealthServiceStatus,
   AIPredictResponse,
   AutomatedHealthReport,
-  buildAutomatedHealthReportFromAnalysis,
+  buildAutomatedHealthReportWithLibrary,
   confidenceToPercent,
   getAIServiceHealth,
   getAnnotatedImageSrc,
@@ -179,7 +179,7 @@ export default function AIAssistant({ user }: AIAssistantProps) {
     try {
       const result = await predictFishDisease(selectedFile);
       setAnalysis(result);
-      setReport(buildAutomatedHealthReportFromAnalysis(result));
+      setReport(await buildAutomatedHealthReportWithLibrary(result));
       toast.success('AI image analysis completed.');
     } catch (error) {
       toast.error((error as Error).message);
@@ -211,10 +211,7 @@ export default function AIAssistant({ user }: AIAssistantProps) {
         bacterialType: report.payload.bacterialType,
         bacterialLoadPercentage: report.payload.bacterialLoadPercentage,
         treatmentSuggestion: report.payload.treatmentSuggestion,
-        dosageInstructions: report.payload.dosageInstructions,
-        suggestedDuration: report.payload.suggestedDuration,
         feedingAdvice: report.payload.feedingAdvice,
-        medicineId: report.payload.medicineId,
         checkedAt: report.payload.checkedAt,
       });
       toast.success('AI health report saved to tank history.');
@@ -342,7 +339,7 @@ export default function AIAssistant({ user }: AIAssistantProps) {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_minmax(0,620px)] lg:items-start lg:justify-start">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[460px_minmax(0,760px)] lg:items-start lg:justify-start">
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm">Upload Fish Image</CardTitle>
@@ -357,7 +354,7 @@ export default function AIAssistant({ user }: AIAssistantProps) {
                   onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
                 />
 
-                <div className="grid w-fit grid-cols-2 gap-2">
+                <div className="grid w-fit grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Original image</p>
@@ -373,7 +370,7 @@ export default function AIAssistant({ user }: AIAssistantProps) {
                         </Button>
                       )}
                     </div>
-                    <div className="h-32 w-32 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 sm:h-36 sm:w-36">
+                    <div className="h-44 w-44 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 sm:h-52 sm:w-52">
                       {previewUrl ? (
                         <button
                           type="button"
@@ -413,7 +410,7 @@ export default function AIAssistant({ user }: AIAssistantProps) {
                         </Button>
                       )}
                     </div>
-                    <div className="h-32 w-32 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 sm:h-36 sm:w-36">
+                    <div className="h-44 w-44 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 sm:h-52 sm:w-52">
                       {annotatedImageSrc ? (
                         <button
                           type="button"
@@ -463,22 +460,22 @@ export default function AIAssistant({ user }: AIAssistantProps) {
                 </div>
 
                 {expandedImage && (
-                  <div className="w-full max-w-[280px] overflow-hidden rounded-xl border border-slate-200 bg-white p-3">
+                  <div className="w-full max-w-[460px] overflow-hidden rounded-xl border border-slate-200 bg-white p-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
                       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{expandedImage.title}</p>
                       <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setExpandedImage(null)}>
                         Hide
                       </Button>
                     </div>
-                    <div className="flex h-[220px] items-center justify-center overflow-auto rounded-lg bg-slate-50">
-                      <img src={expandedImage.src} alt={expandedImage.title} className="max-h-[200px] w-auto max-w-full object-contain p-2" />
+                    <div className="flex h-[320px] items-center justify-center overflow-auto rounded-lg bg-slate-50">
+                      <img src={expandedImage.src} alt={expandedImage.title} className="max-h-[300px] w-auto max-w-full object-contain p-2" />
                     </div>
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            <Card className="w-full max-w-[620px]">
+            <Card className="w-full max-w-[760px]">
               <CardHeader>
                 <CardTitle className="text-sm">AI Analysis Result</CardTitle>
               </CardHeader>
@@ -533,6 +530,8 @@ export default function AIAssistant({ user }: AIAssistantProps) {
                       topPredictionLabel={report.topPredictionDisplay}
                       title="Fixed AI Health Report"
                       compact
+                      libraryRecommendation={report.libraryRecommendation}
+                      requireLibraryRecommendation
                     />
 
                     <Button

@@ -167,7 +167,6 @@ export const buildRecoveryHealthCheckPayload = (
     suggestedDuration: '7 days post-treatment observation',
     feedingAdvice:
       'Return gradually to the standard feeding schedule while monitoring appetite and swimming behavior.',
-    medicineId: sourceRecord.medicineId || template.medicineId,
   };
 };
 

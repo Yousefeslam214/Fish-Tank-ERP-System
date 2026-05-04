@@ -15,7 +15,7 @@ import {
 import {
   AIPredictResponse,
   AutomatedHealthReport,
-  buildAutomatedHealthReportFromAnalysis,
+  buildAutomatedHealthReportWithLibrary,
   getAnnotatedImageSrc,
   predictFishDisease,
 } from '../../services/aiDetectionApi';
@@ -85,7 +85,7 @@ export function InlineHealthCheckPanel({
     try {
       const result = await predictFishDisease(selectedFile);
       setAnalysis(result);
-      setReport(buildAutomatedHealthReportFromAnalysis(result));
+      setReport(await buildAutomatedHealthReportWithLibrary(result));
       toast.success('AI report generated.');
     } catch (error) {
       toast.error((error as Error).message);
@@ -117,10 +117,7 @@ export function InlineHealthCheckPanel({
         bacterialType: report.payload.bacterialType,
         bacterialLoadPercentage: report.payload.bacterialLoadPercentage,
         treatmentSuggestion: report.payload.treatmentSuggestion,
-        dosageInstructions: report.payload.dosageInstructions,
-        suggestedDuration: report.payload.suggestedDuration,
         feedingAdvice: report.payload.feedingAdvice,
-        medicineId: report.payload.medicineId,
         checkedAt: report.payload.checkedAt,
       });
       toast.success('Health report saved to batch history.');
@@ -134,7 +131,7 @@ export function InlineHealthCheckPanel({
   };
 
   return (
-    <div className="w-full max-w-[860px] rounded-3xl border border-[#B9E0E7] bg-white p-4 shadow-sm">
+    <div className="w-full max-w-[1120px] rounded-3xl border border-[#B9E0E7] bg-white p-4 shadow-sm">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#B9E0E7] bg-[#F4FBFC] px-3 py-1 text-xs font-semibold text-[#0A4D68]">
@@ -156,7 +153,7 @@ export function InlineHealthCheckPanel({
         )}
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[250px_minmax(0,1fr)] lg:items-start">
+      <div className="grid gap-5 lg:grid-cols-[420px_minmax(0,1fr)] lg:items-start">
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="inline-health-batch">Batch</Label>
@@ -182,10 +179,10 @@ export function InlineHealthCheckPanel({
             onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
           />
 
-          <div className="grid w-fit grid-cols-2 gap-2">
+          <div className="grid w-fit grid-cols-2 gap-3">
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Original</p>
-              <div className="h-28 w-28 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 sm:h-32 sm:w-32">
+              <div className="h-40 w-40 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 sm:h-48 sm:w-48">
                 {previewUrl ? (
                   <button
                     type="button"
@@ -208,7 +205,7 @@ export function InlineHealthCheckPanel({
 
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">AI Output</p>
-              <div className="h-28 w-28 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 sm:h-32 sm:w-32">
+              <div className="h-40 w-40 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 sm:h-48 sm:w-48">
                 {annotatedImageSrc ? (
                   <button
                     type="button"
@@ -248,15 +245,15 @@ export function InlineHealthCheckPanel({
           </div>
 
           {expandedImage && (
-            <div className="w-full max-w-[260px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
+            <div className="w-full max-w-[420px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{expandedImage.title}</p>
                 <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setExpandedImage(null)}>
                   Hide
                 </Button>
               </div>
-              <div className="flex h-[180px] items-center justify-center overflow-auto rounded-xl bg-slate-50">
-                <img src={expandedImage.src} alt={expandedImage.title} className="max-h-[160px] w-auto max-w-full object-contain p-2" />
+              <div className="flex h-[300px] items-center justify-center overflow-auto rounded-xl bg-slate-50">
+                <img src={expandedImage.src} alt={expandedImage.title} className="max-h-[280px] w-auto max-w-full object-contain p-2" />
               </div>
             </div>
           )}
@@ -293,6 +290,8 @@ export function InlineHealthCheckPanel({
                   topPredictionLabel={report.topPredictionDisplay}
                   title="Fixed AI Health Report"
                   compact
+                  libraryRecommendation={report.libraryRecommendation}
+                  requireLibraryRecommendation
                 />
                 <div className="flex flex-wrap gap-2">
                   <Button

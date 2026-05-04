@@ -1,8 +1,9 @@
-import { Bot, ClipboardList, ShieldAlert, Syringe, UtensilsCrossed } from 'lucide-react';
+import { Bot, ClipboardList, ListChecks, ShieldAlert, Syringe, UtensilsCrossed } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { formatHealthStatus, HealthStatus } from '../../services/healthCheckApi';
 import { HealthReportTemplate } from '../../services/healthKnowledgeBase';
+import { HealthLibraryRecommendation } from '../../services/healthLibraryApi';
 
 interface RobotHealthReportProps {
   template: HealthReportTemplate;
@@ -13,6 +14,8 @@ interface RobotHealthReportProps {
   topPredictionLabel?: string;
   title?: string;
   compact?: boolean;
+  libraryRecommendation?: HealthLibraryRecommendation | null;
+  requireLibraryRecommendation?: boolean;
 }
 
 const formatDateTime = (value?: string) => {
@@ -45,8 +48,29 @@ export function RobotHealthReport({
   topPredictionLabel,
   title = 'Automated Health Report',
   compact = false,
+  libraryRecommendation,
+  requireLibraryRecommendation = false,
 }: RobotHealthReportProps) {
   const predictionLabel = topPredictionLabel || template.title;
+  const adminRecommendations = libraryRecommendation?.recommendations?.length
+    ? libraryRecommendation.recommendations
+    : null;
+  const showMissingAdminRecommendation = requireLibraryRecommendation && !adminRecommendations;
+  const summary = libraryRecommendation?.summary || template.summary;
+  const symptoms = libraryRecommendation?.symptoms?.length ? libraryRecommendation.symptoms : template.symptoms;
+  const feedingGuidance = libraryRecommendation?.feedingGuidance?.length
+    ? libraryRecommendation.feedingGuidance
+    : template.feedingGuidance;
+  const recoveryChecklist = libraryRecommendation?.recoveryChecklist?.length
+    ? libraryRecommendation.recoveryChecklist
+    : template.recoveryChecklist;
+  const preventiveMeasures = libraryRecommendation?.preventiveMeasures?.length
+    ? libraryRecommendation.preventiveMeasures
+    : template.preventiveMeasures;
+  const quarantineAdvice = libraryRecommendation?.quarantineAdvice || template.quarantineAdvice;
+  const medicineName = libraryRecommendation?.medicineName;
+  const libraryRange = libraryRecommendation?.range;
+  const showTemplateFallback = !requireLibraryRecommendation;
 
   return (
     <Card className="w-full border-[#D8EDF1] bg-gradient-to-br from-[#F7FCFD] via-white to-[#F2F8FB] shadow-sm">
@@ -73,7 +97,7 @@ export function RobotHealthReport({
             )}
           </div>
         </div>
-        <div className="grid gap-3 rounded-2xl border border-[#D7E9EE] bg-white/90 p-4 lg:grid-cols-3">
+        <div className="grid gap-3 rounded-2xl border border-[#D7E9EE] bg-white/90 p-4 md:grid-cols-2 lg:grid-cols-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
               Detected Pattern
@@ -86,23 +110,72 @@ export function RobotHealthReport({
             </p>
             <p className="mt-1 text-sm font-semibold text-slate-900">{formatDateTime(checkedAt)}</p>
           </div>
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              Suggested Medicine
-            </p>
-            <p className="mt-1 text-sm font-semibold text-slate-900">
-              {template.medicineId || 'Protocol only'}
-            </p>
-          </div>
+          {libraryRecommendation && (
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Disease Library Level
+              </p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">
+                {libraryRecommendation.status}
+                {libraryRecommendation.level ? ` • ${libraryRecommendation.level}` : ''}
+              </p>
+              {libraryRange && (
+                <p className="mt-1 text-xs text-slate-500">
+                  {libraryRange.min}% - {libraryRange.max}%
+                </p>
+              )}
+            </div>
+          )}
+          {medicineName && (
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Medicine Name
+              </p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">{medicineName}</p>
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {libraryRecommendation && (
+          <div className="rounded-2xl border border-[#B9E0E7] bg-[#F4FBFC] p-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-[#0A4D68]">
+                <ListChecks className="h-4 w-4" />
+                <p className="text-xs font-semibold uppercase tracking-wide">Matched Health Library Rule</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline" className="border-[#B9E0E7] text-[#0A4D68]">
+                  {libraryRecommendation.conditionId}
+                </Badge>
+                <Badge variant="outline" className="border-[#B9E0E7] text-[#0A4D68]">
+                  {libraryRecommendation.status}
+                </Badge>
+                {libraryRecommendation.level && (
+                  <Badge className="bg-[#0A4D68] text-white">{libraryRecommendation.level}</Badge>
+                )}
+                {libraryRange && (
+                  <Badge variant="outline" className="border-[#B9E0E7] text-[#0A4D68]">
+                    {libraryRange.min}% - {libraryRange.max}%
+                  </Badge>
+                )}
+              </div>
+            </div>
+            {libraryRecommendation.risk && (
+              <p className="mb-3 text-sm font-semibold text-slate-800">{libraryRecommendation.risk}</p>
+            )}
+            {libraryRecommendation.message && (
+              <p className="mb-3 text-sm text-slate-700">{libraryRecommendation.message}</p>
+            )}
+          </div>
+        )}
+
         <div className="rounded-2xl border border-[#D7E9EE] bg-white p-4">
           <div className="mb-2 flex items-center gap-2 text-[#0A4D68]">
             <ClipboardList className="h-4 w-4" />
             <p className="text-xs font-semibold uppercase tracking-wide">Diagnosis Summary</p>
           </div>
-          <p className="text-sm leading-6 text-slate-700">{template.summary}</p>
+          <p className="text-sm leading-6 text-slate-700">{summary}</p>
         </div>
 
         <div className={`grid gap-4 ${compact ? '' : 'lg:grid-cols-2'}`}>
@@ -112,7 +185,7 @@ export function RobotHealthReport({
               <p className="text-xs font-semibold uppercase tracking-wide">Observed Signs</p>
             </div>
             <ul className="space-y-2 text-sm text-slate-700">
-              {template.symptoms.map((symptom) => (
+              {symptoms.map((symptom) => (
                 <li key={symptom}>• {symptom}</li>
               ))}
             </ul>
@@ -121,14 +194,24 @@ export function RobotHealthReport({
           <div className="rounded-2xl border border-[#E4EEF2] bg-white p-4">
             <div className="mb-2 flex items-center gap-2 text-slate-700">
               <Syringe className="h-4 w-4 text-[#088395]" />
-              <p className="text-xs font-semibold uppercase tracking-wide">Standard Protocol</p>
+              <p className="text-xs font-semibold uppercase tracking-wide">
+                {adminRecommendations || showMissingAdminRecommendation
+                  ? 'Admin Health Library Recommendations'
+                  : 'Standard Protocol'}
+              </p>
             </div>
-            <ul className="space-y-2 text-sm text-slate-700">
-              {template.treatmentProtocol.map((step) => (
-                <li key={step}>• {step}</li>
-              ))}
-            </ul>
-            {(template.dosageInstructions || template.suggestedDuration) && (
+            {showMissingAdminRecommendation ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                No Disease Library level matched this disease and confidence range. Add the level controls in Health Library for this disease.
+              </div>
+            ) : (
+              <ul className="space-y-2 text-sm text-slate-700">
+                {(adminRecommendations || (showTemplateFallback ? template.treatmentProtocol : [])).map((step) => (
+                  <li key={step}>• {step}</li>
+                ))}
+              </ul>
+            )}
+            {showTemplateFallback && !adminRecommendations && !showMissingAdminRecommendation && (template.dosageInstructions || template.suggestedDuration) && (
               <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
                 {template.dosageInstructions && <p>Dosage: {template.dosageInstructions}</p>}
                 {template.suggestedDuration && <p className="mt-1">Duration: {template.suggestedDuration}</p>}
@@ -141,9 +224,9 @@ export function RobotHealthReport({
               <div className="mb-2 flex items-center gap-2 text-slate-700">
                 <UtensilsCrossed className="h-4 w-4 text-emerald-600" />
                 <p className="text-xs font-semibold uppercase tracking-wide">Feeding Guidance</p>
-              </div>
-              <ul className="space-y-2 text-sm text-slate-700">
-                {template.feedingGuidance.map((item) => (
+            </div>
+            <ul className="space-y-2 text-sm text-slate-700">
+                {feedingGuidance.map((item) => (
                   <li key={item}>• {item}</li>
                 ))}
               </ul>
@@ -156,7 +239,7 @@ export function RobotHealthReport({
               <p className="text-xs font-semibold uppercase tracking-wide">Recovery Checklist</p>
             </div>
             <ul className="space-y-2 text-sm text-slate-700">
-              {template.recoveryChecklist.map((item) => (
+              {recoveryChecklist.map((item) => (
                 <li key={item}>• {item}</li>
               ))}
             </ul>
@@ -169,12 +252,12 @@ export function RobotHealthReport({
               Prevention and Quarantine
             </p>
             <ul className="mt-3 space-y-2 text-sm text-slate-700">
-              {template.preventiveMeasures.map((item) => (
+              {preventiveMeasures.map((item) => (
                 <li key={item}>• {item}</li>
               ))}
             </ul>
             <p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
-              {template.quarantineAdvice}
+              {quarantineAdvice}
             </p>
           </div>
         )}
