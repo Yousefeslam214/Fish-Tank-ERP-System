@@ -329,10 +329,10 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
       if (tank?.fishType) {
         const ft = fishTypes.find(f => f.name.toLowerCase() === tank.fishType?.toLowerCase());
         if (ft) {
-           console.log('[SyncFishType] Found matching fishType ID from tank:', ft.id);
-           if (ft.id !== selectedFishTypeId) {
-             setSelectedFishTypeId(ft.id);
-           }
+          console.log('[SyncFishType] Found matching fishType ID from tank:', ft.id);
+          if (ft.id !== selectedFishTypeId) {
+            setSelectedFishTypeId(ft.id);
+          }
         }
       }
     }
@@ -397,36 +397,36 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
 
       setCurrentEvent(event);
       setCurrentGradings([]);
-      
+
       const tank = availableTanks.find(t => t.id === selectedTankId);
       if (tank?.fishType) {
         const ft = fishTypes.find(f => f.name.toLowerCase() === tank.fishType?.toLowerCase());
         if (ft) setSelectedFishTypeId(ft.id);
       }
-      
+
       setWorkflowStep(2);
       await refreshEventsAndActiveTanks();
     } catch (error: any) {
       // Handle 409 Conflict: If a harvest is already started for this tank, find it and resume
       if (error?.status === 409 || (error?.message && error.message.includes('409'))) {
-        const existingEvent = harvestEvents.find(e => 
-          e.tankId === selectedTankId && 
-          e.status !== 'COMPLETED' && 
+        const existingEvent = harvestEvents.find(e =>
+          e.tankId === selectedTankId &&
+          e.status !== 'COMPLETED' &&
           e.status !== 'CANCELLED'
         );
-        
+
         if (existingEvent) {
           setCurrentEvent(existingEvent);
           const gradings = await getHarvestGradings(existingEvent.id);
           setCurrentGradings(gradings);
-          
+
           // Set fish type based on tank if available
           const tank = availableTanks.find(t => t.id === selectedTankId);
           if (tank?.fishType) {
             const ft = fishTypes.find(f => f.name.toLowerCase() === tank.fishType?.toLowerCase());
             if (ft) setSelectedFishTypeId(ft.id);
           }
-          
+
           setWorkflowStep(2);
           return;
         }
@@ -491,7 +491,7 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
         });
       }
       setGradingWeightKg('');
-      setWorkflowStep(3);
+      // Removed automatic step jump to allow multiple gradings
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Failed to add grading record.';
       setGlobalError(msg);
@@ -578,7 +578,7 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
       setCurrentEvent(event);
       setCurrentGradings(gradings);
       setSelectedTankId(event.tankId);
-      
+
       // Try to find the batch ID from the event's source batches or metadata
       // For now, setting step 2 is the most important
       setWorkflowStep(2);
@@ -721,8 +721,8 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                 type: e.harvestType,
                 started: formatDate(e.harvestDate),
                 status: e.status === 'STARTED' ? 'DRAFT' : e.status,
-                progress: e.estimatedWeight > 0 
-                  ? Math.min(100, Math.round(((e.actualTotalWeight || 0) / e.estimatedWeight) * 100)) 
+                progress: e.estimatedWeight > 0
+                  ? Math.min(100, Math.round(((e.actualTotalWeight || 0) / e.estimatedWeight) * 100))
                   : (e.status === 'GRADING' ? 50 : 10),
                 estimatedWeight: e.estimatedWeight,
                 gradedWeight: e.actualTotalWeight || 0
@@ -805,8 +805,8 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                       ) : (
                         <Plus className="w-4 h-4 mr-2" />
                       )}
-                      {activeTanks.some(t => t.tankId === selectedTankId) 
-                        ? 'Resume Active Harvest' 
+                      {activeTanks.some(t => t.tankId === selectedTankId)
+                        ? 'Resume Active Harvest'
                         : 'Start Harvest Event'}
                     </Button>
                   </div>
@@ -906,33 +906,16 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                       >
                         Continue to Completion
                       </Button>
+                      <Button
+                        className="bg-[#088395] hover:bg-[#0A4D68]"
+                        onClick={() => setWorkflowStep(3)}
+                        disabled={currentGradings.length === 0}
+                      >
+                        Next Step
+                      </Button>
                     </div>
 
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">Recorded Gradings</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        {currentGradings.length === 0 ? (
-                          <p className="text-sm text-gray-600">No gradings submitted yet.</p>
-                        ) : (
-                          <div className="space-y-2">
-                            {currentGradings.map((grading) => (
-                              <div key={grading.id} className="border rounded p-2 flex justify-between text-sm">
-                                <span>
-                                  {grading.gradeName || grading.gradeId} - {formatNumber(grading.weightKg)} kg ({grading.condition})
-                                </span>
-                                <span>{formatNumber(grading.totalValue)} EGP</span>
-                              </div>
-                            ))}
-                            <div className="pt-2 border-t text-sm font-medium flex justify-between">
-                              <span>Total Weight: {formatNumber(totalGradedWeight)} kg</span>
-                              <span>Total Value: {formatNumber(totalGradingRevenue)} EGP</span>
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
+                    {/* Recorded Gradings history box removed as requested */}
                   </div>
                 )}
 
@@ -940,10 +923,42 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                   <div className="space-y-4">
                     <Card className="bg-gray-50">
                       <CardContent className="py-3 text-sm space-y-1">
+                        <p className="font-semibold text-gray-700">Harvest Summary</p>
                         <p>Harvest Event: {currentEvent?.id}</p>
                         <p>Graded Weight: {formatNumber(totalGradedWeight)} kg</p>
+                        <p>Estimated Revenue: {formatNumber(totalGradingRevenue)} EGP</p>
                       </CardContent>
                     </Card>
+
+                    <div className="space-y-3">
+                      <Label className="text-base font-semibold">Grading History</Label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {currentGradings.map((grading) => (
+                          <Card key={grading.id} className="overflow-hidden border-blue-100 shadow-sm">
+                            <CardHeader className="bg-blue-50/50 py-2 px-4 border-b">
+                              <CardTitle className="text-sm font-bold flex justify-between items-center">
+                                <span>{grading.gradeName || 'Grading Record'}</span>
+                                <Badge variant="outline" className="bg-white">{grading.condition}</Badge>
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-4 space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Weight:</span>
+                                <span className="font-semibold">{formatNumber(grading.weightKg)} kg</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Price at Harvest:</span>
+                                <span className="font-semibold">{formatNumber(grading.pricePerKg)} EGP/kg</span>
+                              </div>
+                              <div className="border-t pt-2 flex justify-between font-bold text-blue-800">
+                                <span>Total Value:</span>
+                                <span>{formatNumber(grading.totalValue)} EGP</span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
 
                     <div>
                       <Label htmlFor="completion-notes">Completion Notes</Label>
@@ -1053,7 +1068,7 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                           <p className="text-gray-600">
                             {pricing.minWeight}-{pricing.maxWeight} g, {pricing.numOfFishInKilo} fish/kg
                           </p>
-                            {formatNumber(pricing.pricePerKg)} EGP/kg
+                          {formatNumber(pricing.pricePerKg)} EGP/kg
 
                         </div>
                         <Button variant="outline" onClick={() => startEditingPricing(pricing)}>

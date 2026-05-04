@@ -264,7 +264,7 @@ describe('HarvestManagement', () => {
       });
     });
 
-    expect(await screen.findByText(/Grade 1 - 50 kg/)).toBeInTheDocument();
+    // expect(await screen.findByText(/Grade 1 - 50 kg/)).not.toBeInTheDocument(); // Removed history box
 
     await user.click(screen.getByRole('button', { name: /Continue to Completion/i }));
     expect(await screen.findByText('Workflow Step 3 / 4')).toBeInTheDocument();

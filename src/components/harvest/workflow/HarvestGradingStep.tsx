@@ -139,7 +139,7 @@ export const HarvestGradingStep: React.FC<HarvestGradingStepProps> = ({
 
     console.log('Adding new grading record:', newGrading);
     setGradings([...gradings, newGrading]);
-    
+
     // Reset form
     setWeight('');
     setNotes('');
@@ -176,8 +176,8 @@ export const HarvestGradingStep: React.FC<HarvestGradingStepProps> = ({
     switch (cond) {
       case 'EXCELLENT': return '⭐⭐⭐';
       case 'GOOD': return '⭐⭐';
-      case 'FAIR': return '⭐';
-      case 'POOR': return '❌';
+      case 'ACCEPTABLE': return '⭐';
+      case 'DAMAGED': return '❌';
       default: return '';
     }
   };
@@ -267,7 +267,7 @@ export const HarvestGradingStep: React.FC<HarvestGradingStepProps> = ({
               {/* Condition */}
               <div className="space-y-2">
                 <Label>Fish Condition:</Label>
-                <RadioGroup value={condition} onValueChange={(v) => setCondition(v as HarvestCondition)}>
+                <RadioGroup value={condition} onValueChange={(v: string) => setCondition(v as HarvestCondition)}>
                   <div className="flex gap-4">
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="EXCELLENT" id="excellent" />
@@ -278,12 +278,12 @@ export const HarvestGradingStep: React.FC<HarvestGradingStepProps> = ({
                       <Label htmlFor="good" className="cursor-pointer">Good</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="FAIR" id="fair" />
-                      <Label htmlFor="fair" className="cursor-pointer">Fair</Label>
+                      <RadioGroupItem value="ACCEPTABLE" id="acceptable" />
+                      <Label htmlFor="acceptable" className="cursor-pointer">Acceptable</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="POOR" id="poor" />
-                      <Label htmlFor="poor" className="cursor-pointer">Poor</Label>
+                      <RadioGroupItem value="DAMAGED" id="damaged" />
+                      <Label htmlFor="damaged" className="cursor-pointer">Damaged</Label>
                     </div>
                   </div>
                 </RadioGroup>
@@ -301,7 +301,7 @@ export const HarvestGradingStep: React.FC<HarvestGradingStepProps> = ({
               </div>
 
               {/* Add Button */}
-              <Button 
+              <Button
                 onClick={handleAddGrading}
                 disabled={!weight || parseFloat(weight) <= 0}
                 className="w-full bg-[#0A4D68] hover:bg-[#0A4D68]/90"
@@ -314,78 +314,7 @@ export const HarvestGradingStep: React.FC<HarvestGradingStepProps> = ({
         </CardContent>
       </Card>
 
-      {/* Recorded Grades */}
-      {gradings.length > 0 && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Recorded Grades</CardTitle>
-              <span className="text-sm text-gray-600">{gradings.length} record(s)</span>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {gradings.map((grading) => {
-              const gradeInfo = gradePricings.find(g => g.id === grading.pricingId);
-              return (
-                <div key={grading.id} className="border rounded-lg p-4 space-y-2">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-2xl">
-                          {gradeInfo?.icon === 'super' && '⭐'}
-                          {gradeInfo?.icon === 'grade1' && '🔵'}
-                          {gradeInfo?.icon === 'grade2' && '🟠'}
-                          {gradeInfo?.icon === 'sherr' && '🔴'}
-                          {gradeInfo?.icon === 'waste' && '⚠️'}
-                        </span>
-                        <span className="font-semibold" style={{ color: gradeInfo?.color }}>
-                          {grading.gradeName}
-                        </span>
-                        {gradeInfo && (
-                          <span className="text-sm text-gray-600">
-                            ({gradeInfo.minWeight}-{gradeInfo.maxWeight}g)
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {grading.condition} condition • {formatTime(grading.timestamp)}
-                      </div>
-                      {grading.notes && (
-                        <div className="text-sm text-gray-500 mt-1">
-                          Note: {grading.notes}
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-right flex items-start gap-3">
-                      <div>
-                        <div className="font-bold text-lg">
-                          {grading.weightKg.toFixed(1)} kg @ {grading.pricePerKg} = {grading.totalValue.toLocaleString()} EGP
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          {getConditionIcon(grading.condition)}
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteGrading(grading.id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-
-            <div className="border-t pt-3 flex justify-between font-semibold text-lg">
-              <span>Total Graded: {getTotalGraded().toFixed(1)} kg</span>
-              <span className="text-green-600">Value: {getTotalValue().toLocaleString()} EGP</span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Action to proceed to next step moved up or kept at bottom but history box removed */}
 
       {/* Warning */}
       {getProgress() < 100 && gradings.length > 0 && (
@@ -410,12 +339,12 @@ export const HarvestGradingStep: React.FC<HarvestGradingStepProps> = ({
             Save Draft
           </Button>
         </div>
-        <Button 
+        <Button
           onClick={handleNext}
           disabled={gradings.length === 0}
           className="bg-[#0A4D68] hover:bg-[#0A4D68]/90"
         >
-          Review →
+          Next Step →
         </Button>
       </div>
     </div>

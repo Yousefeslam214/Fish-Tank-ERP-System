@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
+import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
@@ -34,14 +35,14 @@ export const HarvestReviewStep: React.FC<HarvestReviewStepProps> = ({
 
   const actualWeight = gradings.reduce((sum, g) => sum + g.weightKg, 0);
   const totalRevenue = gradings.reduce((sum, g) => sum + g.totalValue, 0);
-  
+
   // Production costs (mock data - should come from batch tracking)
   const productionCosts = {
     feedCost: 3120,
     operatingCost: 805,
     fingerllingCost: 1000
   };
-  
+
   const totalProductionCosts = productionCosts.feedCost + productionCosts.operatingCost + productionCosts.fingerllingCost;
   const totalHarvestCosts = costs.laborCost + costs.transportCost + costs.packagingCost + costs.iceCost + costs.otherCost;
   const totalCosts = totalProductionCosts + totalHarvestCosts;
@@ -106,7 +107,7 @@ export const HarvestReviewStep: React.FC<HarvestReviewStepProps> = ({
     onNext(costs);
   };
 
-  const remainingFish = harvestData.harvestType === 'PARTIAL' 
+  const remainingFish = harvestData.harvestType === 'HALF'
     ? Math.round((harvestData.partialPercentage || 0) / 100 * 850) // mock fish count
     : 0;
 
@@ -126,7 +127,7 @@ export const HarvestReviewStep: React.FC<HarvestReviewStepProps> = ({
             <div>
               <p className="text-sm text-gray-600">Harvest Type:</p>
               <p className="font-semibold">
-                {harvestData.harvestType} {harvestData.harvestType === 'PARTIAL' && `(${harvestData.partialPercentage}%)`}
+                {harvestData.harvestType} {harvestData.harvestType === 'HALF' && `(${harvestData.partialPercentage}%)`}
               </p>
             </div>
             <div>
@@ -167,6 +168,41 @@ export const HarvestReviewStep: React.FC<HarvestReviewStepProps> = ({
         </CardContent>
       </Card>
 
+      {/* Grading History */}
+      <div className="space-y-3">
+        <h3 className="text-lg font-semibold px-1 text-[#0A4D68]">Grading History</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {gradings.map((grading) => (
+            <Card key={grading.id} className="overflow-hidden border-blue-100 shadow-sm hover:shadow-md transition-all">
+              <CardHeader className="bg-blue-50/50 py-3 px-4 border-b">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-[#0A4D68]">{grading.gradeName}</span>
+                  <Badge variant="outline" className="bg-white text-[10px] uppercase">
+                    {grading.condition}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 space-y-3">
+                <div className="flex justify-between items-end">
+                  <div>
+                    <p className="text-[10px] text-gray-400 uppercase font-bold tracking-tight">Weight</p>
+                    <p className="text-lg font-black text-gray-800">{grading.weightKg.toFixed(1)} <span className="text-xs font-normal text-gray-500">kg</span></p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-gray-400 uppercase font-bold tracking-tight">Price at Harvest</p>
+                    <p className="font-bold text-sm text-gray-700">{(grading.pricePerKg || 0).toLocaleString()} EGP/kg</p>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-dashed flex justify-between items-center">
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Total Value</span>
+                  <span className="text-lg font-black text-green-600">{(grading.totalValue || 0).toLocaleString()} <span className="text-xs font-normal">EGP</span></span>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
       {/* Grade Distribution */}
       <Card>
         <CardHeader>
@@ -206,7 +242,7 @@ export const HarvestReviewStep: React.FC<HarvestReviewStepProps> = ({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">• Fingerling cost:</span>
-                  <span>{productionCosts.fingerllingCost.toLocaleString()} EGP {harvestData.harvestType === 'PARTIAL' && '(prorated)'}</span>
+                  <span>{productionCosts.fingerllingCost.toLocaleString()} EGP {harvestData.harvestType === 'HALF' && '(prorated)'}</span>
                 </div>
                 <div className="flex justify-between font-semibold border-t pt-1">
                   <span>Subtotal:</span>
@@ -332,16 +368,16 @@ export const HarvestReviewStep: React.FC<HarvestReviewStepProps> = ({
             <div>
               <p className="text-sm font-semibold text-gray-700 mb-2">After Harvest:</p>
               <div className="space-y-1 text-sm">
-                <div>• Fish count: ~{remainingFish} {harvestData.harvestType === 'PARTIAL' ? '(est)' : ''}</div>
+                <div>• Fish count: ~{remainingFish} {harvestData.harvestType === 'HALF' ? '(est)' : ''}</div>
                 <div>• Biomass: ~{(357 - actualWeight).toFixed(0)} kg</div>
                 <div>• Status: {harvestData.harvestType === 'FULL' ? 'HARVESTED' : 'PARTIALLY_HARVESTED'}</div>
-                {harvestData.harvestType === 'PARTIAL' && (
+                {harvestData.harvestType === 'HALF' && (
                   <div>• Remaining: {100 - (harvestData.partialPercentage || 0)}%</div>
                 )}
               </div>
             </div>
           </div>
-          
+
           {harvestData.harvestType !== 'FULL' && (
             <Alert>
               <Info className="w-4 h-4" />
@@ -429,7 +465,7 @@ export const HarvestReviewStep: React.FC<HarvestReviewStepProps> = ({
           <Button variant="outline">
             Save as Draft
           </Button>
-          <Button 
+          <Button
             onClick={handleComplete}
             className="bg-green-600 hover:bg-green-700"
           >

@@ -410,7 +410,10 @@ export function BatchesTab({
                       <p className="font-semibold text-sm mb-1">
                         {batch.feedingPlan?.assignedFeedType} 
                       </p>
-                      
+                      {/* <p className="text-xs text-gray-600">
+                        {batch.feedingPlan?.optimalLabel ||
+                          "Optimal for current weight range"}
+                      </p> */}
                     </div>
                     <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
                       <p className="text-xs text-gray-600 mb-2">
