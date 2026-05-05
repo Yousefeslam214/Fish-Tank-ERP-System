@@ -1164,10 +1164,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   });
 
   const lowFeedStockCount = feedStockInventory.filter((item: any) => getStockStatus(item) !== "good").length;
-  const totalFeedValue = feedStockInventory.reduce(
-    (sum, item: any) => sum + toNumber(item.quantity, 0) * toNumber(item.costPerUnit, 0),
-    0,
-  );
   const totalMedicineStock = medicineInventory.reduce((sum, batch) => sum + (batch.quantity || 0), 0);
   const expiredMedicineCount = medicineInventory.filter((batch) => getMedicineBatchStatus(batch) === "EXPIRED").length;
   const lowMedicineStockCount = medicineInventory.filter((batch) => getMedicineBatchStatus(batch) === "LOW_STOCK").length;
@@ -1481,19 +1477,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                 <p className="text-xs text-gray-600 mt-1">Feed records in inventory</p>
               </CardContent>
             </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Total Feed Value</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">${totalFeedValue.toLocaleString()}</div>
-                <p className="text-xs text-gray-600 mt-1">
-                  Current feed stock value
-                </p>
-              </CardContent>
-            </Card>
-
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Low Stock</CardTitle>
@@ -1625,11 +1608,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-end text-xs text-gray-600">
-                        <span>
-                          ${item.costPerUnit} per {item.unit}
-                        </span>
-                      </div>
+                      
 
                     </div>
                   );
@@ -1925,6 +1904,8 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           }
         }}
       >
+
+
         <DialogContent className="sm:max-w-[540px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-[#0A4D68]">
