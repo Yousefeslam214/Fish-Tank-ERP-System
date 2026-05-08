@@ -285,7 +285,7 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
               </div>
             </div>
           ) : (
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 hidden">
               <Label className="text-sm font-bold text-gray-700 mb-2 block">Target Batch *</Label>
               <Select value={selectedBatchId} onValueChange={setSelectedBatchId}>
                 <SelectTrigger className="bg-white border-gray-200 h-11">
@@ -304,8 +304,7 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
 
           {!initialRecord && selectedBatchId && (
             <div
-              className={`rounded-lg border p-3 text-sm ${
-                isLiveSensorConnected
+              className={`rounded-lg border p-3 text-sm ${isLiveSensorConnected
                   ? 'border-green-200 bg-green-50 text-green-800'
                   : sensorRegistered
                     ? 'border-yellow-200 bg-yellow-50 text-yellow-800'
@@ -315,8 +314,7 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <span
-                    className={`inline-block h-2.5 w-2.5 rounded-full ${
-                      isLiveSensorConnected ? 'bg-green-500' : sensorRegistered ? 'bg-yellow-500' : 'bg-gray-400'
+                    className={`inline-block h-2.5 w-2.5 rounded-full ${isLiveSensorConnected ? 'bg-green-500' : sensorRegistered ? 'bg-yellow-500' : 'bg-gray-400'
                       }`}
                   />
                   <span className="font-medium">
@@ -347,10 +345,10 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
           )}
 
           <div>
-            <h3 className="font-semibold mb-3 text-gray-900">Required Measurements *</h3>
+            <h3 className="font-semibold mb-3 text-gray-900">Required Measurements</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
-                <Label className="text-sm font-medium">Temperature *</Label>
+                <Label className="text-sm font-medium">Temperature</Label>
                 <Input
                   type="number"
                   value={temp}
@@ -362,32 +360,32 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
               </div>
 
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
-                <Label className="text-sm font-medium">Dissolved Oxygen *</Label>
+                <Label className="text-sm font-medium">Dissolved Oxygen</Label>
                 <Input type="number" value={doValue} onChange={(e) => setDoValue(e.target.value)} step={0.1} />
                 <p className="text-xs text-gray-600">mg/L</p>
               </div>
 
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
-                <Label className="text-sm font-medium">pH *</Label>
+                <Label className="text-sm font-medium">pH</Label>
                 <Input type="number" value={phValue} onChange={(e) => setPhValue(e.target.value)} step={0.1} />
                 <p className="text-xs text-gray-600">-</p>
               </div>
 
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
-                <Label className="text-sm font-medium">Total Ammonia (TAN) *</Label>
+                <Label className="text-sm font-medium">Total Ammonia (TAN)</Label>
                 <Input type="number" value={totalAmmonia} onChange={(e) => setTotalAmmonia(e.target.value)} step={0.01} />
                 <p className="text-xs text-gray-600">mg/L</p>
               </div>
 
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
-                <Label className="text-sm font-medium">Nitrite (NO2) *</Label>
+                <Label className="text-sm font-medium">Nitrite (NO2)</Label>
                 <Input type="number" value={nitrite} onChange={(e) => setNitrite(e.target.value)} step={0.01} />
                 <p className="text-xs text-gray-600">mg/L</p>
               </div>
 
 
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
-                <Label className="text-sm font-medium">Turbidity *</Label>
+                <Label className="text-sm font-medium">Turbidity</Label>
                 <Input
                   type="number"
                   value={turbidity}
