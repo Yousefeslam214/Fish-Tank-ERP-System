@@ -26,15 +26,15 @@ type LoginStep = "credentials" | "farm-selection" | "otp-required";
 
 const DEFAULT_OTP_MESSAGE =
   "OTP verification is required for this account. Complete OTP on the backend-supported channel.";
-const QUICK_LOGIN_PASSWORD = "FishFarm360!2026";
+const QUICK_LOGIN_PASSWORD = "12345!Aa"//"FishFarm360!2026";
 const QUICK_LOGIN_PRESETS = [
   { key: "admin", email: "admin.test@fishfarm360.local" },
   {
     key: "Warehouse Manager",
-    email: "warehouse_manager.test@fishfarm360.local",
+    email: "warehouse@testing-404.com",
   },
-  { key: "Technician", email: "technician.test@fishfarm360.local" },
-  { key: "Worker", email: "worker.test@fishfarm360.local" },
+  { key: "Technician", email: "technican@testing-404.com" },
+  { key: "Worker", email: "worker@testing-404.com" },
 ];
 
 const normalizeErrorMessage = (error: unknown): string => {
