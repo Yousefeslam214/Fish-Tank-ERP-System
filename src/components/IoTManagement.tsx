@@ -251,63 +251,7 @@ export default function IoTManagement({ user, selectedFarm }: Props) {
                 </Badge>
               </CardHeader>
               <CardContent className="p-8">
-                {liveReading ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden group">
-                      <div className="flex items-center gap-4 mb-4">
-                        <div className="p-3 bg-red-50 text-red-600 rounded-2xl border border-red-100 shadow-sm">
-                          <Thermometer />
-                        </div>
-                        <h4 className="font-semibold text-gray-700">Water Temperature</h4>
-                      </div>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-5xl font-black text-gray-900 tracking-tight">
-                          {liveReading.temperature.toFixed(1)}
-                        </span>
-                        <span className="text-2xl font-bold text-red-500">°C</span>
-                      </div>
-                      <div className="mt-4 flex items-center gap-2 text-sm text-gray-500 bg-gray-50 p-2 rounded-xl">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                        Optimal Range: 22-28°C
-                      </div>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden group">
-                      <div className="flex items-center gap-4 mb-4">
-                        <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100 shadow-sm">
-                          <Droplets />
-                        </div>
-                        <h4 className="font-semibold text-gray-700">Turbidity</h4>
-                      </div>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-5xl font-black text-gray-900 tracking-tight">
-                          {liveReading.turbidity_ntu.toFixed(2)}
-                        </span>
-                        <span className="text-2xl font-bold text-blue-500 font-mono">NTU</span>
-                      </div>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-5xl font-black text-gray-900 tracking-tight">
-                          {liveReading.ph.toFixed(2)}
-                        </span>
-                        <span className="text-2xl font-bold text-blue-500 font-mono">PH</span>
-                      </div>
-                      <div className="mt-4 flex items-center gap-2 text-sm text-gray-500 bg-gray-50 p-2 rounded-xl">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                        Status: Clear Water
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-20 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200">
-                    <div className="p-6 bg-white rounded-full shadow-lg mb-6 ring-8 ring-gray-50">
-                      <Cpu className="w-12 h-12 text-gray-300 animate-pulse" />
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-900">Waiting for Data</h3>
-                    <p className="text-gray-500 mt-2 text-center max-w-xs">
-                      The device is connected successfully. Awaiting first transmission from device mac {selectedTankRegs.map(r => r.device_id).join(', ') || 'N/A'}.
-                    </p>
-                  </div>
-                )}
+                
               </CardContent>
             </Card>
           )}
