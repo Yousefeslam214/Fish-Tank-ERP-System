@@ -146,12 +146,15 @@ export function SensorTab({ tank }: SensorTabProps) {
             </p>
             {lastReading ? (
               <div className="text-sm space-y-1">
-                <p>
+                {/* <p>
                   Temperature: <span className="font-semibold">{lastReading.temperature} C</span>
                 </p>
                 <p>
                   Turbidity: <span className="font-semibold">{lastReading.turbidity_ntu} NTU</span>
                 </p>
+                <p>
+                  pH: <span className="font-semibold">{lastReading.ph}</span>
+                </p> */}
                 <p className="text-xs text-gray-500">
                   {new Date(lastReading.timestamp).toLocaleString()}
                 </p>

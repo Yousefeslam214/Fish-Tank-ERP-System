@@ -7,6 +7,11 @@ import {
   Droplet,
   Search,
   RefreshCw,
+  Cpu,
+  Wifi,
+  WifiOff,
+  Thermometer,
+  Zap,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -19,6 +24,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { apiGet } from "../../../api";
+import { subscribeToTankSensorStream, SensorReadingEvent } from "../../../services/iotApi";
 
 interface WaterQualityTabProps {
   batchAssessments: Record<string, any>;
@@ -28,6 +34,7 @@ interface WaterQualityTabProps {
   setShowWaterQualityModal: (show: boolean) => void;
   setSelectedWqRecord: (record: any) => void;
   setShowWqDetailsModal: (show: boolean) => void;
+  tank?: any;
 }
 
 export function WaterQualityTab({
@@ -38,11 +45,34 @@ export function WaterQualityTab({
   setShowWaterQualityModal,
   setSelectedWqRecord,
   setShowWqDetailsModal,
+  tank,
 }: WaterQualityTabProps) {
   const [localAssessments, setLocalAssessments] = React.useState<
     Record<string, any>
   >({});
   const [isLoadingAssessments, setIsLoadingAssessments] = React.useState(false);
+  const [liveReading, setLiveReading] = React.useState<SensorReadingEvent | null>(null);
+  const [streamConnected, setStreamConnected] = React.useState(false);
+
+  React.useEffect(() => {
+    const tankId = String(tank?.id || '');
+    if (!tankId) return;
+
+    const unsubscribe = subscribeToTankSensorStream({
+      tankId,
+      onSensorReading: (reading) => {
+        setLiveReading(reading);
+      },
+      onConnectionStatusChange: (isConnected) => {
+        setStreamConnected(isConnected);
+      },
+      onError: () => {
+        setStreamConnected(false);
+      },
+    });
+
+    return () => unsubscribe();
+  }, [tank?.id]);
 
   React.useEffect(() => {
     console.group('[WaterQualityTab] API Data');
@@ -112,111 +142,84 @@ export function WaterQualityTab({
 
   return (
     <div className="space-y-4 pt-4">
-      {/* Assessment Section */}
-      {(Object.keys(localAssessments).length > 0 ||
-        Object.keys(batchAssessments).length > 0 ||
-        isLoadingAssessments) && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            {isLoadingAssessments &&
-              Object.keys(localAssessments).length === 0 ? (
-              <Card className="md:col-span-2 py-8 flex flex-col items-center justify-center">
-                <RefreshCw className="w-6 h-6 animate-spin text-[#088395] mb-2" />
-                <p className="text-xs text-gray-500 font-medium">
-                  Analyzing water quality assessments...
-                </p>
-              </Card>
-            ) : (
-              tankBatches.map((batch) => {
-                const assessmentRaw =
-                  localAssessments[batch.id] || batchAssessments[batch.id];
-                if (!assessmentRaw) return null;
+      {/* Real-Time Sensor Feed Card */}
+      {streamConnected && liveReading && (
+  <Card className="bg-white border border-gray-100 shadow-sm overflow-hidden">
+    <CardContent className="p-4">
 
-                const assessment = assessmentRaw.data || assessmentRaw;
-                const status =
-                  assessment.status || assessment.overallStatus || "OPTIMAL";
-                const isCritical = status === "CRITICAL";
-                const isWarning = status === "WARNING" || status === "CAUTION";
-                const params = assessment.parameters || {};
-                const parameterCards = [
-                  { label: 'Temperature', data: params.temperature },
-                  { label: 'Dissolved Oxygen', data: params.dissolvedOxygen || params.do },
-                  { label: 'pH', data: params.pH || params.ph },
-                  { label: 'Ammonia', data: params.ammonia || params.totalAmmonia || params.nh3 },
-                  { label: 'Nitrite', data: params.nitrite || params.no2 },
-                  { label: 'Turbidity', data: params.turbidity },
-                ];
-
-                return (
-                  <Card
-                    key={batch.id}
-                    className={`border-l-4 ${isCritical ? "border-l-red-500" : isWarning ? "border-l-yellow-500" : "border-l-green-500"} group hover:shadow-md transition-all shadow-sm`}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <Activity
-                            className={`w-4 h-4 ${isCritical ? "text-red-500" : isWarning ? "text-yellow-500" : "text-green-500"}`}
-                          />
-                          <div>
-                            <span className="font-bold text-gray-900 block tracking-tight">
-                              Batch:{" "}
-                              {batch.batchNumber ||
-                                batch.name ||
-                                batch.id?.slice(0, 6) ||
-                                "Unassigned"}
-                            </span>
-                            <p
-                              className="text-sm text-gray-600"
-                              style={{ color: "#000000", fontWeight: "bolder" }}
-                            >
-                              ID:{" "}
-                              <span style={{ color: "#04b13d" }}>
-                                {batch.id.split("-")[0]}
-                              </span>
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {isLoadingAssessments && (
-                            <RefreshCw className="w-3 h-3 animate-spin text-gray-400" />
-                          )}
-                          <Badge
-                            className={`${isCritical ? "bg-red-500" : isWarning ? "bg-yellow-500" : "bg-green-500"} font-bold uppercase text-[9px] tracking-wider`}
-                          >
-                            {status}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      <p className="text-sm text-gray-700 mb-4 font-medium leading-relaxed">
-                        {isCritical || isWarning
-                          ? "Action required to stabilize parameters."
-                          : "Water quality is within optimal range for this batch."}
-                      </p>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
-                        {parameterCards.map(({ label, data }) => (
-                          <div key={label} className="flex flex-col p-2 bg-gray-50 rounded-lg border border-gray-100">
-                            <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1 line-clamp-1">{label}</span>
-                            <div className="flex items-center justify-between gap-1">
-                              <span className="font-bold text-[10px] text-gray-900 truncate">{data?.value ?? 'N/A'}</span>
-                              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${!data?.status ? 'bg-gray-300' :
-                                  data.status === 'OPTIMAL' ? 'bg-green-500' :
-                                    data.status === 'WARNING' ? 'bg-yellow-500' : 'bg-red-500'
-                                }`} />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-
-                    </CardContent>
-                  </Card>
-                );
-              })
-            )}
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
+            <Cpu className="w-4 h-4 text-emerald-600" />
           </div>
-        )}
+          <div>
+            <h4 className="text-sm font-semibold text-gray-900">Sensor Measurements</h4>
+            <p className="text-[10px] text-gray-400 uppercase tracking-wide">Active link: {tank?.name || 'Tank'}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 rounded-full border border-emerald-100">
+          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-[10px] font-semibold text-emerald-700">Live</span>
+        </div>
+      </div>
+
+      {/* Metrics */}
+      <div className="grid grid-cols-3 gap-2">
+
+        {/* Temperature */}
+        <div className="bg-gray-50 rounded-xl p-3 flex flex-col gap-1">
+          <div className="flex items-center gap-1.5">
+            <Thermometer className="w-3.5 h-3.5 text-orange-400" />
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Temp</span>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-xl font-black text-gray-900">{liveReading.temperature.toFixed(1)}</span>
+            <span className="text-xs font-semibold text-orange-400">°C</span>
+          </div>
+        </div>
+
+        {/* pH */}
+        <div className="bg-gray-50 rounded-xl p-3 flex flex-col gap-1">
+          <div className="flex items-center gap-1.5">
+            <Activity className="w-3.5 h-3.5 text-green-500" />
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">pH Level</span>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-xl font-black text-gray-900">{liveReading.ph.toFixed(2)}</span>
+            <span className="text-xs font-semibold text-green-500">—</span>
+          </div>
+        </div>
+
+        {/* Turbidity */}
+        <div className="bg-gray-50 rounded-xl p-3 flex flex-col gap-1">
+          <div className="flex items-center gap-1.5">
+            <Zap className="w-3.5 h-3.5 text-blue-400" />
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Turbidity</span>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-xl font-black text-gray-900">{liveReading.turbidity_ntu.toFixed(2)}</span>
+            <span className="text-xs font-semibold text-blue-400 font-mono">ntu</span>
+          </div>
+        </div>
+
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+        <div className="flex items-center gap-1.5 text-[10px] text-gray-400 font-semibold">
+          <Wifi className="w-3 h-3 text-emerald-400" />
+          Stream sync active
+        </div>
+        <span className="text-[10px] text-gray-400 font-semibold">
+          Updated {new Date(liveReading.timestamp).toLocaleTimeString()}
+        </span>
+      </div>
+
+    </CardContent>
+  </Card>
+)}
+      
 
       {/* Chart */}
       <Card>

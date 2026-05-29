@@ -285,6 +285,12 @@ export default function IoTManagement({ user, selectedFarm }: Props) {
                         </span>
                         <span className="text-2xl font-bold text-blue-500 font-mono">NTU</span>
                       </div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-5xl font-black text-gray-900 tracking-tight">
+                          {liveReading.ph.toFixed(2)}
+                        </span>
+                        <span className="text-2xl font-bold text-blue-500 font-mono">PH</span>
+                      </div>
                       <div className="mt-4 flex items-center gap-2 text-sm text-gray-500 bg-gray-50 p-2 rounded-xl">
                         <div className="w-2 h-2 rounded-full bg-emerald-500" />
                         Status: Clear Water
