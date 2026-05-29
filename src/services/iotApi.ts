@@ -17,6 +17,7 @@ export interface SensorReadingEvent {
   type: 'sensor_reading';
   temperature: number;
   turbidity_ntu: number;
+  ph: number;
   device_id: string;
   timestamp: string;
 }
@@ -96,9 +97,10 @@ const parseSensorReading = (value: unknown): SensorReadingEvent | null => {
 
   const temperature = Number(record.temperature);
   const turbidity = Number(record.turbidity_ntu);
+  const ph = Number(record.ph);
   const deviceId = asString(record.device_id);
   const timestamp = asString(record.timestamp);
-  if (!Number.isFinite(temperature) || !Number.isFinite(turbidity) || !deviceId || !timestamp) {
+  if (!Number.isFinite(temperature) || !Number.isFinite(turbidity) || !Number.isFinite(ph) || !deviceId || !timestamp) {
     return null;
   }
 
@@ -106,6 +108,7 @@ const parseSensorReading = (value: unknown): SensorReadingEvent | null => {
     type: 'sensor_reading',
     temperature,
     turbidity_ntu: turbidity,
+    ph: ph,
     device_id: deviceId,
     timestamp,
   };

@@ -170,6 +170,7 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
       onSensorReading: (reading) => {
         setTemp(reading.temperature.toString());
         setTurbidity(reading.turbidity_ntu.toString());
+        setPhValue(reading.ph.toString());
         setSensorConnected(true);
         setSensorStreamConnected(true);
         setSensorLastReadingAt(reading.timestamp);
@@ -360,16 +361,35 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
               </div>
 
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
+                <Label className="text-sm font-medium">Turbidity</Label>
+                <Input
+                  type="number"
+                  value={turbidity}
+                  onChange={(e) => setTurbidity(e.target.value)}
+                  step={0.1}
+                  disabled={isLiveSensorMode}
+                />
+                <p className="text-xs text-gray-600">NTU</p>
+              </div>
+
+              <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
+                <Label className="text-sm font-medium">pH</Label>
+                <Input
+                  type="number"
+                  value={phValue}
+                  onChange={(e) => setPhValue(e.target.value)}
+                  step={0.1}
+                  disabled={isLiveSensorMode} />
+                <p className="text-xs text-gray-600">-</p>
+              </div>
+
+              <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
                 <Label className="text-sm font-medium">Dissolved Oxygen</Label>
                 <Input type="number" value={doValue} onChange={(e) => setDoValue(e.target.value)} step={0.1} />
                 <p className="text-xs text-gray-600">mg/L</p>
               </div>
 
-              <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
-                <Label className="text-sm font-medium">pH</Label>
-                <Input type="number" value={phValue} onChange={(e) => setPhValue(e.target.value)} step={0.1} />
-                <p className="text-xs text-gray-600">-</p>
-              </div>
+              
 
               <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
                 <Label className="text-sm font-medium">Total Ammonia (TAN)</Label>
@@ -384,17 +404,7 @@ export function WaterQualityModal({ open, onOpenChange, tank, user, initialRecor
               </div>
 
 
-              <div className="border-2 border-blue-200 rounded-lg p-3 space-y-2">
-                <Label className="text-sm font-medium">Turbidity</Label>
-                <Input
-                  type="number"
-                  value={turbidity}
-                  onChange={(e) => setTurbidity(e.target.value)}
-                  step={0.1}
-                  disabled={isLiveSensorMode}
-                />
-                <p className="text-xs text-gray-600">NTU</p>
-              </div>
+              
             </div>
           </div>
 
