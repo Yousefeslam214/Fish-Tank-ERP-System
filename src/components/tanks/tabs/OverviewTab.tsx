@@ -33,216 +33,58 @@ export function OverviewTab({
     <div className="space-y-4 pt-4">
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {dashboardData?.summary ? (
-          dashboardData.summary.map((item: any, idx: number) => {
-            const Icon =
-              idx === 0
-                ? Fish
-                : idx === 1
-                  ? Scale
-                  : idx === 2
-                    ? Droplet
-                    : Activity;
-            console.log(
-              "Water Quality:",
-              item.value,
-              item.value?.toLowerCase() === "critical",
-            );
-            return (
-              <Card
-                key={idx}
-                className={
-                  item.label === "Water Quality"
-                    ? item.value?.toLowerCase() === "optimal"
-                      ? "bg-[#10B981] text-white"
-                      : item.value?.toLowerCase() === "acceptable"
-                        ? "bg-[#3B82F6] text-white"
-                        : item.value?.toLowerCase() === "warning"
-                          ? "bg-[#F59E0B] text-white"
-                          : item.value?.toLowerCase() === "critical"
-                            ? "bg-red-600 border-8 border-black text-white"
-                            : ""
-                    : ""
-                }
-              >
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p
-                        className={`text-sm ${
-                          item.label === "Water Quality" &&
-                          [
-                            "optimal",
-                            "acceptable",
-                            "warning",
-                            "critical",
-                          ].includes(item.value?.toLowerCase())
-                            ? "text-white"
-                            : "text-gray-600"
-                        }`}
-                      >
-                        {item.label}
-                      </p>
-                      <p
-                        className={`text-2xl font-bold ${
-                          item.label === "Water Quality" &&
-                          [
-                            "optimal",
-                            "acceptable",
-                            "warning",
-                            "critical",
-                          ].includes(item.value?.toLowerCase())
-                            ? "text-white"
-                            : ""
-                        }`}
-                      >
-                        {item.value}
-                      </p>
-                      {item.subValue && (
-                        <p
-                          className={`text-xs mt-1 ${
-                            item.label === "Water Quality" &&
-                            [
-                              "optimal",
-                              "acceptable",
-                              "warning",
-                              "critical",
-                            ].includes(item.value?.toLowerCase())
-                              ? "text-white"
-                              : "text-gray-500"
-                          }`}
+        {dashboardData?.summary
+          ? dashboardData.summary.map((item: any, idx: number) => {
+              const Icon =
+                idx === 0
+                  ? Fish
+                  : idx === 1
+                    ? Scale
+                    : idx === 2
+                      ? Droplet
+                      : Activity;
+              return (
+                <Card key={idx}>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-600">{item.label}</p>
+
+                        <Badge
+                          className={`
+    text-md font-bold px-4 py-1
+    ${
+      item.value?.toLowerCase() === "optimal"
+        ? "bg-[#10B981] text-white"
+        : item.value?.toLowerCase() === "acceptable"
+          ? "bg-[#3B82F6] text-white"
+          : item.value?.toLowerCase() === "warning"
+            ? "bg-[#F59E0B] text-white blink"
+            : item.value?.toLowerCase() === "critical"
+              ? "bg-red-600 text-white critical-blink"
+              : "hidden"
+    }
+  `}
                         >
-                          {item.subValue}
-                        </p>
-                      )}
+                          {item.value?.toUpperCase()}
+                        </Badge>
+
+                        {item.label !== "Water Quality" && (
+                          <p className="text-2xl font-bold">{item.value}</p>
+                        )}
+                        {item.subValue && (
+                          <p className="text-xs mt-1 text-gray-500">
+                            {item.subValue}
+                          </p>
+                        )}
+                      </div>
+                      <Icon className="w-8 h-8 text-[#0A4D68] opacity-20" />
                     </div>
-                    <Icon className="w-8 h-8 text-[#0A4D68] opacity-20" />
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })
-        ) : (
-          <>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Total Fish</p>
-                    <p className="text-2xl font-bold">
-                      {tankBatches
-                        .reduce(
-                          (sum: number, b: any) =>
-                            sum + (b.count || b.currentCount || 0),
-                          0,
-                        )
-                        .toLocaleString()}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {tankBatches.length} batches
-                    </p>
-                  </div>
-                  <Fish className="w-8 h-8 text-[#0A4D68] opacity-20" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Total Biomass</p>
-                    <p className="text-2xl font-bold">
-                      {currentTank.biomass} kg
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {Math.round(
-                        (currentTank.biomass / currentTank.capacity) * 100,
-                      )}
-                      % capacity
-                    </p>
-                  </div>
-                  <Scale className="w-8 h-8 text-[#0A4D68] opacity-20" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card
-              className={
-                currentTank?.waterQuality?.overall?.toLowerCase() === "critical"
-                  ? "bg-red-600 border-red-700"
-                  : ""
-              }
-            >
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p
-                      className={`text-sm ${
-                        currentTank?.waterQuality?.overall?.toLowerCase() ===
-                        "critical"
-                          ? "text-white"
-                          : "text-gray-600"
-                      }`}
-                    >
-                      Water Quality
-                    </p>
-
-                    <p
-                      className={`text-2xl font-bold capitalize ${
-                        currentTank?.waterQuality?.overall?.toLowerCase() ===
-                        "critical"
-                          ? "text-white"
-                          : ""
-                      }`}
-                    >
-                      {currentTank.waterQuality?.overall || "Unknown"}
-                    </p>
-
-                    <p
-                      className={`text-xs mt-1 ${
-                        currentTank?.waterQuality?.overall?.toLowerCase() ===
-                        "critical"
-                          ? "text-red-100"
-                          : "text-gray-500"
-                      }`}
-                    >
-                      Last:{" "}
-                      {dashboardData?.waterQuality?.lastUpdated || "Recently"}
-                    </p>
-                  </div>
-
-                  <Droplet
-                    className={`w-8 h-8 ${
-                      currentTank?.waterQuality?.overall?.toLowerCase() ===
-                      "critical"
-                        ? "text-white opacity-70"
-                        : "text-[#0A4D68] opacity-20"
-                    }`}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Feed Today</p>
-                    <p className="text-2xl font-bold">
-                      {currentTank.feeding?.todayFed || 0} kg
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {currentTank.feeding?.todayMeals || 0}/
-                      {currentTank.feeding?.totalMeals || 4} meals
-                    </p>
-                  </div>
-                  <Activity className="w-8 h-8 text-[#0A4D68] opacity-20" />
-                </div>
-              </CardContent>
-            </Card>
-          </>
-        )}
+                  </CardContent>
+                </Card>
+              );
+            })
+          : null}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

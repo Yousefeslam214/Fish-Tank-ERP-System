@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, MouseEvent } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
+import { useState, useEffect, useCallback, MouseEvent } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,17 +11,31 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from './ui/alert-dialog';
-import { toast } from 'sonner';
-import { Activity, Droplet, Fish, HeartPulse, Loader2, Plus, Trash2 } from 'lucide-react';
-import { Progress } from './ui/progress';
-import { User, Farm } from '../types';
-import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from '../api';
-import TankDetailView from './tanks/TankDetailView';
-import { AddTankModal } from './tanks/modals/AddTankModal';
-import { Pencil } from 'lucide-react';
-import { fetchAllTankHealthOverviews, TankHealthOverview } from '../services/tankHealthOverview';
-import { formatHealthStatus, getHealthStatusColor } from '../services/healthCheckApi';
+} from "./ui/alert-dialog";
+import { toast } from "sonner";
+import {
+  Activity,
+  Droplet,
+  Fish,
+  HeartPulse,
+  Loader2,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import { Progress } from "./ui/progress";
+import { User, Farm } from "../types";
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "../api";
+import TankDetailView from "./tanks/TankDetailView";
+import { AddTankModal } from "./tanks/modals/AddTankModal";
+import { Pencil } from "lucide-react";
+import {
+  fetchAllTankHealthOverviews,
+  TankHealthOverview,
+} from "../services/tankHealthOverview";
+import {
+  formatHealthStatus,
+  getHealthStatusColor,
+} from "../services/healthCheckApi";
 
 interface TankManagementProps {
   user: User;
@@ -60,7 +74,9 @@ interface RawApiTank {
   feeding: ApiTankFeeding | null;
   batches?: any[];
   assignedUserIds?: string[];
-  assignedUsers?: Array<string | { id?: string; _id?: string; userId?: string }>;
+  assignedUsers?: Array<
+    string | { id?: string; _id?: string; userId?: string }
+  >;
   volumeCubicMeters?: number;
   location?: string;
   farmId?: string;
@@ -93,31 +109,38 @@ interface ApiTank {
 }
 
 const formatDateTime = (value?: string) => {
-  if (!value) return 'Unknown';
+  if (!value) return "Unknown";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 };
 
-export default function TankManagement({ user, selectedFarm }: TankManagementProps) {
-  const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
+export default function TankManagement({
+  user,
+  selectedFarm,
+}: TankManagementProps) {
+  const [viewMode, setViewMode] = useState<"list" | "detail">("list");
   const [selectedTank, setSelectedTank] = useState<any>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [tanks, setTanks] = useState<ApiTank[]>([]);
   const [tanksLoading, setTanksLoading] = useState(true);
   const [tanksError, setTanksError] = useState<string | null>(null);
   const [showAddTankModal, setShowAddTankModal] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE' | 'EMPTY'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<
+    "ALL" | "ACTIVE" | "INACTIVE" | "MAINTENANCE" | "EMPTY"
+  >("ALL");
   const [editingTank, setEditingTank] = useState<any | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editTankId, setEditTankId] = useState<string | null>(null);
-  const [healthOverviewByTank, setHealthOverviewByTank] = useState<Record<string, TankHealthOverview>>({});
+  const [healthOverviewByTank, setHealthOverviewByTank] = useState<
+    Record<string, TankHealthOverview>
+  >({});
   const [loadingHealthOverview, setLoadingHealthOverview] = useState(false);
 
   const currentFarm = selectedFarm;
@@ -131,13 +154,17 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
     setLoadingHealthOverview(true);
     try {
       const result = await fetchAllTankHealthOverviews(sourceTanks);
-      const nextMap = result.overviews.reduce<Record<string, TankHealthOverview>>((acc, overview) => {
+      const nextMap = result.overviews.reduce<
+        Record<string, TankHealthOverview>
+      >((acc, overview) => {
         acc[overview.tank.id] = overview;
         return acc;
       }, {});
       setHealthOverviewByTank(nextMap);
     } catch (error) {
-      toast.error(`Failed to load tank health data: ${(error as Error).message}`);
+      toast.error(
+        `Failed to load tank health data: ${(error as Error).message}`,
+      );
     } finally {
       setLoadingHealthOverview(false);
     }
@@ -154,7 +181,9 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
     setTanksLoading(true);
     setTanksError(null);
     try {
-      const res = await apiGet<{ success: boolean; data: RawApiTank[] } | RawApiTank[]>('/tanks');
+      const res = await apiGet<
+        { success: boolean; data: RawApiTank[] } | RawApiTank[]
+      >("/tanks");
       const list: RawApiTank[] = Array.isArray(res)
         ? res
         : ((res as { success: boolean; data: RawApiTank[] }).data ?? []);
@@ -165,31 +194,46 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
         const capacityKg = bioObj?.capacity ?? 25000;
         const wq = tank.waterQuality as ApiTankWaterQuality | undefined;
         const fd = tank.feeding as ApiTankFeeding | undefined;
-        const species = tank.fishType && tank.fishType !== 'None' ? tank.fishType : 'Empty/No Fish';
+        const species =
+          tank.fishType && tank.fishType !== "None"
+            ? tank.fishType
+            : "Empty/No Fish";
 
         return {
           ...tank,
-          id: tank.id || tank._id || '',
+          id: tank.id || tank._id || "",
           species,
           biomass: biomassKg,
           capacity: capacityKg,
           volume: tank.volumeCubicMeters ?? bioObj?.volumeM3 ?? 50,
           waterQuality: wq
             ? {
-              overall: (wq.overallStatus ?? 'unknown').toLowerCase(),
-              temp: { value: parseFloat((wq.temperature ?? 0).toFixed(1)), status: 'unknown' },
-              do: { value: parseFloat((wq.dissolvedOxygen ?? 0).toFixed(2)), status: 'unknown' },
-              ph: { value: parseFloat((wq.ph ?? 0).toFixed(2)), status: 'unknown' },
-              nh3: { value: parseFloat((wq.ammonia ?? 0).toFixed(4)), status: 'unknown' },
-            }
+                overall: (wq.overallStatus ?? "unknown").toLowerCase(),
+                temp: {
+                  value: parseFloat((wq.temperature ?? 0).toFixed(1)),
+                  status: "unknown",
+                },
+                do: {
+                  value: parseFloat((wq.dissolvedOxygen ?? 0).toFixed(2)),
+                  status: "unknown",
+                },
+                ph: {
+                  value: parseFloat((wq.ph ?? 0).toFixed(2)),
+                  status: "unknown",
+                },
+                nh3: {
+                  value: parseFloat((wq.ammonia ?? 0).toFixed(4)),
+                  status: "unknown",
+                },
+              }
             : null,
           feeding: fd
             ? {
-              todayMeals: fd.currentMeal ?? 0,
-              totalMeals: fd.totalMeals ?? 4,
-              todayFed: fd.weightFed ?? 0,
-              recommended: fd.targetWeight ?? 0,
-            }
+                todayMeals: fd.currentMeal ?? 0,
+                totalMeals: fd.totalMeals ?? 4,
+                todayFed: fd.weightFed ?? 0,
+                recommended: fd.targetWeight ?? 0,
+              }
             : null,
         };
       });
@@ -197,7 +241,7 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
       setTanks(normalised as ApiTank[]);
       await loadHealthOverviews(normalised as ApiTank[]);
     } catch (err) {
-      console.error('Fetch Tanks Error:', err);
+      console.error("Fetch Tanks Error:", err);
       setTanksError((err as Error).message);
     } finally {
       setTanksLoading(false);
@@ -209,7 +253,7 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
   }, [fetchTanks]);
 
   useEffect(() => {
-    if (viewMode === 'detail' && selectedTank) {
+    if (viewMode === "detail" && selectedTank) {
       const updated = tanks.find((tank) => tank.id === selectedTank.id);
       if (updated && JSON.stringify(updated) !== JSON.stringify(selectedTank)) {
         setSelectedTank(updated);
@@ -217,23 +261,33 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
     }
   }, [selectedTank, tanks, viewMode]);
 
-  const handleAddTank = async (data: { name: string; capacity: number; volume: number; location: string }) => {
+  const handleAddTank = async (data: {
+    name: string;
+    capacity: number;
+    volume: number;
+    location: string;
+  }) => {
     try {
-      await apiPost('/tanks', {
+      await apiPost("/tanks", {
         name: data.name,
-        location: data.location || 'General',
+        location: data.location || "General",
         volumeCubicMeters: data.volume,
-        status: 'EMPTY',
+        status: "EMPTY",
       });
       setShowAddTankModal(false);
       await fetchTanks();
-      toast.success('Tank created successfully');
+      toast.success("Tank created successfully");
     } catch (err) {
       toast.error(`Failed to create tank: ${(err as Error).message}`);
     }
   };
 
-  const handleUpdateTank = async (data: { name: string; capacity: number; volume: number; location: string }) => {
+  const handleUpdateTank = async (data: {
+    name: string;
+    capacity: number;
+    volume: number;
+    location: string;
+  }) => {
     if (!editTankId) return;
     try {
       const payload = {
@@ -245,11 +299,11 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
 
       try {
         await apiPatch(`/tanks/${editTankId}`, payload);
-        toast.success('Tank updated successfully');
+        toast.success("Tank updated successfully");
       } catch (patchErr: any) {
-        if (patchErr.message.includes('404')) {
+        if (patchErr.message.includes("404")) {
           await apiPut(`/tanks/${editTankId}`, payload);
-          toast.success('Tank updated successfully');
+          toast.success("Tank updated successfully");
         } else {
           throw patchErr;
         }
@@ -270,7 +324,7 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
       await apiDelete(`/tanks/${deleteConfirmId}`);
       setDeleteConfirmId(null);
       await fetchTanks();
-      toast.success('Tank deleted successfully');
+      toast.success("Tank deleted successfully");
     } catch (err) {
       toast.error(`Failed to delete tank: ${(err as Error).message}`);
       setDeleteConfirmId(null);
@@ -280,31 +334,37 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
   const getStatusColor = (status: string) => {
     const normalized = status.toLowerCase();
     switch (normalized) {
-      case 'critical':
-        return 'bg-[#EF4444]';
-      case 'warning':
-        return 'bg-[#F59E0B]';
-      case 'acceptable':
-        return 'bg-[#3B82F6]';
-      case 'optimal':
-      case 'active':
-        return 'bg-[#10B981]';
-      case 'maintenance':
-        return 'bg-purple-500';
-      case 'empty':
-        return 'bg-gray-400';
+      case "critical":
+        return "bg-[#EF4444]";
+      case "warning":
+        return "bg-[#F59E0B]";
+      case "acceptable":
+        return "bg-[#3B82F6]";
+      case "optimal":
+      case "active":
+        return "bg-[#10B981]";
+      case "maintenance":
+        return "bg-purple-500";
+      case "empty":
+        return "bg-gray-400";
       default:
-        return 'bg-gray-500';
+        return "bg-gray-500";
     }
   };
 
-  if (viewMode === 'detail' && selectedTank) {
-    return <TankDetailView user={user} tank={selectedTank} onBack={() => setViewMode('list')} />;
+  if (viewMode === "detail" && selectedTank) {
+    return (
+      <TankDetailView
+        user={user}
+        tank={selectedTank}
+        onBack={() => setViewMode("list")}
+      />
+    );
   }
 
   const filteredTanks = tanks.filter((tank) => {
-    if (statusFilter === 'ALL') return true;
-    return (tank.status ?? '').toUpperCase() === statusFilter;
+    if (statusFilter === "ALL") return true;
+    return (tank.status ?? "").toUpperCase() === statusFilter;
   });
 
   return (
@@ -319,9 +379,9 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
             <span className="text-sm">{currentFarm?.name}</span>
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#088395] font-semibold">
               {user.name
-                .split(' ')
+                .split(" ")
                 .map((segment) => segment[0])
-                .join('')
+                .join("")
                 .toUpperCase()}
             </div>
           </div>
@@ -333,10 +393,14 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
           <div>
             <h1 className="text-3xl font-semibold text-gray-900">All Tanks</h1>
             <p className="mt-1 text-sm text-gray-500">
-              Health status now includes live AI reports and recovery actions without opening the full tank view.
+              Health status now includes live AI reports and recovery actions
+              without opening the full tank view.
             </p>
           </div>
-          <Button className="bg-[#088395] hover:bg-[#0A4D68]" onClick={() => setShowAddTankModal(true)}>
+          <Button
+            className="bg-[#088395] hover:bg-[#0A4D68]"
+            onClick={() => setShowAddTankModal(true)}
+          >
             <Plus className="mr-2 h-4 w-4" />
             Add New Tank
           </Button>
@@ -356,16 +420,26 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
           ))}
         </div> */}
 
-        <AddTankModal open={showAddTankModal} onOpenChange={setShowAddTankModal} onConfirm={handleAddTank} />
+        <AddTankModal
+          open={showAddTankModal}
+          onOpenChange={setShowAddTankModal}
+          onConfirm={handleAddTank}
+        />
 
         {tanksError && (
           <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
             <Activity className="h-5 w-5 flex-shrink-0 text-red-500" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-red-800">Failed to load tanks</p>
+              <p className="text-sm font-medium text-red-800">
+                Failed to load tanks
+              </p>
               <p className="mt-0.5 text-xs text-red-600">{tanksError}</p>
             </div>
-            <Button size="sm" variant="outline" onClick={() => void fetchTanks()}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void fetchTanks()}
+            >
               Retry
             </Button>
           </div>
@@ -388,7 +462,10 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
         ) : filteredTanks.length === 0 && !tanksError ? (
           <div className="py-16 text-center">
             <Fish className="mx-auto mb-3 h-12 w-12 text-gray-300" />
-            <p className="text-gray-600">No {statusFilter !== 'ALL' ? statusFilter.toLowerCase() : ''} tanks found</p>
+            <p className="text-gray-600">
+              No {statusFilter !== "ALL" ? statusFilter.toLowerCase() : ""}{" "}
+              tanks found
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -401,7 +478,7 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
                   className="cursor-pointer bg-white shadow-sm transition-shadow hover:shadow-md"
                   onClick={() => {
                     setSelectedTank(tank);
-                    setViewMode('detail');
+                    setViewMode("detail");
                   }}
                 >
                   <CardHeader className="pb-3">
@@ -410,11 +487,11 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
                         <CardTitle className="text-lg">{tank.name}</CardTitle>
                       </div>
                       <div className="flex items-center gap-2">
-                        {(tank.status ?? '').toLowerCase() !== 'critical' && (
-                          <Badge className={`${getStatusColor(tank.status ?? '')} text-[10px] text-white`}>
-                            {(tank.status ?? 'unknown').toUpperCase()}
-                          </Badge>
-                        )}
+                        <Badge
+                          className={`${getStatusColor(tank.status ?? "")} text-[10px] text-white`}
+                        >
+                          {(tank.status ?? "unknown").toUpperCase()}
+                        </Badge>
                         <div className="flex items-center gap-1">
                           <Button
                             variant="ghost"
@@ -424,7 +501,7 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
                               event.stopPropagation();
                               setEditingTank({
                                 name: tank.name,
-                                location: tank.location || 'General',
+                                location: tank.location || "General",
                                 capacity: tank.capacity || 25000,
                                 volume: tank.volume || 50,
                               });
@@ -458,15 +535,24 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
                           {tank.biomass} / {tank.capacity} kg
                         </span>
                       </div>
-                      <Progress value={Math.min((tank.biomass / tank.capacity) * 100, 100)} className="h-2" />
+                      <Progress
+                        value={Math.min(
+                          (tank.biomass / tank.capacity) * 100,
+                          100,
+                        )}
+                        className="h-2"
+                      />
                       {tank.biomass > tank.capacity && (
                         <p className="mt-1 text-xs text-red-600">
-                          Overstocked by {Math.round(((tank.biomass - tank.capacity) / tank.capacity) * 100)}%
+                          Overstocked by{" "}
+                          {Math.round(
+                            ((tank.biomass - tank.capacity) / tank.capacity) *
+                              100,
+                          )}
+                          %
                         </p>
                       )}
                     </div>
-
-
                   </CardContent>
                 </Card>
               );
@@ -475,17 +561,27 @@ export default function TankManagement({ user, selectedFarm }: TankManagementPro
         )}
       </div>
 
-      <AlertDialog open={!!deleteConfirmId} onOpenChange={(open: boolean) => !open && setDeleteConfirmId(null)}>
+      <AlertDialog
+        open={!!deleteConfirmId}
+        onOpenChange={(open: boolean) => !open && setDeleteConfirmId(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure you want to delete this tank?</AlertDialogTitle>
+            <AlertDialogTitle>
+              Are you sure you want to delete this tank?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. All data associated with this tank, including historical records and batches, might be affected or lost.
+              This action cannot be undone. All data associated with this tank,
+              including historical records and batches, might be affected or
+              lost.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteTank} className="bg-red-600 text-white hover:bg-red-700">
+            <AlertDialogAction
+              onClick={handleDeleteTank}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
               Delete Tank
             </AlertDialogAction>
           </AlertDialogFooter>

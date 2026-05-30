@@ -5,8 +5,6 @@ import { Button } from "../../ui/button";
 import {
   Activity,
   Droplet,
-  Search,
-  RefreshCw,
   Cpu,
   Wifi,
   WifiOff,
@@ -40,6 +38,55 @@ interface WaterQualityTabProps {
   tank?: any;
 }
 
+// ── Threshold helpers ──────────────────────────────────────────────────────────
+
+type StatusLevel = "optimal" | "acceptable" | "warning" | "critical";
+
+const getTemperatureStatus = (temp: number): StatusLevel => {
+  if (temp >= 22 && temp <= 28) return "optimal";
+  if ((temp >= 18 && temp < 22) || (temp > 28 && temp <= 30))
+    return "acceptable";
+  if ((temp >= 15 && temp < 18) || (temp > 30 && temp <= 32)) return "warning";
+  return "critical";
+};
+
+const getPhStatus = (ph: number): StatusLevel => {
+  if (ph >= 7.0 && ph <= 8.0) return "optimal";
+  if ((ph >= 6.5 && ph < 7.0) || (ph > 8.0 && ph <= 8.5)) return "acceptable";
+  if ((ph >= 6.0 && ph < 6.5) || (ph > 8.5 && ph <= 9.0)) return "warning";
+  return "critical";
+};
+
+const getTurbidityStatus = (ntu: number): StatusLevel => {
+  if (ntu <= 25) return "optimal";
+  if (ntu <= 50) return "acceptable";
+  if (ntu <= 150) return "warning";
+  return "critical";
+};
+
+function SensorBadge({ status }: { status: StatusLevel }) {
+  return (
+    <Badge
+      className={`
+        text-[10px] font-bold px-2 py-0.5 w-fit
+        ${
+          status === "optimal"
+            ? "bg-[#10B981] text-white"
+            : status === "acceptable"
+              ? "bg-[#3B82F6] text-white"
+              : status === "warning"
+                ? "bg-[#F59E0B] text-white blink"
+                : "bg-red-600 text-white critical-blink"
+        }
+      `}
+    >
+      {status.toUpperCase()}
+    </Badge>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
 export function WaterQualityTab({
   batchAssessments,
   tankBatches,
@@ -57,27 +104,46 @@ export function WaterQualityTab({
   const [liveReading, setLiveReading] =
     React.useState<SensorReadingEvent | null>(null);
   const [streamConnected, setStreamConnected] = React.useState(false);
+  const disconnectTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const lastReadingRef = React.useRef<SensorReadingEvent | null>(null);
 
   React.useEffect(() => {
     const tankId = String(tank?.id || "");
     if (!tankId) return;
 
+    const resetDisconnectTimer = () => {
+      if (disconnectTimerRef.current) clearTimeout(disconnectTimerRef.current);
+      disconnectTimerRef.current = setTimeout(() => {
+        console.log("[Stream] watchdog fired → marking disconnected");
+        setStreamConnected(false);
+      }, 10_000);
+    };
+
     const unsubscribe = subscribeToTankSensorStream({
       tankId,
       onSensorReading: (reading) => {
         setLiveReading(reading);
+        setStreamConnected(true);
+        resetDisconnectTimer();
       },
       onConnectionStatusChange: (isConnected) => {
+        console.log("[Stream] onConnectionStatusChange:", isConnected);
         setStreamConnected(isConnected);
+        if (isConnected) resetDisconnectTimer();
       },
       onError: () => {
+        console.log("[Stream] onError → marking disconnected");
         setStreamConnected(false);
       },
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (disconnectTimerRef.current) clearTimeout(disconnectTimerRef.current);
+    };
   }, [tank?.id]);
-
   React.useEffect(() => {
     console.group("[WaterQualityTab] API Data");
     console.log("tankBatches:", tankBatches);
@@ -98,10 +164,6 @@ export function WaterQualityTab({
                 const res = await apiGet<any>(
                   `/tanks/water-quality/batch/${batch.id}/assessment`,
                 );
-                console.log(
-                  `Water quality assessment for batch ${batch.id}:`,
-                  res,
-                );
                 return { id: batch.id, data: res.data ?? res };
               } catch (err) {
                 console.error(
@@ -112,25 +174,16 @@ export function WaterQualityTab({
               }
             }),
           );
-
           const newAssessments: Record<string, any> = {};
           results.forEach((r) => {
             if (r.data) newAssessments[r.id] = r.data;
           });
-          console.log(
-            "[WaterQualityTab] Normalized fetched assessments:",
-            newAssessments,
-          );
           setLocalAssessments(newAssessments);
         } finally {
           setIsLoadingAssessments(false);
         }
       };
       fetchAssessments();
-    } else {
-      console.log(
-        "[WaterQualityTab] No tank batches available, skipped assessments fetch.",
-      );
     }
   }, [tankBatches]);
 
@@ -152,7 +205,8 @@ export function WaterQualityTab({
   return (
     <div className="space-y-4 pt-4">
       {/* Real-Time Sensor Feed Card */}
-      {streamConnected && liveReading && (
+
+      {liveReading && (
         <Card className="bg-white border border-gray-100 shadow-sm overflow-hidden">
           <CardContent className="p-4">
             {/* Header */}
@@ -170,15 +224,26 @@ export function WaterQualityTab({
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 rounded-full border border-emerald-100">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[10px] font-semibold text-emerald-700">
-                  Live
-                </span>
-              </div>
+
+              {/* 2. Live / Offline badge */}
+              {streamConnected ? (
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 rounded-full border border-emerald-100">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[10px] font-semibold text-emerald-700">
+                    🟢 Live
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-red-50 rounded-full border border-red-200">
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                  <span className="text-[10px] font-semibold text-red-600">
+                    🔴 Offline
+                  </span>
+                </div>
+              )}
             </div>
 
-            {/* Metrics */}
+            {/* Metrics — unchanged */}
             <div className="grid grid-cols-3 gap-2">
               {/* Temperature */}
               <div className="bg-gray-50 rounded-xl p-3 flex flex-col gap-1">
@@ -196,6 +261,11 @@ export function WaterQualityTab({
                     °C
                   </span>
                 </div>
+                {streamConnected && (
+                  <SensorBadge
+                    status={getTemperatureStatus(liveReading!.temperature)}
+                  />
+                )}
               </div>
 
               {/* pH */}
@@ -214,6 +284,9 @@ export function WaterQualityTab({
                     —
                   </span>
                 </div>
+                {streamConnected && (
+                  <SensorBadge status={getPhStatus(liveReading.ph)} />
+                )}
               </div>
 
               {/* Turbidity */}
@@ -232,23 +305,37 @@ export function WaterQualityTab({
                     ntu
                   </span>
                 </div>
+                {streamConnected && (
+                  <SensorBadge
+                    status={getTurbidityStatus(liveReading.turbidity_ntu)}
+                  />
+                )}
               </div>
             </div>
 
-            {/* Footer */}
+            {/* 3. Footer — green when connected, red when not */}
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-              <div className="flex items-center gap-1.5 text-[10px] text-gray-400 font-semibold">
-                <Wifi className="w-3 h-3 text-emerald-400" />
-                Stream sync active
-              </div>
-              <span className="text-[10px] text-gray-400 font-semibold">
-                Updated {new Date(liveReading.timestamp).toLocaleTimeString()}
+              {streamConnected ? (
+                <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 font-semibold">
+                  <Wifi className="w-3 h-3 text-emerald-500" />
+                  Stream sync active
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-[10px] text-red-500 font-semibold">
+                  <WifiOff className="w-3 h-3 text-red-500" />
+                  Stream sync inactive
+                </div>
+              )}
+              <span
+                className={`text-[10px] font-semibold ${streamConnected ? "text-black-400" : "text-red-400"}`}
+              >
+                last Updated{" "}
+                {new Date(liveReading.timestamp).toLocaleTimeString()}
               </span>
             </div>
           </CardContent>
         </Card>
       )}
-
       {/* Chart */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -362,11 +449,9 @@ export function WaterQualityTab({
           </ResponsiveContainer>
         </CardContent>
       </Card>
-
       {/* History Records */}
       <div className="space-y-4">
         <h3 className="font-semibold text-gray-900">Measurement History</h3>
-
         <div className="space-y-3">
           {waterQualityRecords.length === 0 ? (
             <p className="text-sm text-gray-500 text-center py-8">
@@ -382,6 +467,12 @@ export function WaterQualityTab({
               .map((record) => {
                 const status =
                   record.overallStatus || record.status || "unknown";
+
+                // resolve each field once so we can both display and badge it
+                const recTemp = record.temperature ?? record.temp;
+                const recPh = record.pH ?? record.ph;
+                const recNtu = record.turbidity ?? record.ntu;
+
                 return (
                   <Card
                     key={record.id}
@@ -390,6 +481,7 @@ export function WaterQualityTab({
                     <CardContent className="p-4 sm:p-6">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                         <div className="flex-1 space-y-4">
+                          {/* Row: date + overall status badge */}
                           <div className="flex items-center gap-3">
                             <div className="p-2 bg-blue-50 rounded-lg group-hover:bg-blue-100 transition-colors">
                               <Droplet className="w-5 h-5 text-[#088395]" />
@@ -414,15 +506,19 @@ export function WaterQualityTab({
                             </div>
                           </div>
 
+                          {/* Metric grid */}
                           <div className="grid grid-cols-2 md:grid-cols-6 gap-6 pt-2">
+                            {/* Temperature */}
                             <div className="space-y-1">
                               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
                                 Temperature
                               </p>
                               <p className="font-bold text-gray-900">
-                                {record.temperature ?? record.temp ?? "–"}°C
+                                {recTemp ?? "–"}°C
                               </p>
                             </div>
+
+                            {/* DO — no thresholds provided, no badge */}
                             <div className="space-y-1">
                               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
                                 DO
@@ -432,14 +528,18 @@ export function WaterQualityTab({
                                 mg/L
                               </p>
                             </div>
+
+                            {/* pH */}
                             <div className="space-y-1">
                               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
                                 pH
                               </p>
                               <p className="font-bold text-gray-900">
-                                {record.pH ?? record.ph ?? "–"}
+                                {recPh ?? "–"}
                               </p>
                             </div>
+
+                            {/* Ammonia — no thresholds provided, no badge */}
                             <div className="space-y-1">
                               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
                                 Ammonia
@@ -454,6 +554,8 @@ export function WaterQualityTab({
                                 mg/L
                               </p>
                             </div>
+
+                            {/* Nitrite */}
                             {record.nitrite !== undefined && (
                               <div className="space-y-1">
                                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
@@ -464,21 +566,22 @@ export function WaterQualityTab({
                                 </p>
                               </div>
                             )}
-                            {(record.turbidity !== undefined ||
-                              record.ntu !== undefined) && (
+
+                            {/* Turbidity */}
+                            {recNtu != null && (
                               <div className="space-y-1">
                                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
                                   Turbidity
                                 </p>
                                 <p className="font-bold text-gray-900">
-                                  {record.turbidity ?? record.ntu} NTU
+                                  {recNtu} NTU
                                 </p>
                               </div>
                             )}
                           </div>
                         </div>
 
-                        <div className="flex sm:flex-col gap-2"></div>
+                        <div className="flex sm:flex-col gap-2" />
                       </div>
                     </CardContent>
                   </Card>
