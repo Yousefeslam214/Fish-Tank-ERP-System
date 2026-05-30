@@ -24,7 +24,10 @@ import {
   ReferenceLine,
 } from "recharts";
 import { apiGet } from "../../../api";
-import { subscribeToTankSensorStream, SensorReadingEvent } from "../../../services/iotApi";
+import {
+  subscribeToTankSensorStream,
+  SensorReadingEvent,
+} from "../../../services/iotApi";
 
 interface WaterQualityTabProps {
   batchAssessments: Record<string, any>;
@@ -51,11 +54,12 @@ export function WaterQualityTab({
     Record<string, any>
   >({});
   const [isLoadingAssessments, setIsLoadingAssessments] = React.useState(false);
-  const [liveReading, setLiveReading] = React.useState<SensorReadingEvent | null>(null);
+  const [liveReading, setLiveReading] =
+    React.useState<SensorReadingEvent | null>(null);
   const [streamConnected, setStreamConnected] = React.useState(false);
 
   React.useEffect(() => {
-    const tankId = String(tank?.id || '');
+    const tankId = String(tank?.id || "");
     if (!tankId) return;
 
     const unsubscribe = subscribeToTankSensorStream({
@@ -75,11 +79,11 @@ export function WaterQualityTab({
   }, [tank?.id]);
 
   React.useEffect(() => {
-    console.group('[WaterQualityTab] API Data');
-    console.log('tankBatches:', tankBatches);
-    console.log('batchAssessments:', batchAssessments);
-    console.log('waterQualityHistory:', waterQualityHistory);
-    console.log('waterQualityRecords:', waterQualityRecords);
+    console.group("[WaterQualityTab] API Data");
+    console.log("tankBatches:", tankBatches);
+    console.log("batchAssessments:", batchAssessments);
+    console.log("waterQualityHistory:", waterQualityHistory);
+    console.log("waterQualityRecords:", waterQualityRecords);
     console.groupEnd();
   }, [tankBatches, batchAssessments, waterQualityHistory, waterQualityRecords]);
 
@@ -113,7 +117,10 @@ export function WaterQualityTab({
           results.forEach((r) => {
             if (r.data) newAssessments[r.id] = r.data;
           });
-          console.log('[WaterQualityTab] Normalized fetched assessments:', newAssessments);
+          console.log(
+            "[WaterQualityTab] Normalized fetched assessments:",
+            newAssessments,
+          );
           setLocalAssessments(newAssessments);
         } finally {
           setIsLoadingAssessments(false);
@@ -121,7 +128,9 @@ export function WaterQualityTab({
       };
       fetchAssessments();
     } else {
-      console.log('[WaterQualityTab] No tank batches available, skipped assessments fetch.');
+      console.log(
+        "[WaterQualityTab] No tank batches available, skipped assessments fetch.",
+      );
     }
   }, [tankBatches]);
 
@@ -144,82 +153,101 @@ export function WaterQualityTab({
     <div className="space-y-4 pt-4">
       {/* Real-Time Sensor Feed Card */}
       {streamConnected && liveReading && (
-  <Card className="bg-white border border-gray-100 shadow-sm overflow-hidden">
-    <CardContent className="p-4">
+        <Card className="bg-white border border-gray-100 shadow-sm overflow-hidden">
+          <CardContent className="p-4">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <Cpu className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-900">
+                    Sensor Measurements
+                  </h4>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wide">
+                    Active link: {tank?.name || "Tank"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 rounded-full border border-emerald-100">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] font-semibold text-emerald-700">
+                  Live
+                </span>
+              </div>
+            </div>
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
-            <Cpu className="w-4 h-4 text-emerald-600" />
-          </div>
-          <div>
-            <h4 className="text-sm font-semibold text-gray-900">Sensor Measurements</h4>
-            <p className="text-[10px] text-gray-400 uppercase tracking-wide">Active link: {tank?.name || 'Tank'}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 rounded-full border border-emerald-100">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-[10px] font-semibold text-emerald-700">Live</span>
-        </div>
-      </div>
+            {/* Metrics */}
+            <div className="grid grid-cols-3 gap-2">
+              {/* Temperature */}
+              <div className="bg-gray-50 rounded-xl p-3 flex flex-col gap-1">
+                <div className="flex items-center gap-1.5">
+                  <Thermometer className="w-3.5 h-3.5 text-orange-400" />
+                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                    Temp
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-xl font-black text-gray-900">
+                    {liveReading.temperature.toFixed(1)}
+                  </span>
+                  <span className="text-xs font-semibold text-orange-400">
+                    °C
+                  </span>
+                </div>
+              </div>
 
-      {/* Metrics */}
-      <div className="grid grid-cols-3 gap-2">
+              {/* pH */}
+              <div className="bg-gray-50 rounded-xl p-3 flex flex-col gap-1">
+                <div className="flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-green-500" />
+                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                    pH Level
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-xl font-black text-gray-900">
+                    {liveReading.ph.toFixed(2)}
+                  </span>
+                  <span className="text-xs font-semibold text-green-500">
+                    —
+                  </span>
+                </div>
+              </div>
 
-        {/* Temperature */}
-        <div className="bg-gray-50 rounded-xl p-3 flex flex-col gap-1">
-          <div className="flex items-center gap-1.5">
-            <Thermometer className="w-3.5 h-3.5 text-orange-400" />
-            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Temp</span>
-          </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-xl font-black text-gray-900">{liveReading.temperature.toFixed(1)}</span>
-            <span className="text-xs font-semibold text-orange-400">°C</span>
-          </div>
-        </div>
+              {/* Turbidity */}
+              <div className="bg-gray-50 rounded-xl p-3 flex flex-col gap-1">
+                <div className="flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-blue-400" />
+                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                    Turbidity
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-xl font-black text-gray-900">
+                    {liveReading.turbidity_ntu.toFixed(2)}
+                  </span>
+                  <span className="text-xs font-semibold text-blue-400 font-mono">
+                    ntu
+                  </span>
+                </div>
+              </div>
+            </div>
 
-        {/* pH */}
-        <div className="bg-gray-50 rounded-xl p-3 flex flex-col gap-1">
-          <div className="flex items-center gap-1.5">
-            <Activity className="w-3.5 h-3.5 text-green-500" />
-            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">pH Level</span>
-          </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-xl font-black text-gray-900">{liveReading.ph.toFixed(2)}</span>
-            <span className="text-xs font-semibold text-green-500">—</span>
-          </div>
-        </div>
-
-        {/* Turbidity */}
-        <div className="bg-gray-50 rounded-xl p-3 flex flex-col gap-1">
-          <div className="flex items-center gap-1.5">
-            <Zap className="w-3.5 h-3.5 text-blue-400" />
-            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Turbidity</span>
-          </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-xl font-black text-gray-900">{liveReading.turbidity_ntu.toFixed(2)}</span>
-            <span className="text-xs font-semibold text-blue-400 font-mono">ntu</span>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Footer */}
-      <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-        <div className="flex items-center gap-1.5 text-[10px] text-gray-400 font-semibold">
-          <Wifi className="w-3 h-3 text-emerald-400" />
-          Stream sync active
-        </div>
-        <span className="text-[10px] text-gray-400 font-semibold">
-          Updated {new Date(liveReading.timestamp).toLocaleTimeString()}
-        </span>
-      </div>
-
-    </CardContent>
-  </Card>
-)}
-      
+            {/* Footer */}
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+              <div className="flex items-center gap-1.5 text-[10px] text-gray-400 font-semibold">
+                <Wifi className="w-3 h-3 text-emerald-400" />
+                Stream sync active
+              </div>
+              <span className="text-[10px] text-gray-400 font-semibold">
+                Updated {new Date(liveReading.timestamp).toLocaleTimeString()}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Chart */}
       <Card>
@@ -438,32 +466,19 @@ export function WaterQualityTab({
                             )}
                             {(record.turbidity !== undefined ||
                               record.ntu !== undefined) && (
-                                <div className="space-y-1">
-                                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                                    Turbidity
-                                  </p>
-                                  <p className="font-bold text-gray-900">
-                                    {record.turbidity ?? record.ntu} NTU
-                                  </p>
-                                </div>
-                              )}
+                              <div className="space-y-1">
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                                  Turbidity
+                                </p>
+                                <p className="font-bold text-gray-900">
+                                  {record.turbidity ?? record.ntu} NTU
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </div>
 
-                        <div className="flex sm:flex-col gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-11 px-4 bg-gray-50 border-gray-200 hover:border-[#088395] hover:bg-white hover:text-[#088395] transition-all font-bold uppercase text-[10px] tracking-widest rounded-xl"
-                            onClick={() => {
-                              setSelectedWqRecord(record);
-                              setShowWqDetailsModal(true);
-                            }}
-                          >
-                            <Search className="w-4 h-4 mr-2" />
-                            View Full Analysis
-                          </Button>
-                        </div>
+                        <div className="flex sm:flex-col gap-2"></div>
                       </div>
                     </CardContent>
                   </Card>
