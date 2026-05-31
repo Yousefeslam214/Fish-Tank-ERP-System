@@ -1,10 +1,10 @@
-import { User, UserRole } from '../types';
-import { AuthLoginResult, BackendAuthUser } from './authTypes';
+import { User, UserRole } from "../types";
+import { AuthLoginResult, BackendAuthUser } from "./authTypes";
 
-const AUTH_SESSION_KEY = 'fishfarm_auth_session';
-const TOKEN_KEY = 'fishfarm_token';
-const REFRESH_TOKEN_KEY = 'fishfarm_refresh_token';
-const USER_KEY = 'fishfarm_user';
+const AUTH_SESSION_KEY = "fishfarm_auth_session";
+const TOKEN_KEY = "fishfarm_token";
+const REFRESH_TOKEN_KEY = "fishfarm_refresh_token";
+const USER_KEY = "fishfarm_user";
 
 interface StoredAuthSession {
   token: string;
@@ -15,15 +15,16 @@ interface StoredAuthSession {
   savedAt: number;
 }
 
-const isBrowser = (): boolean => typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+const isBrowser = (): boolean =>
+  typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const normalizeNumber = (value: unknown): number | undefined => {
-  if (typeof value === 'number' && Number.isFinite(value)) {
+  if (typeof value === "number" && Number.isFinite(value)) {
     return value;
   }
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     const parsed = Number(value);
     if (Number.isFinite(parsed)) {
       return parsed;
@@ -33,34 +34,36 @@ const normalizeNumber = (value: unknown): number | undefined => {
 };
 
 const deriveNameFromEmail = (email: string): string => {
-  const localPart = email.split('@')[0] ?? 'User';
+  const localPart = email.split("@")[0] ?? "User";
   const words = localPart
-    .replace(/[._-]+/g, ' ')
-    .split(' ')
+    .replace(/[._-]+/g, " ")
+    .split(" ")
     .filter(Boolean)
     .map((word) => word[0].toUpperCase() + word.slice(1));
 
-  return words.length > 0 ? words.join(' ') : 'Farm Manager';
+  return words.length > 0 ? words.join(" ") : "Farm Manager";
 };
 
 const normalizeRole = (role?: string): UserRole => {
   const value = role?.toLowerCase();
-  if (value === 'tecnican') {
-    return 'technician';
+  console.log("🔍 normalizeRole received:", role, "→ normalized:", value);
+  if (value === "tecnican") {
+    return "technician";
   }
   if (
-    value === 'admin' ||
-    value === 'manager' ||
-    value === 'worker' ||
-    value === 'technician' ||
-    value === 'technican' ||
-    value === 'accountant' ||
-    value === 'sales' ||
-    value === 'delivery'
+    value === "admin" ||
+    value === "manager" ||
+    value === "worker" ||
+    value === "technician" ||
+    value === "technican" ||
+    value === "accountant" ||
+    value === "sales" ||
+    value === "delivery" ||
+    value === "warehouse"
   ) {
     return value;
   }
-  return 'manager';
+  return "manager";
 };
 
 const normalizeModules = (modules: unknown): string[] | undefined => {
@@ -69,17 +72,22 @@ const normalizeModules = (modules: unknown): string[] | undefined => {
   }
 
   const normalized = modules
-    .filter((moduleName): moduleName is string => typeof moduleName === 'string' && moduleName.trim().length > 0)
+    .filter(
+      (moduleName): moduleName is string =>
+        typeof moduleName === "string" && moduleName.trim().length > 0,
+    )
     .map((moduleName) => moduleName.trim().toLowerCase());
 
   return normalized.length > 0 ? normalized : undefined;
 };
 
-export const mapBackendUserToAppUser = (backendUser: BackendAuthUser): User => ({
+export const mapBackendUserToAppUser = (
+  backendUser: BackendAuthUser,
+): User => ({
   id: backendUser.id,
   name: backendUser.name?.trim() || deriveNameFromEmail(backendUser.email),
   email: backendUser.email,
-  phone: backendUser.phone?.trim() || 'N/A',
+  phone: backendUser.phone?.trim() || "N/A",
   role: normalizeRole(backendUser.role),
   farmId: backendUser.farmId,
   modules: normalizeModules(backendUser.modules),
@@ -96,9 +104,11 @@ const parseStoredSession = (raw: string | null): StoredAuthSession | null => {
       return null;
     }
 
-    const token = typeof parsed.token === 'string' ? parsed.token : undefined;
+    const token = typeof parsed.token === "string" ? parsed.token : undefined;
     const savedAt = normalizeNumber(parsed.savedAt);
-    const user = isRecord(parsed.user) ? (parsed.user as BackendAuthUser) : undefined;
+    const user = isRecord(parsed.user)
+      ? (parsed.user as BackendAuthUser)
+      : undefined;
 
     if (!token || savedAt === undefined || !user?.id || !user.email) {
       return null;
@@ -106,7 +116,10 @@ const parseStoredSession = (raw: string | null): StoredAuthSession | null => {
 
     return {
       token,
-      refreshToken: typeof parsed.refreshToken === 'string' ? parsed.refreshToken : undefined,
+      refreshToken:
+        typeof parsed.refreshToken === "string"
+          ? parsed.refreshToken
+          : undefined,
       expiresIn: normalizeNumber(parsed.expiresIn),
       refreshExpiresIn: normalizeNumber(parsed.refreshExpiresIn),
       user,
@@ -117,7 +130,10 @@ const parseStoredSession = (raw: string | null): StoredAuthSession | null => {
   }
 };
 
-export const persistAuthSession = (loginResult: AuthLoginResult, appUser: User): void => {
+export const persistAuthSession = (
+  loginResult: AuthLoginResult,
+  appUser: User,
+): void => {
   if (!isBrowser() || !loginResult.token || !loginResult.user) {
     return;
   }
@@ -149,7 +165,9 @@ export const getStoredAppUser = (): User | null => {
   }
 
   const getUserFromSession = (): User | null => {
-    const fallbackSession = parseStoredSession(localStorage.getItem(AUTH_SESSION_KEY));
+    const fallbackSession = parseStoredSession(
+      localStorage.getItem(AUTH_SESSION_KEY),
+    );
     if (!fallbackSession) {
       return null;
     }
@@ -166,18 +184,20 @@ export const getStoredAppUser = (): User | null => {
 
   try {
     const parsed = JSON.parse(raw) as Partial<User>;
-    if (!parsed || typeof parsed !== 'object') {
+    if (!parsed || typeof parsed !== "object") {
       return null;
     }
 
-    const id = typeof parsed.id === 'string' ? parsed.id : '';
-    const email = typeof parsed.email === 'string' ? parsed.email : '';
+    const id = typeof parsed.id === "string" ? parsed.id : "";
+    const email = typeof parsed.email === "string" ? parsed.email : "";
     if (!id || !email) {
       return null;
     }
 
     const sessionRole = (() => {
-      const storedSession = parseStoredSession(localStorage.getItem(AUTH_SESSION_KEY));
+      const storedSession = parseStoredSession(
+        localStorage.getItem(AUTH_SESSION_KEY),
+      );
       if (!storedSession?.user?.id || storedSession.user.id !== id) {
         return undefined;
       }
@@ -186,11 +206,20 @@ export const getStoredAppUser = (): User | null => {
 
     return {
       id,
-      name: typeof parsed.name === 'string' && parsed.name.trim() ? parsed.name : deriveNameFromEmail(email),
+      name:
+        typeof parsed.name === "string" && parsed.name.trim()
+          ? parsed.name
+          : deriveNameFromEmail(email),
       email,
-      phone: typeof parsed.phone === 'string' && parsed.phone.trim() ? parsed.phone : 'N/A',
-      role: normalizeRole(sessionRole || (typeof parsed.role === 'string' ? parsed.role : undefined)),
-      farmId: typeof parsed.farmId === 'string' ? parsed.farmId : undefined,
+      phone:
+        typeof parsed.phone === "string" && parsed.phone.trim()
+          ? parsed.phone
+          : "N/A",
+      role: normalizeRole(
+        sessionRole ||
+          (typeof parsed.role === "string" ? parsed.role : undefined),
+      ),
+      farmId: typeof parsed.farmId === "string" ? parsed.farmId : undefined,
       modules: normalizeModules(parsed.modules),
     };
   } catch {
@@ -208,7 +237,9 @@ export const getAccessToken = (): string | null => {
     return token;
   }
 
-  return parseStoredSession(localStorage.getItem(AUTH_SESSION_KEY))?.token ?? null;
+  return (
+    parseStoredSession(localStorage.getItem(AUTH_SESSION_KEY))?.token ?? null
+  );
 };
 
 export const clearAuthSession = (): void => {

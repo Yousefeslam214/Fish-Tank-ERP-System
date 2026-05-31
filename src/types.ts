@@ -1,9 +1,13 @@
 // ============================================
 // FISH INVENTORY & BATCHES
 // ============================================
-export type FishInventoryStatus = 'QUARANTINE' | 'READY_TO_STOCK' | 'DEPLETED' | 'STOCKED';
-export type HealthCheckStatus = 'PENDING' | 'PASSED' | 'FAILED';
-export type FishBatchStatus = 'ACTIVE' | 'HARVESTED' | 'PARTIAL_HARVEST';
+export type FishInventoryStatus =
+  | "QUARANTINE"
+  | "READY_TO_STOCK"
+  | "DEPLETED"
+  | "STOCKED";
+export type HealthCheckStatus = "PENDING" | "PASSED" | "FAILED";
+export type FishBatchStatus = "ACTIVE" | "HARVESTED" | "PARTIAL_HARVEST";
 
 export interface FishType {
   id: string;
@@ -64,16 +68,21 @@ export interface FishBatch {
 // ============================================
 // HARVEST
 // ============================================
-export type HarvestType = 'QUARTER' | 'HALF' | 'FULL';
+export type HarvestType = "QUARTER" | "HALF" | "FULL";
 export const HARVEST_TYPE_LABELS: Record<HarvestType, string> = {
-  QUARTER: 'Selective',
-  HALF: 'Partial',
-  FULL: 'Full',
+  QUARTER: "Selective",
+  HALF: "Partial",
+  FULL: "Full",
 };
-export type HarvestStatus = 'DRAFT' | 'GRADING' | 'REVIEW' | 'COMPLETED' | 'CANCELLED';
-export type HarvestCondition = 'EXCELLENT' | 'GOOD' | 'ACCEPTABLE' | 'DAMAGED';
-export type StorageType = 'FRESH' | 'ICED' | 'FROZEN';
-export type GradeType = 'SUPER' | 'GRADE_1' | 'GRADE_2' | 'SHERR' | 'WASTE';
+export type HarvestStatus =
+  | "DRAFT"
+  | "GRADING"
+  | "REVIEW"
+  | "COMPLETED"
+  | "CANCELLED";
+export type HarvestCondition = "EXCELLENT" | "GOOD" | "ACCEPTABLE" | "DAMAGED";
+export type StorageType = "FRESH" | "ICED" | "FROZEN";
+export type GradeType = "SUPER" | "GRADE_1" | "GRADE_2" | "SHERR" | "WASTE";
 
 export interface FishGradePricing {
   id: string;
@@ -161,7 +170,11 @@ export interface HarvestPrediction {
   remainingCost: number;
   profit: number;
   profitMargin: number;
-  recommendation: 'HIGH_PROFIT' | 'MODERATE_PROFIT' | 'LOW_PROFIT' | 'REVIEW_NEEDED';
+  recommendation:
+    | "HIGH_PROFIT"
+    | "MODERATE_PROFIT"
+    | "LOW_PROFIT"
+    | "REVIEW_NEEDED";
 }
 
 // ============================================
@@ -185,9 +198,17 @@ export interface HarvestedInventory {
 // ============================================
 // SALES & CUSTOMERS
 // ============================================
-export type CustomerType = 'WHOLESALE' | 'RETAIL' | 'RESTAURANT' | 'EXPORT';
-export type SalesOrderStatus = 'DRAFT' | 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'FULFILLED' | 'CANCELLED';
-export type PaymentStatus = 'PENDING' | 'PARTIAL' | 'PAID' | 'OVERDUE';
+export type CustomerType = "WHOLESALE" | "RETAIL" | "RESTAURANT" | "EXPORT";
+export type SalesOrderStatus =
+  | "DRAFT"
+  | "PENDING"
+  | "CONFIRMED"
+  | "PROCESSING"
+  | "SHIPPED"
+  | "DELIVERED"
+  | "FULFILLED"
+  | "CANCELLED";
+export type PaymentStatus = "PENDING" | "PARTIAL" | "PAID" | "OVERDUE";
 
 export interface Customer {
   id: string;
@@ -247,14 +268,15 @@ export interface SalesOrder {
 // USER & FARM
 // ============================================
 export type UserRole =
-  | 'admin'
-  | 'manager'
-  | 'worker'
-  | 'technician'
-  | 'technican'
-  | 'accountant'
-  | 'sales'
-  | 'delivery';
+  | "admin"
+  | "manager"
+  | "worker"
+  | "technician"
+  | "technican"
+  | "accountant"
+  | "sales"
+  | "delivery"
+  | "warehouse";
 
 export interface User {
   id: string;
@@ -270,7 +292,7 @@ export interface Farm {
   id: string;
   name: string;
   location: string;
-  type: 'freshwater' | 'saltwater' | 'brackish';
+  type: "freshwater" | "saltwater" | "brackish";
   totalTanks: number;
   activeSpecies: string[];
   isActive: boolean;
@@ -318,7 +340,15 @@ export interface WaterQuality {
 // ============================================
 // EXPENSES & ACCOUNTING
 // ============================================
-export type ExpenseCategory = 'feed' | 'medicine' | 'labor' | 'electricity' | 'maintenance' | 'fuel' | 'equipment' | 'other';
+export type ExpenseCategory =
+  | "feed"
+  | "medicine"
+  | "labor"
+  | "electricity"
+  | "maintenance"
+  | "fuel"
+  | "equipment"
+  | "other";
 
 export interface Expense {
   id: string;
@@ -336,8 +366,8 @@ export interface Expense {
 // ============================================
 // HEALTH & DISEASE
 // ============================================
-export type DiseaseSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-export type DiseaseStatus = 'ACTIVE' | 'TREATED' | 'RESOLVED';
+export type DiseaseSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type DiseaseStatus = "ACTIVE" | "TREATED" | "RESOLVED";
 
 export interface Disease {
   id: string;
@@ -371,8 +401,8 @@ export interface HealthRecord {
 // ============================================
 // NOTIFICATIONS
 // ============================================
-export type NotificationType = 'alert' | 'warning' | 'info' | 'success';
-export type NotificationPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type NotificationType = "alert" | "warning" | "info" | "success";
+export type NotificationPriority = "low" | "medium" | "high" | "urgent";
 
 export interface Notification {
   id: string;
@@ -385,15 +415,26 @@ export interface Notification {
   timestamp: string;
   isRead: boolean;
   actionUrl?: string;
-  requiresAction?: 'not responded' | 'true' | 'false' | boolean;
+  requiresAction?: "not responded" | "true" | "false" | boolean;
   actionType?: string;
 }
 
 // ============================================
 // PROCUREMENT & SUPPLIERS
 // ============================================
-export type PurchaseOrderStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'ORDERED' | 'RECEIVED' | 'CANCELLED';
-export type SupplierItemType = 'FEED' | 'FINGERLINGS' | 'EQUIPMENT' | 'MEDICINE' | 'OTHER';
+export type PurchaseOrderStatus =
+  | "DRAFT"
+  | "PENDING"
+  | "APPROVED"
+  | "ORDERED"
+  | "RECEIVED"
+  | "CANCELLED";
+export type SupplierItemType =
+  | "FEED"
+  | "FINGERLINGS"
+  | "EQUIPMENT"
+  | "MEDICINE"
+  | "OTHER";
 
 export interface Supplier {
   id: string;
@@ -438,17 +479,33 @@ export interface PurchaseOrder {
 // ============================================
 
 // Food-type physical properties (used by FoodTypeManagement)
-export type BuoyancyType = 'FLOATING' | 'SINKING' | 'SLOW_SINKING' | 'SEMI_FLOATING';
-export type ManufacturingProcess = 'EXTRUDED' | 'PELLETED' | 'MILLED' | 'CRUMBLED';
+export type BuoyancyType =
+  | "FLOATING"
+  | "SINKING"
+  | "SLOW_SINKING"
+  | "SEMI_FLOATING";
+export type ManufacturingProcess =
+  | "EXTRUDED"
+  | "PELLETED"
+  | "MILLED"
+  | "CRUMBLED";
 export type GrowthStage =
-  | 'FRY_1' | 'FRY_2'
-  | 'FINGERLING_1' | 'FINGERLING_2'
-  | 'JUVENILE_1' | 'JUVENILE_2' | 'JUVENILE_3'
-  | 'ADULT_1' | 'ADULT_2' | 'ADULT_3'
-  | 'FINISHING_1' | 'FINISHING_2' | 'FINISHING_3'
-  | 'PRE_HARVEST';
+  | "FRY_1"
+  | "FRY_2"
+  | "FINGERLING_1"
+  | "FINGERLING_2"
+  | "JUVENILE_1"
+  | "JUVENILE_2"
+  | "JUVENILE_3"
+  | "ADULT_1"
+  | "ADULT_2"
+  | "ADULT_3"
+  | "FINISHING_1"
+  | "FINISHING_2"
+  | "FINISHING_3"
+  | "PRE_HARVEST";
 
-export type FeedType = 'STARTER' | 'GROWER' | 'FINISHER' | 'BROODSTOCK';
+export type FeedType = "STARTER" | "GROWER" | "FINISHER" | "BROODSTOCK";
 
 export interface FeedItem {
   id: string;

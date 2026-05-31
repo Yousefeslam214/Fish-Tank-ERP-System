@@ -1535,6 +1535,12 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
   // Render
   const currentFarm = selectedFarm;
+  console.log(
+    "🔍 user.role:",
+    user.role,
+    "| is warehouse:",
+    user.role === "warehouse",
+  ); // 👈 add here
   return (
     <>
       {" "}
@@ -1564,13 +1570,15 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
             </p>
           </div>
 
-          <Button
-            onClick={() => setIsAddResourcesOpen(true)}
-            className="bg-[#088395] hover:bg-[#0A4D68]"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Resources
-          </Button>
+          {user.role === "warehouse" && (
+            <Button
+              onClick={() => setIsAddResourcesOpen(true)}
+              className="bg-[#088395] hover:bg-[#0A4D68]"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Resources
+            </Button>
+          )}
         </div>
 
         {/* Main Tabs */}
@@ -2140,7 +2148,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         {/* Add Resources Modal */}
         <Dialog
           open={isAddResourcesOpen}
-          onOpenChange={(open) => {
+          onOpenChange={(open: boolean) => {
             setIsAddResourcesOpen(open);
             if (!open) {
               resetAddResourcesForm();
@@ -2260,7 +2268,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
         <Dialog
           open={isMedicineDetailsOpen}
-          onOpenChange={(open) => {
+          onOpenChange={(open: boolean) => {
             setIsMedicineDetailsOpen(open);
             if (!open) {
               setSelectedMedicineBatch(null);
