@@ -425,8 +425,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       const res = await getFeedInventory();
       const feed = getArrayPayload(res);
 
-      console.log("ALL FEED RECORDS:");
-      console.log(JSON.stringify(feed, null, 2));
+
       setFeedInventory(feed);
     } catch (error) {
       console.error("Error loading feed inventory", error);

@@ -46,7 +46,7 @@ const deriveNameFromEmail = (email: string): string => {
 
 const normalizeRole = (role?: string): UserRole => {
   const value = role?.toLowerCase();
-  console.log("🔍 normalizeRole received:", role, "→ normalized:", value);
+
   if (value === "tecnican") {
     return "technician";
   }
