@@ -118,7 +118,7 @@ export function WaterQualityTab({
       disconnectTimerRef.current = setTimeout(() => {
         console.log("[Stream] watchdog fired → marking disconnected");
         setStreamConnected(false);
-      }, 10_000);
+      }, 5_000);
     };
 
     const unsubscribe = subscribeToTankSensorStream({
