@@ -335,9 +335,9 @@ export default function TankManagement({
     const normalized = status.toLowerCase();
     switch (normalized) {
       case "critical":
-        return "bg-[#EF4444]";
+        return "bg-[#EF4444] critical-blink";
       case "warning":
-        return "bg-[#F59E0B]";
+        return "bg-[#F59E0B] blink";
       case "acceptable":
         return "bg-[#3B82F6]";
       case "optimal":
