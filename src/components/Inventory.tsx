@@ -21,13 +21,27 @@ import {
   Trash2,
   RefreshCw,
   Eye,
+  Droplet,
 } from "lucide-react";
 import { User, Farm, FishInventoryBatch } from "../types";
 import AllocateFishToTank from "./AllocateFishToTank";
 import { apiGet } from "../api";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 import { Label } from "./ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 import { BatchHealthModal } from "./tanks/modals/BatchHealthModal";
 import HarvestedInventoryView from "./sales/HarvestedInventoryView";
 import Combobox, { type ComboboxItem } from "./Combobox";
@@ -101,12 +115,16 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   const [fishBatches, setFishBatches] = useState<FishInventoryBatch[]>([]);
 
   // Allocation modal
-  const [selectedBatch, setSelectedBatch] = useState<FishInventoryBatch | null>(null);
+  const [selectedBatch, setSelectedBatch] = useState<FishInventoryBatch | null>(
+    null,
+  );
   const [showAllocateModal, setShowAllocateModal] = useState(false);
 
   // Feed inventory - API-driven
   const [feedInventory, setFeedInventory] = useState<FeedItem[]>([]);
-  const [medicineInventory, setMedicineInventory] = useState<MedicineInventoryBatch[]>([]);
+  const [medicineInventory, setMedicineInventory] = useState<
+    MedicineInventoryBatch[]
+  >([]);
   const [medicineTotals, setMedicineTotals] = useState<MedicineTotalItem[]>([]);
 
   // Tanks for allocation
@@ -125,13 +143,18 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     receiveDate: new Date().toISOString().split("T")[0],
     expiryDate: "",
   });
-  const [fishTypeOptions, setFishTypeOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [fishTypeOptions, setFishTypeOptions] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
 
   // Health modal state
   const [healthModalOpen, setHealthModalOpen] = useState(false);
-  const [healthModalMode, setHealthModalMode] = useState<'health' | 'quarantine'>('health');
+  const [healthModalMode, setHealthModalMode] = useState<
+    "health" | "quarantine"
+  >("health");
   const [batchForHealth, setBatchForHealth] = useState<any>(null);
-  const [selectedMedicineBatch, setSelectedMedicineBatch] = useState<MedicineInventoryBatch | null>(null);
+  const [selectedMedicineBatch, setSelectedMedicineBatch] =
+    useState<MedicineInventoryBatch | null>(null);
   const [isMedicineDetailsOpen, setIsMedicineDetailsOpen] = useState(false);
   const [isMedicineDeleting, setIsMedicineDeleting] = useState(false);
 
@@ -202,7 +225,10 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     let selectedTimestamp = Number.NEGATIVE_INFINITY;
 
     for (const candidate of candidates) {
-      const raw = candidate instanceof Date ? candidate.toISOString() : String(candidate ?? "").trim();
+      const raw =
+        candidate instanceof Date
+          ? candidate.toISOString()
+          : String(candidate ?? "").trim();
       if (!raw) {
         continue;
       }
@@ -224,14 +250,27 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
   const isReadyToAllocateStatus = (status: unknown): boolean => {
     const normalized = String(status || "").toUpperCase();
-    return normalized === "READY_TO_STOCK" || normalized === "READY" || normalized === "AVAILABLE";
+    return (
+      normalized === "READY_TO_STOCK" ||
+      normalized === "READY" ||
+      normalized === "AVAILABLE"
+    );
   };
 
   const normalizeFishBatch = (batch: any): FishInventoryBatch => {
-    const currentQuantity = toNumber(batch?.quantity ?? batch?.currentQuantity ?? batch?.currentQty, 0);
-    const initialQuantity = toNumber(batch?.initialQuantity ?? batch?.initialCount, currentQuantity);
+    const currentQuantity = toNumber(
+      batch?.quantity ?? batch?.currentQuantity ?? batch?.currentQty,
+      0,
+    );
+    const initialQuantity = toNumber(
+      batch?.initialQuantity ?? batch?.initialCount,
+      currentQuantity,
+    );
     const averageWeight = toNumber(
-      batch?.averageWeight ?? batch?.avgWeight ?? batch?.initialWeightGrams ?? batch?.initialAverageWeight,
+      batch?.averageWeight ??
+        batch?.avgWeight ??
+        batch?.initialWeightGrams ??
+        batch?.initialAverageWeight,
       0,
     );
 
@@ -239,21 +278,34 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       id: String(batch?.id || batch?._id || ""),
       farmId: String(batch?.farmId || batch?.farm || selectedFarm?.id || ""),
       purchaseOrderId: String(batch?.purchaseOrderId || ""),
-      species: String(batch?.species || batch?.fishTypeName || batch?.fishType?.name || "Unknown Batch"),
+      species: String(
+        batch?.species ||
+          batch?.fishTypeName ||
+          batch?.fishType?.name ||
+          "Unknown Batch",
+      ),
       quantity: currentQuantity,
       initialQuantity,
       averageWeight,
-      status: String(batch?.status || "").toUpperCase() as FishInventoryBatch["status"],
-      healthCheckStatus: String(batch?.healthCheckStatus || batch?.healthStatus || "PENDING").toUpperCase() as FishInventoryBatch["healthCheckStatus"],
+      status: String(
+        batch?.status || "",
+      ).toUpperCase() as FishInventoryBatch["status"],
+      healthCheckStatus: String(
+        batch?.healthCheckStatus || batch?.healthStatus || "PENDING",
+      ).toUpperCase() as FishInventoryBatch["healthCheckStatus"],
       healthCheckDate: batch?.healthCheckDate || batch?.healthCheckAt,
-      deliveryDate: batch?.deliveryDate || batch?.receivedDate || new Date().toISOString(),
+      deliveryDate:
+        batch?.deliveryDate || batch?.receivedDate || new Date().toISOString(),
       quarantinePeriodDays: toNumber(batch?.quarantinePeriodDays, 0),
       notes: batch?.notes || "",
       fishTypeName: batch?.fishTypeName,
     } as FishInventoryBatch & { fishTypeName?: string };
   };
 
-  const resolveMedicineDisplayName = (entry: any, fallbackId?: string): string => {
+  const resolveMedicineDisplayName = (
+    entry: any,
+    fallbackId?: string,
+  ): string => {
     const rawName = String(
       entry?.medicineName ||
         entry?.medicine?.name ||
@@ -267,7 +319,12 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     if (!isUnknownName) return rawName;
 
     const company = String(
-      entry?.company || entry?.manufacturer || entry?.supplier || entry?.brand || entry?.medicine?.company || "",
+      entry?.company ||
+        entry?.manufacturer ||
+        entry?.supplier ||
+        entry?.brand ||
+        entry?.medicine?.company ||
+        "",
     ).trim();
     if (company && company !== "-") {
       return `${company} Medicine`;
@@ -281,7 +338,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     return "Unnamed Medicine";
   };
 
-  const normalizeMedicineBatch = (entry: any): MedicineInventoryBatch | null => {
+  const normalizeMedicineBatch = (
+    entry: any,
+  ): MedicineInventoryBatch | null => {
     const id = entry?.id || entry?._id;
     if (!id) return null;
 
@@ -296,16 +355,33 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           entry?.brand ||
           entry?.medicine?.company ||
           entry?.medicine?.manufacturer ||
-          "-"
+          "-",
       ),
-      batchNumber: String(entry?.batchNumber || entry?.batch || entry?.lotNumber || entry?.code || "-"),
+      batchNumber: String(
+        entry?.batchNumber ||
+          entry?.batch ||
+          entry?.lotNumber ||
+          entry?.code ||
+          "-",
+      ),
       quantity: toNumber(
-        entry?.quantity ?? entry?.currentQuantity ?? entry?.availableQuantity ?? entry?.stock ?? entry?.quantityKg,
+        entry?.quantity ??
+          entry?.currentQuantity ??
+          entry?.availableQuantity ??
+          entry?.stock ??
+          entry?.quantityKg,
         0,
       ),
       unit: String(entry?.unit || entry?.quantityUnit || "unit"),
-      reorderLevel: toNumber(entry?.reorderLevel ?? entry?.minimumStock ?? entry?.minStockLevel ?? 10, 10),
-      expiryDate: entry?.expiryDate || entry?.expirationDate || entry?.expiresAt,
+      reorderLevel: toNumber(
+        entry?.reorderLevel ??
+          entry?.minimumStock ??
+          entry?.minStockLevel ??
+          10,
+        10,
+      ),
+      expiryDate:
+        entry?.expiryDate || entry?.expirationDate || entry?.expiresAt,
       status: String(entry?.status || "").toUpperCase() || undefined,
       notes: entry?.notes || entry?.description || "",
     };
@@ -348,6 +424,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     try {
       const res = await getFeedInventory();
       const feed = getArrayPayload(res);
+
+      console.log("ALL FEED RECORDS:");
+      console.log(JSON.stringify(feed, null, 2));
       setFeedInventory(feed);
     } catch (error) {
       console.error("Error loading feed inventory", error);
@@ -362,7 +441,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         .map(normalizeMedicineBatch)
         .filter((item): item is MedicineInventoryBatch => item !== null);
       const filtered = selectedFarm
-        ? normalized.filter((item) => !item.farmId || item.farmId === selectedFarm.id)
+        ? normalized.filter(
+            (item) => !item.farmId || item.farmId === selectedFarm.id,
+          )
         : normalized;
       setMedicineInventory(filtered);
     } catch (error) {
@@ -378,8 +459,16 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       if (rows.length > 0) {
         setMedicineTotals(
           rows.map((row: any) => ({
-            medicineName: String(row?.medicineName || row?.name || row?.medicine?.name || "Medicine"),
-            totalQuantity: toNumber(row?.totalQuantity ?? row?.quantity ?? row?.total ?? row?.stock, 0),
+            medicineName: String(
+              row?.medicineName ||
+                row?.name ||
+                row?.medicine?.name ||
+                "Medicine",
+            ),
+            totalQuantity: toNumber(
+              row?.totalQuantity ?? row?.quantity ?? row?.total ?? row?.stock,
+              0,
+            ),
             unit: String(row?.unit || row?.quantityUnit || "unit"),
           })),
         );
@@ -464,7 +553,12 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
             farmId: String(tank?.farmId || selectedFarm?.id || ""),
             status: String(tank?.status || "UNKNOWN").toUpperCase(),
             biomass: Number(tank?.biomass?.actual ?? tank?.biomass ?? 0),
-            capacity: Number(tank?.biomass?.capacity ?? tank?.capacity ?? tank?.biomassLimit ?? 0),
+            capacity: Number(
+              tank?.biomass?.capacity ??
+                tank?.capacity ??
+                tank?.biomassLimit ??
+                0,
+            ),
           };
         })
         .filter(Boolean);
@@ -492,9 +586,15 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       void loadFeed();
     };
 
-    window.addEventListener(FEEDING_TASK_COMPLETED_EVENT, handleFeedingTaskCompleted);
+    window.addEventListener(
+      FEEDING_TASK_COMPLETED_EVENT,
+      handleFeedingTaskCompleted,
+    );
     return () => {
-      window.removeEventListener(FEEDING_TASK_COMPLETED_EVENT, handleFeedingTaskCompleted);
+      window.removeEventListener(
+        FEEDING_TASK_COMPLETED_EVENT,
+        handleFeedingTaskCompleted,
+      );
     };
   }, []);
 
@@ -525,13 +625,17 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     quantity: number,
     avgWeight: number,
     stockingDate: string,
-    notes?: string
+    notes?: string,
   ) => {
     void stockingDate;
     void notes;
     try {
       // Backend allocate route expects: { tankId, quantity, avgWeight }.
-      await allocateBatch(batchId, { tankId, quantity, avgWeight: toNumber(avgWeight, 0) });
+      await allocateBatch(batchId, {
+        tankId,
+        quantity,
+        avgWeight: toNumber(avgWeight, 0),
+      });
       await loadBatches();
       toast.success("Batch allocated to tank successfully");
     } catch (error) {
@@ -546,13 +650,13 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   // health modal handlers
   const handleQuarantine = (batch: any) => {
     setBatchForHealth(batch);
-    setHealthModalMode('quarantine');
+    setHealthModalMode("quarantine");
     setHealthModalOpen(true);
   };
 
   const handleHealthCheck = (batch: any) => {
     setBatchForHealth(batch);
-    setHealthModalMode('health');
+    setHealthModalMode("health");
     setHealthModalOpen(true);
   };
 
@@ -573,10 +677,14 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       return;
     }
 
-    const hasSuccessFlag = Object.prototype.hasOwnProperty.call(response, "success");
+    const hasSuccessFlag = Object.prototype.hasOwnProperty.call(
+      response,
+      "success",
+    );
     if (hasSuccessFlag && response.success === false) {
       const message =
-        typeof response.message === "string" && response.message.trim().length > 0
+        typeof response.message === "string" &&
+        response.message.trim().length > 0
           ? response.message
           : "Request failed";
       throw new Error(message);
@@ -587,7 +695,10 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     if (error instanceof Error && error.message.trim()) {
       const marker = "]:";
       const markerIndex = error.message.indexOf(marker);
-      if (markerIndex >= 0 && markerIndex + marker.length < error.message.length) {
+      if (
+        markerIndex >= 0 &&
+        markerIndex + marker.length < error.message.length
+      ) {
         return error.message.slice(markerIndex + marker.length).trim();
       }
       return error.message;
@@ -597,7 +708,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
   const isMissingEntityIdError = (value: unknown): boolean => {
     const message = typeof value === "string" ? value : String(value ?? "");
-    return /cannot read properties of undefined \(reading 'id'\)/i.test(message);
+    return /cannot read properties of undefined \(reading 'id'\)/i.test(
+      message,
+    );
   };
 
   const resolveUnitCost = (...values: Array<unknown>): number => {
@@ -610,7 +723,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     return 1;
   };
 
-  const ensureSupplierForResource = async (resourceType: ResourceType): Promise<string> => {
+  const ensureSupplierForResource = async (
+    resourceType: ResourceType,
+  ): Promise<string> => {
     const requiredItemTypes =
       resourceType === "feed"
         ? ["FEED", "FOOD"]
@@ -627,7 +742,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
     const suppliers = await getProcurementSuppliers();
     const existing = suppliers.find((supplier) =>
-      (Array.isArray(supplier.items) ? supplier.items : []).some((item) => requiredItemTypes.includes(String(item).toUpperCase())),
+      (Array.isArray(supplier.items) ? supplier.items : []).some((item) =>
+        requiredItemTypes.includes(String(item).toUpperCase()),
+      ),
     );
     if (existing?.id) {
       return existing.id;
@@ -636,13 +753,17 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     const created = await createProcurementSupplier({
       name: fallbackName,
       items: [primaryItemType],
-      address: selectedFarm?.name ? `Auto-generated for ${selectedFarm.name}` : "Auto-generated from Inventory",
+      address: selectedFarm?.name
+        ? `Auto-generated for ${selectedFarm.name}`
+        : "Auto-generated from Inventory",
     });
 
     if (!created?.id) {
       const refreshed = await getProcurementSuppliers();
       const fallbackSupplier = refreshed.find((supplier) =>
-        (Array.isArray(supplier.items) ? supplier.items : []).some((item) => requiredItemTypes.includes(String(item).toUpperCase())),
+        (Array.isArray(supplier.items) ? supplier.items : []).some((item) =>
+          requiredItemTypes.includes(String(item).toUpperCase()),
+        ),
       );
       if (fallbackSupplier?.id) {
         return fallbackSupplier.id;
@@ -670,7 +791,11 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     }
 
     if (expectsDiscreteQuantity && !Number.isInteger(quantity)) {
-      toast.error(expectsFishCount ? "Fish batch quantity must be a whole number" : "Medicine quantity must be a whole number");
+      toast.error(
+        expectsFishCount
+          ? "Fish batch quantity must be a whole number"
+          : "Medicine quantity must be a whole number",
+      );
       return;
     }
 
@@ -679,14 +804,18 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       return;
     }
 
-    if (newResourceData.resourceType === "feed" && !newResourceData.expiryDate) {
+    if (
+      newResourceData.resourceType === "feed" &&
+      !newResourceData.expiryDate
+    ) {
       toast.error("Please choose the expiry date for feed");
       return;
     }
 
     if (
       newResourceData.expiryDate &&
-      new Date(newResourceData.expiryDate).getTime() < new Date(newResourceData.receiveDate).getTime()
+      new Date(newResourceData.expiryDate).getTime() <
+        new Date(newResourceData.receiveDate).getTime()
     ) {
       toast.error("Expiry date cannot be earlier than receive date");
       return;
@@ -694,41 +823,58 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
     const receivedDateValue = newResourceData.receiveDate;
     const expiryDateValue = newResourceData.expiryDate || undefined;
-    const expiryIsoValue = expiryDateValue ? `${expiryDateValue}T00:00:00.000Z` : undefined;
+    const expiryIsoValue = expiryDateValue
+      ? `${expiryDateValue}T00:00:00.000Z`
+      : undefined;
 
     try {
       let response: any;
       const resourceType = newResourceData.resourceType;
 
       if (resourceType === "feed") {
-        const selectedFeedOptionId = String(newResourceData.feedItemId || "").trim();
+        const selectedFeedOptionId = String(
+          newResourceData.feedItemId || "",
+        ).trim();
         if (!selectedFeedOptionId) {
           toast.error("Please select a feed item");
           return;
         }
 
         const selectedFoodType = foodTypes.find(
-          (entry) => String(entry?.id || entry?._id || "").trim() === selectedFeedOptionId,
+          (entry) =>
+            String(entry?.id || entry?._id || "").trim() ===
+            selectedFeedOptionId,
         );
         const selectedFeedInventoryItem = feedInventory.find((entry: any) => {
           const entryId = String(entry?.id || entry?._id || "").trim();
-          const rawFoodType = entry?.foodTypeId || entry?.foodType || entry?.foodId || entry?.foodType_id;
+          const rawFoodType =
+            entry?.foodTypeId ||
+            entry?.foodType ||
+            entry?.foodId ||
+            entry?.foodType_id;
           const foodTypeIdFromEntry = String(
             typeof rawFoodType === "object"
               ? rawFoodType?.id || rawFoodType?._id || ""
               : rawFoodType || "",
           ).trim();
-          return entryId === selectedFeedOptionId || foodTypeIdFromEntry === selectedFeedOptionId;
+          return (
+            entryId === selectedFeedOptionId ||
+            foodTypeIdFromEntry === selectedFeedOptionId
+          );
         });
 
-        const selectedFoodTypeMeta = (selectedFoodType ?? selectedFeedInventoryItem ?? {}) as Record<string, unknown>;
+        const selectedFoodTypeMeta = (selectedFoodType ??
+          selectedFeedInventoryItem ??
+          {}) as Record<string, unknown>;
         const nestedFoodType = selectedFeedInventoryItem?.foodType;
         const resolvedFoodTypeId = String(
           selectedFoodTypeMeta?.id ||
             selectedFoodTypeMeta?._id ||
             selectedFoodTypeMeta?.foodTypeId ||
             selectedFoodTypeMeta?.foodType_id ||
-            (typeof nestedFoodType === "object" ? nestedFoodType?.id || nestedFoodType?._id : "") ||
+            (typeof nestedFoodType === "object"
+              ? nestedFoodType?.id || nestedFoodType?._id
+              : "") ||
             selectedFeedOptionId,
         ).trim();
         const feedUnitCost = resolveUnitCost(
@@ -745,7 +891,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
             "PO Supplier",
         );
 
-        const buildFeedPayload = (withNestedFoodType: boolean): Record<string, unknown> => {
+        const buildFeedPayload = (
+          withNestedFoodType: boolean,
+        ): Record<string, unknown> => {
           const payload: Record<string, unknown> = {
             foodTypeId: resolvedFoodTypeId,
             quantityKg: quantity,
@@ -759,7 +907,11 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
             costPerKg: feedUnitCost,
             costPerUnit: feedUnitCost,
             totalCost: feedTotalCost,
-            name: String(selectedFoodTypeMeta?.name || selectedFoodTypeMeta?.foodName || "Unknown Feed"),
+            name: String(
+              selectedFoodTypeMeta?.name ||
+                selectedFoodTypeMeta?.foodName ||
+                "Unknown Feed",
+            ),
             supplier: feedSupplier,
             manufacturer: feedSupplier,
           };
@@ -783,16 +935,21 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         ) {
           // Some backend deployments expect nested `foodType.id` instead of only `foodTypeId`.
           response = await createFeed(buildFeedPayload(true));
-        };
+        }
       } else if (resourceType === "medicine") {
-        const selectedMedicineId = String(newResourceData.medicineItemId || "").trim();
+        const selectedMedicineId = String(
+          newResourceData.medicineItemId || "",
+        ).trim();
         if (!selectedMedicineId) {
           toast.error("Please select a medicine item");
           return;
         }
 
         const selectedMedicineItem = medicineInventory.find(
-          (entry) => Boolean(entry) && String((entry as MedicineInventoryBatch).id || "").trim() === selectedMedicineId,
+          (entry) =>
+            Boolean(entry) &&
+            String((entry as MedicineInventoryBatch).id || "").trim() ===
+              selectedMedicineId,
         );
         if (!selectedMedicineItem) {
           toast.error("Please select a medicine item");
@@ -801,9 +958,16 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
         const medicineQuantity = Math.max(1, Math.round(quantity));
         const supplierId = await ensureSupplierForResource("medicine");
-        const selectedMedicineMeta = selectedMedicineItem as MedicineInventoryBatch & Record<string, unknown>;
-        const medicineName = resolveMedicineDisplayName(selectedMedicineItem, selectedMedicineId);
-        const medicineCompany = String(selectedMedicineItem.company || "").trim() || "Unknown Company";
+        const selectedMedicineMeta =
+          selectedMedicineItem as MedicineInventoryBatch &
+            Record<string, unknown>;
+        const medicineName = resolveMedicineDisplayName(
+          selectedMedicineItem,
+          selectedMedicineId,
+        );
+        const medicineCompany =
+          String(selectedMedicineItem.company || "").trim() ||
+          "Unknown Company";
         const medicineFishTypeId = String(
           selectedMedicineMeta?.fishTypeId ||
             (selectedMedicineMeta?.fishType as any)?.id ||
@@ -828,7 +992,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           ],
         });
 
-        const medicineTotalCost = Number((medicineUnitCost * medicineQuantity).toFixed(2));
+        const medicineTotalCost = Number(
+          (medicineUnitCost * medicineQuantity).toFixed(2),
+        );
         const payload: Record<string, unknown> = {
           medicine: medicineName,
           company: medicineCompany,
@@ -846,7 +1012,8 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         response = await createMedicine(payload);
       } else if (resourceType === "fish_batch") {
         const selectedFishType = fishTypeOptions.find(
-          (entry) => String(entry.id) === String(newResourceData.fishBatchItemId || ""),
+          (entry) =>
+            String(entry.id) === String(newResourceData.fishBatchItemId || ""),
         );
         if (!selectedFishType) {
           toast.error("Please select a fish batch item");
@@ -877,10 +1044,19 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
       ensureMutationSucceeded(response);
 
-      toast.success(resourceType === "fish_batch" ? "Fish purchase order created successfully" : "Resource added successfully");
+      toast.success(
+        resourceType === "fish_batch"
+          ? "Fish purchase order created successfully"
+          : "Resource added successfully",
+      );
       setIsAddResourcesOpen(false);
       resetAddResourcesForm();
-      await Promise.all([loadFeed(), loadMedicine(), loadMedicineTotals(), loadBatches()]);
+      await Promise.all([
+        loadFeed(),
+        loadMedicine(),
+        loadMedicineTotals(),
+        loadBatches(),
+      ]);
     } catch (error) {
       console.error("Add resource failed", error);
       toast.error(parseApiErrorMessage(error));
@@ -889,7 +1065,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
   // DELETE /api/v1/inventory/feed/:id
   const handleDeleteFeed = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this inventory record?")) {
+    if (
+      !window.confirm("Are you sure you want to delete this inventory record?")
+    ) {
       return;
     }
     try {
@@ -908,7 +1086,11 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   };
 
   const handleDeleteMedicine = async (batch: MedicineInventoryBatch) => {
-    if (!window.confirm(`Delete batch ${batch.batchNumber} for ${batch.medicineName}?`)) {
+    if (
+      !window.confirm(
+        `Delete batch ${batch.batchNumber} for ${batch.medicineName}?`,
+      )
+    ) {
       return;
     }
 
@@ -1051,17 +1233,27 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     }
   };
 
-  const mapApiStockStatusToUi = (status: unknown): "good" | "low" | "critical" | null => {
+  const mapApiStockStatusToUi = (
+    status: unknown,
+  ): "good" | "low" | "critical" | null => {
     const normalized = String(status || "").toUpperCase();
     if (!normalized) return null;
 
-    if (["OUT_OF_STOCK", "CONSUMED", "DEPLETED", "EXPIRED", "FAILED"].includes(normalized)) {
+    if (
+      ["OUT_OF_STOCK", "CONSUMED", "DEPLETED", "EXPIRED", "FAILED"].includes(
+        normalized,
+      )
+    ) {
       return "critical";
     }
     if (["LOW_STOCK", "LOW", "WARNING"].includes(normalized)) {
       return "low";
     }
-    if (["IN_STOCK", "AVAILABLE", "READY", "ACTIVE", "GOOD", "PASSED"].includes(normalized)) {
+    if (
+      ["IN_STOCK", "AVAILABLE", "READY", "ACTIVE", "GOOD", "PASSED"].includes(
+        normalized,
+      )
+    ) {
       return "good";
     }
     return null;
@@ -1083,20 +1275,29 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   const getStockStatusBadge = (status: "good" | "low" | "critical") => {
     if (status === "critical") {
       return (
-        <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
+        <Badge
+          variant="outline"
+          className="bg-red-100 text-red-800 border-red-200"
+        >
           Critical
         </Badge>
       );
     }
     if (status === "low") {
       return (
-        <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
+        <Badge
+          variant="outline"
+          className="bg-orange-100 text-orange-800 border-orange-200"
+        >
           Low
         </Badge>
       );
     }
     return (
-      <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+      <Badge
+        variant="outline"
+        className="bg-green-100 text-green-800 border-green-200"
+      >
         Healthy
       </Badge>
     );
@@ -1115,10 +1316,11 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     ? fishBatches.filter((batch: any) => batch.farmId === selectedFarm.id)
     : fishBatches;
   const fishStockBatches = filteredFishBatches.filter(
-    (batch: any) => String(batch?.status || "").toUpperCase() !== "QUARANTINE"
+    (batch: any) => String(batch?.status || "").toUpperCase() !== "QUARANTINE",
   );
   const readyToAllocateBatches = filteredFishBatches.filter(
-    (batch: any) => isReadyToAllocateStatus(batch.status) && (batch.quantity ?? 0) > 0
+    (batch: any) =>
+      isReadyToAllocateStatus(batch.status) && (batch.quantity ?? 0) > 0,
   );
 
   const feedStockInventory = feedInventory.map((f: any) => {
@@ -1129,11 +1331,21 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
     const ft = foodTypes.find((t) => (t.id || t._id) === foodTypeId);
 
-    const name = f.name || (ft ? `${ft.name} ${f.manufacturer ? `(${f.manufacturer})` : ""}` : "Unknown Feed");
+    const name =
+      f.name ||
+      (ft
+        ? `${ft.name} ${f.manufacturer ? `(${f.manufacturer})` : ""}`
+        : "Unknown Feed");
     const arabicName = f.arabicName || ft?.arabicName;
-    const unit = f.unit || (ft?.unit || "kg");
-    const quantity = typeof f.quantityKg === "number" ? f.quantityKg : typeof f.quantity === "number" ? f.quantity : 0;
-    const costPerUnit = f.costPerKg || f.unitCost || f.costPerUnit || ft?.costPerUnit || 0;
+    const unit = f.unit || ft?.unit || "kg";
+    const quantity =
+      typeof f.quantityKg === "number"
+        ? f.quantityKg
+        : typeof f.quantity === "number"
+          ? f.quantity
+          : 0;
+    const costPerUnit =
+      f.costPerKg || f.unitCost || f.costPerUnit || ft?.costPerUnit || 0;
     const foodTypeThreshold = getAlertThreshold(ft, 100);
 
     return {
@@ -1142,7 +1354,10 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       name,
       arabicName,
       quantity,
-      initialQuantity: toNumber(f.initialQuantityKg ?? f.initialQuantity ?? quantity, quantity),
+      initialQuantity: toNumber(
+        f.initialQuantityKg ?? f.initialQuantity ?? quantity,
+        quantity,
+      ),
       unit,
       reorderLevel: getAlertThreshold(f, foodTypeThreshold),
       costPerUnit: costPerUnit,
@@ -1154,21 +1369,34 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   });
 
   const finalFilteredInventory = feedStockInventory.filter((item: any) =>
-    item.name.toLowerCase().includes(searchQuery.toLowerCase())
+    item.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const expiringItems = feedStockInventory.filter((item: any) => {
     if (!item.expiryDate) return false;
     const daysUntilExpiry = getDaysUntilExpiry(item.expiryDate);
-    return daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0;
+    return (
+      daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0
+    );
   });
 
-  const lowFeedStockCount = feedStockInventory.filter((item: any) => getStockStatus(item) !== "good").length;
-  const totalMedicineStock = medicineInventory.reduce((sum, batch) => sum + (batch.quantity || 0), 0);
-  const expiredMedicineCount = medicineInventory.filter((batch) => getMedicineBatchStatus(batch) === "EXPIRED").length;
-  const lowMedicineStockCount = medicineInventory.filter((batch) => getMedicineBatchStatus(batch) === "LOW_STOCK").length;
+  const lowFeedStockCount = feedStockInventory.filter(
+    (item: any) => getStockStatus(item) !== "good",
+  ).length;
+  const totalMedicineStock = medicineInventory.reduce(
+    (sum, batch) => sum + (batch.quantity || 0),
+    0,
+  );
+  const expiredMedicineCount = medicineInventory.filter(
+    (batch) => getMedicineBatchStatus(batch) === "EXPIRED",
+  ).length;
+  const lowMedicineStockCount = medicineInventory.filter(
+    (batch) => getMedicineBatchStatus(batch) === "LOW_STOCK",
+  ).length;
 
-  const dedupeComboboxItems = (items: Array<ComboboxItem | null>): ComboboxItem[] => {
+  const dedupeComboboxItems = (
+    items: Array<ComboboxItem | null>,
+  ): ComboboxItem[] => {
     const seen = new Set<string>();
     return items.filter((item): item is ComboboxItem => {
       if (!item || !item.value) return false;
@@ -1195,7 +1423,11 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         entry?.foodType ||
         entry?.foodId ||
         entry?.foodType_id;
-      const foodTypeId = String(typeof rawFoodType === "object" ? rawFoodType?.id || rawFoodType?._id || "" : rawFoodType || "").trim();
+      const foodTypeId = String(
+        typeof rawFoodType === "object"
+          ? rawFoodType?.id || rawFoodType?._id || ""
+          : rawFoodType || "",
+      ).trim();
       const entryId = String(entry?.id || entry?._id || "").trim();
       const optionId = foodTypeId || entryId;
       if (!optionId) return null;
@@ -1204,7 +1436,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           (typeof rawFoodType === "object" ? rawFoodType?.name : "") ||
           `Feed ${optionId.slice(0, 8)}`,
       );
-      const supplier = String(entry?.supplier || entry?.manufacturer || "").trim();
+      const supplier = String(
+        entry?.supplier || entry?.manufacturer || "",
+      ).trim();
       return {
         value: optionId,
         label,
@@ -1227,11 +1461,13 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     })
     .filter((item): item is ComboboxItem => item !== null);
 
-  const addResourceFishBatchItems: ComboboxItem[] = fishTypeOptions.map((fishType) => ({
-    value: fishType.id,
-    label: fishType.name,
-    sub: `ID: ${fishType.id.slice(0, 8)}`,
-  }));
+  const addResourceFishBatchItems: ComboboxItem[] = fishTypeOptions.map(
+    (fishType) => ({
+      value: fishType.id,
+      label: fishType.name,
+      sub: `ID: ${fishType.id.slice(0, 8)}`,
+    }),
+  );
 
   const addResourceItemOptions: ComboboxItem[] =
     newResourceData.resourceType === "feed"
@@ -1288,7 +1524,8 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       : newResourceData.resourceType === "medicine"
         ? "Quantity (Units)"
         : "Quantity (Kg)";
-  const addResourceQuantityStep = newResourceData.resourceType === "feed" ? "0.01" : "1";
+  const addResourceQuantityStep =
+    newResourceData.resourceType === "feed" ? "0.01" : "1";
   const addResourceQuantityPlaceholder =
     newResourceData.resourceType === "fish_batch"
       ? "100"
@@ -1297,106 +1534,156 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         : "1";
 
   // Render
-
+  const currentFarm = selectedFarm;
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Inventory Management</h1>
-          <p className="text-gray-600">Track and manage your stock levels</p>
+    <>
+      {" "}
+      <div className="bg-[#0A4D68] px-6 py-4 text-white">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Droplet className="h-6 w-6" />
+            <span className="text-xl font-semibold">Inventory Management</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-sm">{currentFarm?.name}</span>
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#088395] font-semibold">
+              {user.name
+                .split(" ")
+                .map((segment) => segment[0])
+                .join("")
+                .toUpperCase()}
+            </div>
+          </div>
         </div>
-        <Button onClick={() => setIsAddResourcesOpen(true)} className="bg-[#0A4D68] hover:bg-[#083d52]">
-          <Plus className="w-4 h-4 mr-2" />
-          Add resources
-        </Button>
       </div>
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="mt-1 text-md text-black-600">
+              Track and manage your stock levels
+            </p>
+          </div>
 
-     
+          <Button
+            onClick={() => setIsAddResourcesOpen(true)}
+            className="bg-[#088395] hover:bg-[#0A4D68]"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Resources
+          </Button>
+        </div>
 
-      {/* Main Tabs */}
-      <Tabs defaultValue="fish-stock" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="fish-stock">
-            <Fish className="w-4 h-4 mr-2" />
-            Fish Stock
-          </TabsTrigger>
-          <TabsTrigger value="allocate">
-            <Plus className="w-4 h-4 mr-2" />
-            Allocate to Tank
-          </TabsTrigger>
-          <TabsTrigger value="feed-stock">
-            <Package className="w-4 h-4 mr-2" />
-            Feed Stock
-          </TabsTrigger>
-          <TabsTrigger value="harvested-fish">
-            <Fish className="w-4 h-4 mr-2" />
-            Harvested Fish
-          </TabsTrigger>
-          <TabsTrigger value="medicine">
-            <Pill className="w-4 h-4 mr-2" />
-            Medicine
-          </TabsTrigger>
-        </TabsList>
+        {/* Main Tabs */}
+        <Tabs defaultValue="fish-stock" className="w-full">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="fish-stock">
+              <Fish className="w-4 h-4 mr-2" />
+              Fish Stock
+            </TabsTrigger>
+            <TabsTrigger value="allocate">
+              <Plus className="w-4 h-4 mr-2" />
+              Allocate to Tank
+            </TabsTrigger>
+            <TabsTrigger value="feed-stock">
+              <Package className="w-4 h-4 mr-2" />
+              Feed Stock
+            </TabsTrigger>
+            <TabsTrigger value="harvested-fish">
+              <Fish className="w-4 h-4 mr-2" />
+              Harvested Fish
+            </TabsTrigger>
+            <TabsTrigger value="medicine">
+              <Pill className="w-4 h-4 mr-2" />
+              Medicine
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Fish Stock Tab */}
-        <TabsContent value="fish-stock" className="mt-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Fish Inventory Batches</CardTitle>
-                <p className="text-sm text-gray-600 mt-1">
-                  Manage fish from purchase orders to tank stocking
-                </p>
-              </div>
-              <Button size="icon" variant="ghost" className="text-gray-400 hover:text-[#0A4D68]" onClick={loadBatches}>
-                <RefreshCw className="w-4 h-4" />
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left border-collapse">
-                  <thead className="bg-[#f8fafc] text-[#64748b] font-bold uppercase text-[10px] tracking-widest border-b border-[#e2e8f0]">
-                    <tr>
-                      <th className="px-4 py-4">Batch Identity</th>
-                      <th className="px-4 py-4">Status</th>
-                      <th className="px-4 py-4">Quantity</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#f1f5f9]">
-                    {fishStockBatches.map((batch) => (
-                      <tr key={batch.id} className="hover:bg-[#f8fafc] transition-colors group">
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="bg-blue-50 p-2 rounded-lg group-hover:bg-blue-100 transition-colors">
-                              <Fish className="w-4 h-4 text-[#0A4D68]" />
-                            </div>
-                            <div>
-                              <div className="font-bold text-gray-900">{batch.fishTypeName || batch.species || 'Unknown Batch'}</div>
-                              <div className="text-[10px] text-gray-400 font-mono">ID: {batch.id?.split("-")[0] ?? batch.id}</div>
-                              {batch.purchaseOrderId && (
-                                <div className="text-[10px] text-gray-500 mt-1">PO: {batch.purchaseOrderId.substring(0, 8)}...</div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          {getStatusBadge(batch.status)}
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="space-y-1">
-                            <div className="font-bold text-gray-900">{(batch.quantity ?? 0).toLocaleString()} fish</div>
-                            <div className="text-[10px] text-gray-500">of {(batch.initialQuantity ?? 0).toLocaleString()} stocked</div>
-                            <Progress
-                              value={((batch.quantity ?? 0) / (batch.initialQuantity || 1)) * 100}
-                              className="h-1 w-24 [&>div]:bg-[#0A4D68]"
-                            />
-                          </div>
-                        </td>
+          {/* Fish Stock Tab */}
+          <TabsContent value="fish-stock" className="mt-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Fish Inventory Batches</CardTitle>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Manage fish from purchase orders to tank stocking
+                  </p>
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-gray-400 hover:text-[#0A4D68]"
+                  onClick={loadBatches}
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left border-collapse">
+                    <thead className="bg-[#f8fafc] text-[#64748b] font-bold uppercase text-[10px] tracking-widest border-b border-[#e2e8f0]">
+                      <tr>
+                        <th className="px-4 py-4">Batch Identity</th>
+                        <th className="px-4 py-4">Status</th>
+                        <th className="px-4 py-4">Quantity</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-[#f1f5f9]">
+                      {fishStockBatches.map((batch) => (
+                        <tr
+                          key={batch.id}
+                          className="hover:bg-[#f8fafc] transition-colors group"
+                        >
+                          <td className="px-4 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="bg-blue-50 p-2 rounded-lg group-hover:bg-blue-100 transition-colors">
+                                <Fish className="w-4 h-4 text-[#0A4D68]" />
+                              </div>
+                              <div>
+                                <div className="font-bold text-gray-900">
+                                  {batch.fishTypeName ||
+                                    batch.species ||
+                                    "Unknown Batch"}
+                                </div>
+                                <div className="text-[10px] text-gray-400 font-mono">
+                                  ID: {batch.id?.split("-")[0] ?? batch.id}
+                                </div>
+                                {batch.purchaseOrderId && (
+                                  <div className="text-[10px] text-gray-500 mt-1">
+                                    PO: {batch.purchaseOrderId.substring(0, 8)}
+                                    ...
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            {getStatusBadge(batch.status)}
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="space-y-1">
+                              <div className="font-bold text-gray-900">
+                                {(batch.quantity ?? 0).toLocaleString()} fish
+                              </div>
+                              <div className="text-[10px] text-gray-500">
+                                of{" "}
+                                {(batch.initialQuantity ?? 0).toLocaleString()}{" "}
+                                stocked
+                              </div>
+                              <Progress
+                                value={
+                                  ((batch.quantity ?? 0) /
+                                    (batch.initialQuantity || 1)) *
+                                  100
+                                }
+                                className="h-1 w-24 [&>div]:bg-[#0A4D68]"
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
                 {fishStockBatches.length === 0 && (
                   <div className="text-center py-12">
@@ -1407,404 +1694,476 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                     </p>
                   </div>
                 )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        {/* Allocate to Tank Tab */}
-        <TabsContent value="allocate" className="mt-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Allocate Fish to Tank</CardTitle>
-                <p className="text-sm text-gray-600 mt-1">
-                  Choose any ready batch and allocate it directly to a tank
-                </p>
-              </div>
-              <Button size="icon" variant="ghost" className="text-gray-400 hover:text-[#0A4D68]" onClick={loadBatches}>
-                <RefreshCw className="w-4 h-4" />
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {readyToAllocateBatches.length === 0 && (
-                <div className="text-center py-10 border border-dashed rounded-lg bg-gray-50">
-                  <Fish className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-600">No batches are ready to stock right now.</p>
+          {/* Allocate to Tank Tab */}
+          <TabsContent value="allocate" className="mt-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Allocate Fish to Tank</CardTitle>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Choose any ready batch and allocate it directly to a tank
+                  </p>
                 </div>
-              )}
-
-              {readyToAllocateBatches.map((batch) => (
-                <div
-                  key={batch.id}
-                  className="flex flex-col gap-3 rounded-lg border p-4 md:flex-row md:items-center md:justify-between"
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-gray-400 hover:text-[#0A4D68]"
+                  onClick={loadBatches}
                 >
-                  <div>
-                    <p className="font-semibold text-[#0A4D68]">{batch.fishTypeName || batch.species || "Fish Batch"}</p>
-                      <p className="text-xs text-gray-500 mt-1">Batch ID: {batch.id?.split("-")[0] ?? batch.id}</p>
-                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
-                      <span>Qty: <span className="font-medium">{(batch.quantity ?? 0).toLocaleString()} fish</span></span>
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {readyToAllocateBatches.length === 0 && (
+                  <div className="text-center py-10 border border-dashed rounded-lg bg-gray-50">
+                    <Fish className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-600">
+                      No batches are ready to stock right now.
+                    </p>
+                  </div>
+                )}
+
+                {readyToAllocateBatches.map((batch) => (
+                  <div
+                    key={batch.id}
+                    className="flex flex-col gap-3 rounded-lg border p-4 md:flex-row md:items-center md:justify-between"
+                  >
+                    <div>
+                      <p className="font-semibold text-[#0A4D68]">
+                        {batch.fishTypeName || batch.species || "Fish Batch"}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Batch ID: {batch.id?.split("-")[0] ?? batch.id}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
+                        <span>
+                          Qty:{" "}
+                          <span className="font-medium">
+                            {(batch.quantity ?? 0).toLocaleString()} fish
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(batch.status)}
+                      <Button
+                        className="bg-[#0A4D68] hover:bg-[#083d52]"
+                        onClick={() => {
+                          setSelectedBatch(batch);
+                          setShowAllocateModal(true);
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Allocate to Tank
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {getStatusBadge(batch.status)}
+                ))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Feed Stock Tab */}
+          <TabsContent value="feed-stock" className="mt-4">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Feed Batches</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {feedStockInventory.length}
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Feed records in inventory
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Low Stock</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl text-orange-600 font-bold">
+                    {lowFeedStockCount}
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">Need reordering</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Expiring Soon</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl text-red-600 font-bold">
+                    {
+                      expiringItems.filter((i: any) => {
+                        const days = getDaysUntilExpiry(i.expiryDate);
+                        return days !== null && days <= 90;
+                      }).length
+                    }
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">Within 90 days</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Search and Filter */}
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+                  <div className="flex-1 relative w-full md:w-auto">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      placeholder="Search feed stock..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10 h-9"
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
                     <Button
-                      className="bg-[#0A4D68] hover:bg-[#083d52]"
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 text-gray-400 hover:text-[#0A4D68]"
                       onClick={() => {
-                        setSelectedBatch(batch);
-                        setShowAllocateModal(true);
+                        loadFeed();
+                        loadFoodTypes();
                       }}
                     >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Allocate to Tank
+                      <RefreshCw className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Feed Stock Tab */}
-        <TabsContent value="feed-stock" className="mt-4">
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Feed Batches</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{feedStockInventory.length}</div>
-                <p className="text-xs text-gray-600 mt-1">Feed records in inventory</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Low Stock</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl text-orange-600 font-bold">{lowFeedStockCount}</div>
-                <p className="text-xs text-gray-600 mt-1">Need reordering</p>
-              </CardContent>
-            </Card>
+                <div className="space-y-3">
+                  {finalFilteredInventory.map((item: any) => {
+                    const Icon = getTypeIcon("feed");
+                    const daysUntilExpiry = getDaysUntilExpiry(item.expiryDate);
+                    const itemName = item.name;
+                    const stockStatus = getStockStatus(item);
+                    const quantity = toNumber(item.quantity, 0);
+                    const initialQuantity = toNumber(
+                      item.initialQuantity ?? item.quantity,
+                      quantity,
+                    );
+                    const reorderLevel = toNumber(item.reorderLevel, 0);
+                    const stockLevelPercent =
+                      initialQuantity > 0
+                        ? Math.min(100, (quantity / initialQuantity) * 100)
+                        : 0;
+                    const stockProgressClass =
+                      stockStatus === "critical"
+                        ? "h-1.5 mt-2 [&>div]:bg-red-500"
+                        : stockStatus === "low"
+                          ? "h-1.5 mt-2 [&>div]:bg-orange-500"
+                          : "h-1.5 mt-2 [&>div]:bg-emerald-500";
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Expiring Soon</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl text-red-600 font-bold">
-                  {expiringItems.filter((i: any) => {
-                    const days = getDaysUntilExpiry(i.expiryDate);
-                    return days !== null && days <= 90;
-                  }).length}
-                </div>
-                <p className="text-xs text-gray-600 mt-1">Within 90 days</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Search and Filter */}
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-                <div className="flex-1 relative w-full md:w-auto">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    placeholder="Search feed stock..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 h-9"
-                  />
-                </div>
-                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9 text-gray-400 hover:text-[#0A4D68]"
-                    onClick={() => {
-                      loadFeed();
-                      loadFoodTypes();
-                    }}
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {finalFilteredInventory.map((item: any) => {
-                  const Icon = getTypeIcon("feed");
-                  const daysUntilExpiry = getDaysUntilExpiry(item.expiryDate);
-                  const itemName = item.name;
-                  const stockStatus = getStockStatus(item);
-                  const quantity = toNumber(item.quantity, 0);
-                  const initialQuantity = toNumber(item.initialQuantity ?? item.quantity, quantity);
-                  const reorderLevel = toNumber(item.reorderLevel, 0);
-                  const stockLevelPercent = initialQuantity > 0 ? Math.min(100, (quantity / initialQuantity) * 100) : 0;
-                  const stockProgressClass =
-                    stockStatus === "critical"
-                      ? "h-1.5 mt-2 [&>div]:bg-red-500"
-                      : stockStatus === "low"
-                        ? "h-1.5 mt-2 [&>div]:bg-orange-500"
-                        : "h-1.5 mt-2 [&>div]:bg-emerald-500";
-
-                  return (
-                    <div
-                      key={item.id}
-                      className="p-4 border rounded-lg hover:bg-gray-50 transition-all group"
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-start gap-3 flex-1">
-                          <div className="bg-gray-100 p-2 rounded-lg">
-                            <Icon className="w-5 h-5 text-gray-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="font-semibold text-[#0A4D68]">{itemName}</p>
+                    return (
+                      <div
+                        key={item.id}
+                        className="p-4 border rounded-lg hover:bg-gray-50 transition-all group"
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-start gap-3 flex-1">
+                            <div className="bg-gray-100 p-2 rounded-lg">
+                              <Icon className="w-5 h-5 text-gray-600" />
                             </div>
-                            <p className="text-xs text-gray-600">
-                              {item.supplier ? `Supplier: ${item.supplier}` : 'Stock available in storage'}
-                            </p>
-                            <p className="text-xs text-gray-700 mt-1">
-                              Stock level:{" "}
-                              <span className="font-semibold">
-                                {quantity.toLocaleString()} {item.unit}
-                              </span>
-                            </p>
-                            {reorderLevel > 0 && (
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <p className="font-semibold text-[#0A4D68]">
+                                  {itemName}
+                                </p>
+                              </div>
                               <p className="text-xs text-gray-600">
-                                Reorder level: {reorderLevel.toLocaleString()} {item.unit}
+                                {item.supplier
+                                  ? `Supplier: ${item.supplier}`
+                                  : "Stock available in storage"}
                               </p>
-                            )}
-                            <Progress value={stockLevelPercent} className={stockProgressClass} />
-                            {item.expiryDate && (
-                              <p
-                                className={`text-xs mt-1 ${daysUntilExpiry && daysUntilExpiry <= 30
-                                  ? "text-red-600"
-                                  : daysUntilExpiry && daysUntilExpiry <= 90
-                                    ? "text-orange-600"
-                                    : "text-gray-600"
+                              <p className="text-xs text-gray-700 mt-1">
+                                Stock level:{" "}
+                                <span className="font-semibold">
+                                  {quantity.toLocaleString()} {item.unit}
+                                </span>
+                              </p>
+                              {reorderLevel > 0 && (
+                                <p className="text-xs text-gray-600">
+                                  Reorder level: {reorderLevel.toLocaleString()}{" "}
+                                  {item.unit}
+                                </p>
+                              )}
+                              <Progress
+                                value={stockLevelPercent}
+                                className={stockProgressClass}
+                              />
+                              {item.expiryDate && (
+                                <p
+                                  className={`text-xs mt-1 ${
+                                    daysUntilExpiry && daysUntilExpiry <= 30
+                                      ? "text-red-600"
+                                      : daysUntilExpiry && daysUntilExpiry <= 90
+                                        ? "text-orange-600"
+                                        : "text-gray-600"
                                   }`}
-                              >
-                                Expires:{" "}
-                                {new Date(item.expiryDate).toLocaleDateString()}
-                              </p>
-                            )}
+                                >
+                                  Expires:{" "}
+                                  {new Date(
+                                    item.expiryDate,
+                                  ).toLocaleDateString()}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <div className="text-right flex flex-col items-end gap-2 text-right">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="w-7 h-7 text-red-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={(e: React.MouseEvent) => {
-                              e.stopPropagation();
-                              handleDeleteFeed(item.id);
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          <div className="text-right flex flex-col items-end gap-2 text-right">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="w-7 h-7 text-red-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e: React.MouseEvent) => {
+                                e.stopPropagation();
+                                handleDeleteFeed(item.id);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
+                    );
+                  })}
+                </div>
 
-                      
+                {finalFilteredInventory.length === 0 && (
+                  <div className="text-center py-12">
+                    <Package className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-600">No feed stock found</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Try adjusting your search or add a new feed resource
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-                    </div>
-                  );
-                })}
-              </div>
+          <TabsContent value="harvested-fish" className="mt-4">
+            <HarvestedInventoryView user={user} selectedFarm={selectedFarm} />
+          </TabsContent>
 
-              {finalFilteredInventory.length === 0 && (
-                <div className="text-center py-12">
-                  <Package className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-600">No feed stock found</p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Try adjusting your search or add a new feed resource
+          <TabsContent value="medicine" className="mt-4 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Medicine Batches</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {medicineInventory.length}
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Active inventory rows
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Total Quantity</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {totalMedicineStock.toLocaleString()}
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Across all medicine batches
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Low Stock</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-orange-600">
+                    {lowMedicineStockCount}
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Needs refill soon
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Expired</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-red-600">
+                    {expiredMedicineCount}
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">Do not use</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Medicine Inventory List</CardTitle>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Table view with quantity status and batch-level controls
                   </p>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="harvested-fish" className="mt-4">
-          <HarvestedInventoryView user={user} selectedFarm={selectedFarm} />
-        </TabsContent>
-
-        <TabsContent value="medicine" className="mt-4 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Medicine Batches</CardTitle>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-gray-400 hover:text-[#0A4D68]"
+                  onClick={() => {
+                    loadMedicine();
+                    loadMedicineTotals();
+                  }}
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{medicineInventory.length}</div>
-                <p className="text-xs text-gray-600 mt-1">Active inventory rows</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Total Quantity</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{totalMedicineStock.toLocaleString()}</div>
-                <p className="text-xs text-gray-600 mt-1">Across all medicine batches</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Low Stock</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-orange-600">{lowMedicineStockCount}</div>
-                <p className="text-xs text-gray-600 mt-1">Needs refill soon</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Expired</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-600">{expiredMedicineCount}</div>
-                <p className="text-xs text-gray-600 mt-1">Do not use</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Medicine Inventory List</CardTitle>
-                <p className="text-sm text-gray-600 mt-1">
-                  Table view with quantity status and batch-level controls
-                </p>
-              </div>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="text-gray-400 hover:text-[#0A4D68]"
-                onClick={() => {
-                  loadMedicine();
-                  loadMedicineTotals();
-                }}
-              >
-                <RefreshCw className="w-4 h-4" />
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {medicineInventory.length === 0 ? (
-                <div className="text-center py-12 border border-dashed rounded-lg bg-gray-50">
-                  <Pill className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-600">No medicine inventory found for this farm.</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Once medicine stock is received, it will appear here.
-                  </p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left border-collapse">
-                    <thead className="bg-[#f8fafc] text-[#64748b] font-bold uppercase text-[10px] tracking-widest border-b border-[#e2e8f0]">
-                      <tr>
-                        <th className="px-4 py-3">Medicine</th>
-                        <th className="px-4 py-3">Company</th>
-                        <th className="px-4 py-3">Quantity</th>
-                        <th className="px-4 py-3">Expiry Date</th>
-                        <th className="px-4 py-3">Status</th>
-                        <th className="px-4 py-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#f1f5f9]">
-                      {medicineInventory.map((batch) => {
-                        const status = getMedicineBatchStatus(batch);
-                        return (
-                          <tr key={batch.id} className="hover:bg-[#f8fafc] transition-colors">
-                            <td className="px-4 py-3 font-semibold text-[#0A4D68]">{batch.medicineName}</td>
-                            <td className="px-4 py-3 text-gray-700">{batch.company || "-"}</td>
-                            <td className="px-4 py-3">
-                              {batch.quantity.toLocaleString()} {batch.unit}
-                            </td>
-                            <td className="px-4 py-3 text-gray-700">
-                              {batch.expiryDate ? new Date(batch.expiryDate).toLocaleDateString() : "-"}
-                            </td>
-                            <td className="px-4 py-3">
-                              <Badge variant="outline" className={medicineStatusBadgeClass(status)}>
-                                {status.replace(/_/g, " ")}
-                              </Badge>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center justify-end gap-2">
-                                <Button size="sm" variant="outline" onClick={() => openMedicineDetails(batch)}>
-                                  <Eye className="w-4 h-4 mr-2" />
-                                  Details
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                  onClick={() => handleDeleteMedicine(batch)}
-                                  disabled={isMedicineDeleting}
+                {medicineInventory.length === 0 ? (
+                  <div className="text-center py-12 border border-dashed rounded-lg bg-gray-50">
+                    <Pill className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-600">
+                      No medicine inventory found for this farm.
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Once medicine stock is received, it will appear here.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left border-collapse">
+                      <thead className="bg-[#f8fafc] text-[#64748b] font-bold uppercase text-[10px] tracking-widest border-b border-[#e2e8f0]">
+                        <tr>
+                          <th className="px-4 py-3">Medicine</th>
+                          <th className="px-4 py-3">Company</th>
+                          <th className="px-4 py-3">Quantity</th>
+                          <th className="px-4 py-3">Expiry Date</th>
+                          <th className="px-4 py-3">Status</th>
+                          <th className="px-4 py-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#f1f5f9]">
+                        {medicineInventory.map((batch) => {
+                          const status = getMedicineBatchStatus(batch);
+                          return (
+                            <tr
+                              key={batch.id}
+                              className="hover:bg-[#f8fafc] transition-colors"
+                            >
+                              <td className="px-4 py-3 font-semibold text-[#0A4D68]">
+                                {batch.medicineName}
+                              </td>
+                              <td className="px-4 py-3 text-gray-700">
+                                {batch.company || "-"}
+                              </td>
+                              <td className="px-4 py-3">
+                                {batch.quantity.toLocaleString()} {batch.unit}
+                              </td>
+                              <td className="px-4 py-3 text-gray-700">
+                                {batch.expiryDate
+                                  ? new Date(
+                                      batch.expiryDate,
+                                    ).toLocaleDateString()
+                                  : "-"}
+                              </td>
+                              <td className="px-4 py-3">
+                                <Badge
+                                  variant="outline"
+                                  className={medicineStatusBadgeClass(status)}
                                 >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                                  {status.replace(/_/g, " ")}
+                                </Badge>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center justify-end gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => openMedicineDetails(batch)}
+                                  >
+                                    <Eye className="w-4 h-4 mr-2" />
+                                    Details
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    onClick={() => handleDeleteMedicine(batch)}
+                                    disabled={isMedicineDeleting}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
-      {/* Allocate Fish to Tank Modal */}
-      {selectedBatch && (
-        <AllocateFishToTank
-          isOpen={showAllocateModal}
-          onClose={() => {
-            setShowAllocateModal(false);
-            setSelectedBatch(null);
+        {/* Allocate Fish to Tank Modal */}
+        {selectedBatch && (
+          <AllocateFishToTank
+            isOpen={showAllocateModal}
+            onClose={() => {
+              setShowAllocateModal(false);
+              setSelectedBatch(null);
+            }}
+            batch={selectedBatch!}
+            onAllocate={handleAllocate}
+            farmId={selectedFarm?.id || ""}
+            availableTanks={tanks}
+          />
+        )}
+        {/* Add Resources Modal */}
+        <Dialog
+          open={isAddResourcesOpen}
+          onOpenChange={(open) => {
+            setIsAddResourcesOpen(open);
+            if (!open) {
+              resetAddResourcesForm();
+            }
           }}
-          batch={selectedBatch!}
-          onAllocate={handleAllocate}
-          farmId={selectedFarm?.id || ""}
-          availableTanks={tanks}
-        />
-      )}
-      {/* Add Resources Modal */}
-      <Dialog
-        open={isAddResourcesOpen}
-        onOpenChange={(open) => {
-          setIsAddResourcesOpen(open);
-          if (!open) {
-            resetAddResourcesForm();
-          }
-        }}
-      >
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-[#0A4D68]">
-              <Plus className="w-5 h-5" />
-              Add resources
-            </DialogTitle>
-            <DialogDescription className="sr-only">
-              Add inventory resources and select resource type, item, quantity, receive date, and expiry date.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="resourceType">Resource Type</Label>
-              <Select
-                value={newResourceData.resourceType}
-                onValueChange={(value: ResourceType) =>
-                  {
+        >
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-[#0A4D68]">
+                <Plus className="w-5 h-5" />
+                Add resources
+              </DialogTitle>
+              <DialogDescription className="sr-only">
+                Add inventory resources and select resource type, item,
+                quantity, receive date, and expiry date.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="resourceType">Resource Type</Label>
+                <Select
+                  value={newResourceData.resourceType}
+                  onValueChange={(value: ResourceType) => {
                     setNewResourceData((previous) => ({
                       ...previous,
                       resourceType: value,
@@ -1812,163 +2171,179 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                       medicineItemId: "",
                       fishBatchItemId: "",
                     }));
+                  }}
+                >
+                  <SelectTrigger id="resourceType">
+                    <SelectValue placeholder="Select resource type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="feed">Feed</SelectItem>
+                    <SelectItem value="medicine">Medicine</SelectItem>
+                    <SelectItem value="fish_batch">Fish Batch</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Combobox
+                items={addResourceItemOptions}
+                value={addResourceSelectedItemValue || null}
+                onChange={handleAddResourceItemChange}
+                label={addResourceItemLabel}
+                placeholder={addResourceItemPlaceholder}
+                searchPlaceholder="Search by name or ID..."
+                emptyText={addResourceEmptyText}
+              />
+              <p className="text-xs text-gray-500">
+                {addResourceItemOptions.length > 0
+                  ? `${addResourceItemOptions.length} item(s) available`
+                  : addResourceEmptyText}
+              </p>
+
+              <div className="grid gap-2">
+                <Label htmlFor="quantityKg">{addResourceQuantityLabel}</Label>
+                <Input
+                  id="quantityKg"
+                  type="number"
+                  min="1"
+                  step={addResourceQuantityStep}
+                  placeholder={addResourceQuantityPlaceholder}
+                  value={newResourceData.quantityKg}
+                  onChange={(event) =>
+                    setNewResourceData((previous) => ({
+                      ...previous,
+                      quantityKg: event.target.value,
+                    }))
                   }
-                }
-              >
-                <SelectTrigger id="resourceType">
-                  <SelectValue placeholder="Select resource type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="feed">Feed</SelectItem>
-                  <SelectItem value="medicine">Medicine</SelectItem>
-                  <SelectItem value="fish_batch">Fish Batch</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                />
+              </div>
 
-            <Combobox
-              items={addResourceItemOptions}
-              value={addResourceSelectedItemValue || null}
-              onChange={handleAddResourceItemChange}
-              label={addResourceItemLabel}
-              placeholder={addResourceItemPlaceholder}
-              searchPlaceholder="Search by name or ID..."
-              emptyText={addResourceEmptyText}
-            />
-            <p className="text-xs text-gray-500">
-              {addResourceItemOptions.length > 0
-                ? `${addResourceItemOptions.length} item(s) available`
-                : addResourceEmptyText}
-            </p>
+              <div className="grid gap-2">
+                <Label htmlFor="receiveDate">Receive Date</Label>
+                <Input
+                  id="receiveDate"
+                  type="date"
+                  value={newResourceData.receiveDate}
+                  onChange={(event) =>
+                    setNewResourceData((previous) => ({
+                      ...previous,
+                      receiveDate: event.target.value,
+                    }))
+                  }
+                />
+              </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="quantityKg">{addResourceQuantityLabel}</Label>
-              <Input
-                id="quantityKg"
-                type="number"
-                min="1"
-                step={addResourceQuantityStep}
-                placeholder={addResourceQuantityPlaceholder}
-                value={newResourceData.quantityKg}
-                onChange={(event) =>
-                  setNewResourceData((previous) => ({
-                    ...previous,
-                    quantityKg: event.target.value,
-                  }))
-                }
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="receiveDate">Receive Date</Label>
-              <Input
-                id="receiveDate"
-                type="date"
-                value={newResourceData.receiveDate}
-                onChange={(event) =>
-                  setNewResourceData((previous) => ({
-                    ...previous,
-                    receiveDate: event.target.value,
-                  }))
-                }
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="expiryDate">Expiry Date</Label>
-              <Input
-                id="expiryDate"
-                type="date"
-                value={newResourceData.expiryDate}
-                onChange={(event) =>
-                  setNewResourceData((previous) => ({
-                    ...previous,
-                    expiryDate: event.target.value,
-                  }))
-                }
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={handleAddResourceSubmit} className="bg-[#0A4D68] hover:bg-[#083d52]">Submit</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={isMedicineDetailsOpen}
-        onOpenChange={(open) => {
-          setIsMedicineDetailsOpen(open);
-          if (!open) {
-            setSelectedMedicineBatch(null);
-          }
-        }}
-      >
-
-
-        <DialogContent className="sm:max-w-[540px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-[#0A4D68]">
-              <Pill className="w-5 h-5" />
-              Medicine Details
-            </DialogTitle>
-          </DialogHeader>
-
-          {selectedMedicineBatch && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 rounded-lg border p-3 text-sm">
-                <div>
-                  <p className="text-xs text-gray-500">Medicine</p>
-                  <p className="font-semibold">{selectedMedicineBatch.medicineName}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Company</p>
-                  <p className="font-medium">{selectedMedicineBatch.company || "-"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Batch</p>
-                  <p className="font-mono text-xs">{selectedMedicineBatch.batchNumber || "-"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Status</p>
-                  <Badge
-                    variant="outline"
-                    className={medicineStatusBadgeClass(getMedicineBatchStatus(selectedMedicineBatch))}
-                  >
-                    {getMedicineBatchStatus(selectedMedicineBatch).replace(/_/g, " ")}
-                  </Badge>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Current Quantity</p>
-                  <p className="font-semibold">
-                    {selectedMedicineBatch.quantity.toLocaleString()} {selectedMedicineBatch.unit}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Expiry Date</p>
-                  <p className="font-medium">
-                    {selectedMedicineBatch.expiryDate
-                      ? new Date(selectedMedicineBatch.expiryDate).toLocaleDateString()
-                      : "-"}
-                  </p>
-                </div>
+              <div className="grid gap-2">
+                <Label htmlFor="expiryDate">Expiry Date</Label>
+                <Input
+                  id="expiryDate"
+                  type="date"
+                  value={newResourceData.expiryDate}
+                  onChange={(event) =>
+                    setNewResourceData((previous) => ({
+                      ...previous,
+                      expiryDate: event.target.value,
+                    }))
+                  }
+                />
               </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button
+                onClick={handleAddResourceSubmit}
+                className="bg-[#0A4D68] hover:bg-[#083d52]"
+              >
+                Submit
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* Health Check & Quarantine Modal - Inventory Batch version */}
-      {batchForHealth && (
-        <BatchHealthModal
-          open={healthModalOpen}
-          onOpenChange={setHealthModalOpen}
-          batch={batchForHealth}
-          mode={healthModalMode}
-          onSuccess={loadBatches}
-        />
-      )}
-    </div>
+        <Dialog
+          open={isMedicineDetailsOpen}
+          onOpenChange={(open) => {
+            setIsMedicineDetailsOpen(open);
+            if (!open) {
+              setSelectedMedicineBatch(null);
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-[540px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-[#0A4D68]">
+                <Pill className="w-5 h-5" />
+                Medicine Details
+              </DialogTitle>
+            </DialogHeader>
+
+            {selectedMedicineBatch && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3 rounded-lg border p-3 text-sm">
+                  <div>
+                    <p className="text-xs text-gray-500">Medicine</p>
+                    <p className="font-semibold">
+                      {selectedMedicineBatch.medicineName}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Company</p>
+                    <p className="font-medium">
+                      {selectedMedicineBatch.company || "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Batch</p>
+                    <p className="font-mono text-xs">
+                      {selectedMedicineBatch.batchNumber || "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Status</p>
+                    <Badge
+                      variant="outline"
+                      className={medicineStatusBadgeClass(
+                        getMedicineBatchStatus(selectedMedicineBatch),
+                      )}
+                    >
+                      {getMedicineBatchStatus(selectedMedicineBatch).replace(
+                        /_/g,
+                        " ",
+                      )}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Current Quantity</p>
+                    <p className="font-semibold">
+                      {selectedMedicineBatch.quantity.toLocaleString()}{" "}
+                      {selectedMedicineBatch.unit}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Expiry Date</p>
+                    <p className="font-medium">
+                      {selectedMedicineBatch.expiryDate
+                        ? new Date(
+                            selectedMedicineBatch.expiryDate,
+                          ).toLocaleDateString()
+                        : "-"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Health Check & Quarantine Modal - Inventory Batch version */}
+        {batchForHealth && (
+          <BatchHealthModal
+            open={healthModalOpen}
+            onOpenChange={setHealthModalOpen}
+            batch={batchForHealth}
+            mode={healthModalMode}
+            onSuccess={loadBatches}
+          />
+        )}
+      </div>
+    </>
   );
 }
-

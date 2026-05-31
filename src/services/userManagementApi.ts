@@ -4,9 +4,9 @@ import {
   asString,
   requestJson,
   unwrapApiData,
-} from './httpClient';
+} from "./httpClient";
 
-export type UserModuleAction = 'ADD' | 'REMOVE';
+export type UserModuleAction = "ADD" | "REMOVE";
 
 export interface ManagedFarmRecord {
   id: string;
@@ -70,14 +70,17 @@ const normalizeArrayPayload = (payload: unknown, keys: string[]): unknown[] => {
   return [];
 };
 
-const normalizeName = (record: Record<string, unknown>, email: string): string => {
+const normalizeName = (
+  record: Record<string, unknown>,
+  email: string,
+): string => {
   const directName = asString(record.name);
   if (directName) {
     return directName;
   }
 
-  const firstName = asString(record.firstName) || '';
-  const lastName = asString(record.lastName) || '';
+  const firstName = asString(record.firstName) || "";
+  const lastName = asString(record.lastName) || "";
   const fullName = `${firstName} ${lastName}`.trim();
   if (fullName) {
     return fullName;
@@ -108,7 +111,9 @@ const normalizeModules = (record: Record<string, unknown>): string[] => {
     .map((entry) => entry.toLowerCase());
 };
 
-const normalizeFarmInfo = (record: Record<string, unknown>): { ids: string[]; names: string[] } => {
+const normalizeFarmInfo = (
+  record: Record<string, unknown>,
+): { ids: string[]; names: string[] } => {
   const farmsArray = asArray(record.farms);
 
   if (farmsArray.length > 0) {
@@ -117,8 +122,12 @@ const normalizeFarmInfo = (record: Record<string, unknown>): { ids: string[]; na
       .filter((entry): entry is Record<string, unknown> => Boolean(entry));
 
     return {
-      ids: farms.map((farm) => asString(farm.id)).filter((id): id is string => Boolean(id)),
-      names: farms.map((farm) => asString(farm.name)).filter((name): name is string => Boolean(name)),
+      ids: farms
+        .map((farm) => asString(farm.id))
+        .filter((id): id is string => Boolean(id)),
+      names: farms
+        .map((farm) => asString(farm.name))
+        .filter((name): name is string => Boolean(name)),
     };
   }
 
@@ -144,8 +153,8 @@ const normalizeUser = (entry: unknown): ManagedUserRecord | null => {
     return null;
   }
 
-  const role = asString(record.role) || asString(record.userRole) || 'UNKNOWN';
-  const status = asString(record.status) || asString(record.state) || 'UNKNOWN';
+  const role = asString(record.role) || asString(record.userRole) || "UNKNOWN";
+  const status = asString(record.status) || asString(record.state) || "UNKNOWN";
   const farmInfo = normalizeFarmInfo(record);
 
   return {
@@ -178,25 +187,29 @@ const normalizeFarm = (entry: unknown): ManagedFarmRecord | null => {
 };
 
 export const getManagementUsers = async (): Promise<ManagedUserRecord[]> => {
-  const payload = await requestJson('/users');
-  return normalizeArrayPayload(payload, ['users', 'items', 'rows', 'data'])
+  const payload = await requestJson("/users");
+  return normalizeArrayPayload(payload, ["users", "items", "rows", "data"])
     .map((entry) => normalizeUser(entry))
     .filter((entry): entry is ManagedUserRecord => entry !== null);
 };
 
 export const getManagementFarms = async (): Promise<ManagedFarmRecord[]> => {
-  const payload = await requestJson('/farms');
-  return normalizeArrayPayload(payload, ['farms', 'items', 'rows', 'data'])
+  const payload = await requestJson("/farms");
+  return normalizeArrayPayload(payload, ["farms", "items", "rows", "data"])
     .map((entry) => normalizeFarm(entry))
     .filter((entry): entry is ManagedFarmRecord => entry !== null);
 };
 
-export const signupStaffMember = async (payload: StaffSignupPayload): Promise<void> => {
-  await requestJson('/auth/signup', {
-    method: 'POST',
+export const signupStaffMember = async (
+  payload: StaffSignupPayload,
+): Promise<void> => {
+  await requestJson("/auth/signup", {
+    method: "POST",
     body: {
       ...payload,
-      role: isNaN(Number(payload.role)) ? payload.role.toUpperCase() : Number(payload.role),
+      role: isNaN(Number(payload.role))
+        ? payload.role.toUpperCase()
+        : Number(payload.role),
       farmIds: payload.farmIds,
     },
   });
@@ -207,7 +220,7 @@ export const updateUserRoleAndFarms = async (
   payload: UpdateUserRoleAndFarmsPayload,
 ): Promise<void> => {
   await requestJson(`/users/${userId}`, {
-    method: 'PATCH',
+    method: "PATCH",
     body: {
       role: payload.role.toUpperCase(),
       farmIds: payload.farmIds,
@@ -220,12 +233,18 @@ export const updateUserModules = async (
   payload: UpdateUserModulesPayload,
 ): Promise<void> => {
   await requestJson(`/users/${userId}/modules`, {
-    method: 'PATCH',
+    method: "PATCH",
     body: {
       action: payload.action.toUpperCase(),
       moduleIds: payload.moduleIds
         .map((moduleId) => moduleId.trim())
         .filter((moduleId) => moduleId.length > 0),
     },
+  });
+};
+export const deleteUser = async (userId: string): Promise<void> => {
+  await requestJson("/auth/delete", {
+    method: "DELETE",
+    body: { userId },
   });
 };

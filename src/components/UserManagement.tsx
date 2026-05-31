@@ -1,17 +1,42 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Badge } from './ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { RefreshCw, ShieldUser, UserPlus, Users, Search, Loader2 } from 'lucide-react';
-import { User, Farm } from '../types';
-import { apiGet } from '../api';
-import { mockFarms } from '../mockData';
-import { getMetadata, MetadataEnumEntry, MetadataModule } from '../services/metaApi';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Badge } from "./ui/badge";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "./ui/table";
+import {
+  RefreshCw,
+  ShieldUser,
+  UserPlus,
+  Users,
+  Search,
+  Loader2,
+} from "lucide-react";
+import { User, Farm } from "../types";
+import { apiGet } from "../api";
+import { mockFarms } from "../mockData";
+import {
+  getMetadata,
+  MetadataEnumEntry,
+  MetadataModule,
+} from "../services/metaApi";
+import {
+  deleteUser,
   getManagementFarms,
   getManagementUsers,
   ManagedFarmRecord,
@@ -20,12 +45,12 @@ import {
   updateUserModules,
   updateUserRoleAndFarms,
   UserModuleAction,
-} from '../services/userManagementApi';
+} from "../services/userManagementApi";
 import {
   assignUserToTank,
   getTankAssignedUserIds,
   unassignUserFromTank,
-} from '../services/tankAssignmentApi';
+} from "../services/tankAssignmentApi";
 
 interface UserManagementProps {
   user: User;
@@ -58,6 +83,11 @@ interface EditUserModulesState {
   moduleIds: string[];
 }
 
+interface DeleteConfirmState {
+  open: boolean;
+  user: ManagedUserRecord | null;
+}
+
 interface TankOption {
   id: string;
   name: string;
@@ -65,42 +95,53 @@ interface TankOption {
 }
 
 const DEFAULT_FORM: StaffRegistrationForm = {
-  email: '',
-  password: '',
-  firstName: '',
-  lastName: '',
-  role: 'TECNICAN',
+  email: "",
+  password: "",
+  firstName: "",
+  lastName: "",
+  role: "TECNICAN",
   farmIds: [],
-  gender: '',
-  dateOfBirth: '',
-  address: '',
+  gender: "",
+  dateOfBirth: "",
+  address: "",
 };
 
-const FALLBACK_ROLE_OPTIONS = ['ADMIN', 'MANAGER', 'ACCOUNTANT', 'TECNICAN', 'SALES', 'WORKER', 'DELIVERY'];
-const FALLBACK_GENDER_OPTIONS = ['MALE', 'FEMALE'];
+const FALLBACK_ROLE_OPTIONS = [
+  "ADMIN",
+  "MANAGER",
+  "ACCOUNTANT",
+  "TECNICAN",
+  "SALES",
+  "WORKER",
+  "DELIVERY",
+];
+const FALLBACK_GENDER_OPTIONS = ["MALE", "FEMALE"];
 
-const toShortId = (id: string): string => id.split('-')[0] || id;
-const formatNameWithId = (name: string, id: string): string => `${name} (${toShortId(id)})`;
+const toShortId = (id: string): string => id.split("-")[0] || id;
+const formatNameWithId = (name: string, id: string): string =>
+  `${name} (${toShortId(id)})`;
+
 interface RoleOption {
   value: string;
   label: string;
 }
 
-const resolveRoleOptions = (entries: MetadataEnumEntry[] | undefined): RoleOption[] => {
+const resolveRoleOptions = (
+  entries: MetadataEnumEntry[] | undefined,
+): RoleOption[] => {
   if (!entries || entries.length === 0) {
     return FALLBACK_ROLE_OPTIONS.map((value) => ({ value, label: value }));
   }
 
   const options: RoleOption[] = entries
     .map((entry) => {
-      const value = (entry.value || entry.key || '').trim().toUpperCase();
+      const value = (entry.value || entry.key || "").trim().toUpperCase();
       const label = entry.label?.en || entry.label?.ar || entry.key || value;
       return { value, label };
     })
     .filter((opt) => opt.value.length > 0);
 
   console.log(options);
-
 
   if (options.length === 0) {
     return FALLBACK_ROLE_OPTIONS.map((value) => ({ value, label: value }));
@@ -116,22 +157,25 @@ const resolveRoleOptions = (entries: MetadataEnumEntry[] | undefined): RoleOptio
 
 const toStatusClassName = (status: string): string => {
   const normalized = status.trim().toUpperCase();
-  if (normalized === 'ACTIVE') {
-    return 'bg-green-600 text-white';
+  if (normalized === "ACTIVE") {
+    return "bg-green-600 text-white";
   }
-  if (normalized === 'DISABLED' || normalized === 'LOCKED') {
-    return 'bg-red-600 text-white';
+  if (normalized === "DISABLED" || normalized === "LOCKED") {
+    return "bg-red-600 text-white";
   }
-  return 'bg-gray-600 text-white';
+  return "bg-gray-600 text-white";
 };
 
-const getEnumOptionValues = (entries: MetadataEnumEntry[] | undefined, fallback: string[]): string[] => {
+const getEnumOptionValues = (
+  entries: MetadataEnumEntry[] | undefined,
+  fallback: string[],
+): string[] => {
   if (!entries || entries.length === 0) {
     return fallback;
   }
 
   const values = entries
-    .map((entry) => (entry.value || entry.key || '').trim())
+    .map((entry) => (entry.value || entry.key || "").trim())
     .filter((value) => value.length > 0)
     .map((value) => value.toUpperCase());
 
@@ -139,40 +183,54 @@ const getEnumOptionValues = (entries: MetadataEnumEntry[] | undefined, fallback:
 };
 
 const isTechnicianRole = (role: string): boolean => {
-  const normalized = String(role || '').trim().toUpperCase();
-  return normalized === 'TECHNICIAN' || normalized === 'TECNICAN';
+  const normalized = String(role || "")
+    .trim()
+    .toUpperCase();
+  return normalized === "TECHNICIAN" || normalized === "TECNICAN";
 };
 
-export default function UserManagement({ user, selectedFarm }: UserManagementProps) {
+export default function UserManagement({
+  user,
+  selectedFarm,
+}: UserManagementProps) {
   const currentFarm = selectedFarm || mockFarms[0];
 
   const [users, setUsers] = useState<ManagedUserRecord[]>([]);
   const [farms, setFarms] = useState<ManagedFarmRecord[]>([]);
   const [modules, setModules] = useState<MetadataModule[]>([]);
-  const [metadataEnums, setMetadataEnums] = useState<Record<string, MetadataEnumEntry[]>>({});
+  const [metadataEnums, setMetadataEnums] = useState<
+    Record<string, MetadataEnumEntry[]>
+  >({});
 
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const [registrationForm, setRegistrationForm] = useState<StaffRegistrationForm>(DEFAULT_FORM);
+  const [registrationForm, setRegistrationForm] =
+    useState<StaffRegistrationForm>(DEFAULT_FORM);
   const [editAccessState, setEditAccessState] = useState<EditUserAccessState>({
     open: false,
     user: null,
-    role: 'TECNICAN',
+    role: "TECNICAN",
     farmIds: [],
   });
-  const [editModulesState, setEditModulesState] = useState<EditUserModulesState>({
-    open: false,
-    user: null,
-    action: 'ADD',
-    moduleIds: [],
-  });
+  const [editModulesState, setEditModulesState] =
+    useState<EditUserModulesState>({
+      open: false,
+      user: null,
+      action: "ADD",
+      moduleIds: [],
+    });
+  const [deleteConfirmState, setDeleteConfirmState] =
+    useState<DeleteConfirmState>({
+      open: false,
+      user: null,
+    });
   const [tankOptions, setTankOptions] = useState<TankOption[]>([]);
-  const [selectedTankId, setSelectedTankId] = useState('');
-  const [selectedTechnicianId, setSelectedTechnicianId] = useState('');
+  const [selectedTankId, setSelectedTankId] = useState("");
+  const [selectedTechnicianId, setSelectedTechnicianId] = useState("");
   const [assignedTankUserIds, setAssignedTankUserIds] = useState<string[]>([]);
   const [loadingTankAssignments, setLoadingTankAssignments] = useState(false);
 
@@ -217,14 +275,17 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
         ...userEntry.farmIds,
         ...userEntry.modules,
       ]
-        .join(' ')
+        .join(" ")
         .toLowerCase();
 
       return haystack.includes(query);
     });
   }, [searchTerm, users]);
 
-  const canManageTechnicianAssignments = String(user.role || '').trim().toLowerCase() === 'admin';
+  const canManageTechnicianAssignments =
+    String(user.role || "")
+      .trim()
+      .toLowerCase() === "admin";
 
   const technicianUsers = useMemo(
     () => users.filter((entry) => isTechnicianRole(entry.role)),
@@ -263,13 +324,19 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
       setUsers(usersPayload);
       setFarms(farmsPayload);
 
-      const nextRoleOptions = getEnumOptionValues(metadata.enums.userRoles, FALLBACK_ROLE_OPTIONS);
+      const nextRoleOptions = getEnumOptionValues(
+        metadata.enums.userRoles,
+        FALLBACK_ROLE_OPTIONS,
+      );
       setRegistrationForm((previous) => ({
         ...previous,
-        role: previous.role || (nextRoleOptions[0] || 'TECNICAN'),
+        role: previous.role || nextRoleOptions[0] || "TECNICAN",
       }));
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to load user management data.';
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unable to load user management data.";
       setErrorMessage(message);
     } finally {
       setLoading(false);
@@ -282,13 +349,22 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
 
   const loadTankOptions = useCallback(async () => {
     try {
-      const payload = await apiGet<{ data?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>>('/tanks');
-      const list = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+      const payload = await apiGet<
+        | { data?: Array<Record<string, unknown>> }
+        | Array<Record<string, unknown>>
+      >("/tanks");
+      const list = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : [];
       const normalized = list
         .map((entry) => {
-          const id = String(entry?.id ?? entry?._id ?? '').trim();
+          const id = String(entry?.id ?? entry?._id ?? "").trim();
           if (!id) return null;
-          const farmId = String(entry?.farmId ?? entry?.farm ?? currentFarm.id ?? '').trim();
+          const farmId = String(
+            entry?.farmId ?? entry?.farm ?? currentFarm.id ?? "",
+          ).trim();
           return {
             id,
             name: String(entry?.name ?? `Tank ${id.slice(0, 8)}`),
@@ -306,11 +382,11 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
             : normalized[0].id,
         );
       } else {
-        setSelectedTankId('');
+        setSelectedTankId("");
       }
     } catch {
       setTankOptions([]);
-      setSelectedTankId('');
+      setSelectedTankId("");
     }
   }, [currentFarm.id]);
 
@@ -341,10 +417,13 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
         () => [...assignedTankUserIds, selectedTechnicianId],
       );
       setAssignedTankUserIds(Array.from(new Set(refreshedIds)));
-      setSelectedTechnicianId('');
-      setSuccessMessage('Technician assigned to tank successfully.');
+      setSelectedTechnicianId("");
+      setSuccessMessage("Technician assigned to tank successfully.");
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to assign technician to tank.';
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to assign technician to tank.";
       setErrorMessage(message);
     } finally {
       setSubmitting(false);
@@ -360,9 +439,12 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
         () => assignedTankUserIds.filter((id) => id !== technicianId),
       );
       setAssignedTankUserIds(Array.from(new Set(refreshedIds)));
-      setSuccessMessage('Technician unassigned from tank successfully.');
+      setSuccessMessage("Technician unassigned from tank successfully.");
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to unassign technician from tank.';
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to unassign technician from tank.";
       setErrorMessage(message);
     } finally {
       setSubmitting(false);
@@ -373,7 +455,7 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
     setRegistrationForm({
       ...DEFAULT_FORM,
       role: roleOptions[0]?.value || DEFAULT_FORM.role,
-      gender: genderOptions[0] || '',
+      gender: genderOptions[0] || "",
     });
   };
 
@@ -406,17 +488,20 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
 
   const submitRegistration = async () => {
     if (!registrationForm.email.trim() || !registrationForm.password.trim()) {
-      setErrorMessage('Email and password are required.');
+      setErrorMessage("Email and password are required.");
       return;
     }
 
-    if (!registrationForm.firstName.trim() || !registrationForm.lastName.trim()) {
-      setErrorMessage('First and last name are required.');
+    if (
+      !registrationForm.firstName.trim() ||
+      !registrationForm.lastName.trim()
+    ) {
+      setErrorMessage("First and last name are required.");
       return;
     }
 
     if (registrationForm.farmIds.length === 0) {
-      setErrorMessage('Select at least one farm assignment.');
+      setErrorMessage("Select at least one farm assignment.");
       return;
     }
 
@@ -439,9 +524,12 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
 
       resetRegistrationForm();
       await loadData();
-      setSuccessMessage('Staff account created successfully.');
+      setSuccessMessage("Staff account created successfully.");
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to create staff account.';
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to create staff account.";
       setErrorMessage(message);
     } finally {
       setSubmitting(false);
@@ -452,7 +540,7 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
     setEditAccessState({
       open: true,
       user: userEntry,
-      role: userEntry.role || roleOptions[0]?.value || 'MANAGER',
+      role: userEntry.role || roleOptions[0]?.value || "MANAGER",
       farmIds: userEntry.farmIds,
     });
   };
@@ -461,7 +549,7 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
     setEditModulesState({
       open: true,
       user: userEntry,
-      action: 'ADD',
+      action: "ADD",
       moduleIds: [],
     });
   };
@@ -472,7 +560,7 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
     }
 
     if (editAccessState.farmIds.length === 0) {
-      setErrorMessage('A user must be assigned to at least one farm.');
+      setErrorMessage("A user must be assigned to at least one farm.");
       return;
     }
 
@@ -489,13 +577,16 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
       setEditAccessState({
         open: false,
         user: null,
-        role: 'MANAGER',
+        role: "MANAGER",
         farmIds: [],
       });
       await loadData();
-      setSuccessMessage('User role and farm assignments updated.');
+      setSuccessMessage("User role and farm assignments updated.");
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to update user access.';
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to update user access.";
       setErrorMessage(message);
     } finally {
       setSubmitting(false);
@@ -508,7 +599,7 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
     }
 
     if (editModulesState.moduleIds.length === 0) {
-      setErrorMessage('Select at least one module.');
+      setErrorMessage("Select at least one module.");
       return;
     }
 
@@ -525,13 +616,40 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
       setEditModulesState({
         open: false,
         user: null,
-        action: 'ADD',
+        action: "ADD",
         moduleIds: [],
       });
       await loadData();
-      setSuccessMessage(`Module access ${editModulesState.action === 'ADD' ? 'added' : 'removed'} successfully.`);
+      setSuccessMessage(
+        `Module access ${editModulesState.action === "ADD" ? "added" : "removed"} successfully.`,
+      );
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to update module access.';
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to update module access.";
+      setErrorMessage(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const submitDeleteUser = async () => {
+    if (!deleteConfirmState.user) return;
+
+    try {
+      setSubmitting(true);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+
+      await deleteUser(deleteConfirmState.user.id);
+
+      setDeleteConfirmState({ open: false, user: null });
+      await loadData();
+      setSuccessMessage("User deleted successfully.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to delete user.";
       setErrorMessage(message);
     } finally {
       setSubmitting(false);
@@ -561,9 +679,9 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
             <span className="text-sm">{currentFarm.name}</span>
             <div className="w-10 h-10 rounded-full bg-[#088395] flex items-center justify-center font-semibold">
               {user.name
-                .split(' ')
+                .split(" ")
                 .map((namePart) => namePart[0])
-                .join('')
+                .join("")
                 .toUpperCase()}
             </div>
           </div>
@@ -575,7 +693,11 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
           <Card className="border-red-200 bg-red-50">
             <CardContent className="p-4 text-sm text-red-700 flex items-center justify-between gap-2">
               <span>{errorMessage}</span>
-              <Button size="sm" variant="outline" onClick={() => setErrorMessage(null)}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setErrorMessage(null)}
+              >
                 Dismiss
               </Button>
             </CardContent>
@@ -586,7 +708,11 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
           <Card className="border-green-200 bg-green-50">
             <CardContent className="p-4 text-sm text-green-700 flex items-center justify-between gap-2">
               <span>{successMessage}</span>
-              <Button size="sm" variant="outline" onClick={() => setSuccessMessage(null)}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSuccessMessage(null)}
+              >
                 Dismiss
               </Button>
             </CardContent>
@@ -610,7 +736,10 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                     type="email"
                     value={registrationForm.email}
                     onChange={(event) =>
-                      setRegistrationForm((previous) => ({ ...previous, email: event.target.value }))
+                      setRegistrationForm((previous) => ({
+                        ...previous,
+                        email: event.target.value,
+                      }))
                     }
                   />
                 </div>
@@ -622,7 +751,10 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                     type="password"
                     value={registrationForm.password}
                     onChange={(event) =>
-                      setRegistrationForm((previous) => ({ ...previous, password: event.target.value }))
+                      setRegistrationForm((previous) => ({
+                        ...previous,
+                        password: event.target.value,
+                      }))
                     }
                   />
                 </div>
@@ -633,7 +765,10 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                     id="register-first-name"
                     value={registrationForm.firstName}
                     onChange={(event) =>
-                      setRegistrationForm((previous) => ({ ...previous, firstName: event.target.value }))
+                      setRegistrationForm((previous) => ({
+                        ...previous,
+                        firstName: event.target.value,
+                      }))
                     }
                   />
                 </div>
@@ -644,7 +779,10 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                     id="register-last-name"
                     value={registrationForm.lastName}
                     onChange={(event) =>
-                      setRegistrationForm((previous) => ({ ...previous, lastName: event.target.value }))
+                      setRegistrationForm((previous) => ({
+                        ...previous,
+                        lastName: event.target.value,
+                      }))
                     }
                   />
                 </div>
@@ -656,11 +794,17 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                     className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm"
                     value={registrationForm.role}
                     onChange={(event) =>
-                      setRegistrationForm((previous) => ({ ...previous, role: event.target.value }))
+                      setRegistrationForm((previous) => ({
+                        ...previous,
+                        role: event.target.value,
+                      }))
                     }
                   >
                     {roleOptions.map((option) => (
-                      <option key={`register-role-${option.value}`} value={option.value}>
+                      <option
+                        key={`register-role-${option.value}`}
+                        value={option.value}
+                      >
                         {option.label}
                       </option>
                     ))}
@@ -674,7 +818,10 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                     className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm"
                     value={registrationForm.gender}
                     onChange={(event) =>
-                      setRegistrationForm((previous) => ({ ...previous, gender: event.target.value }))
+                      setRegistrationForm((previous) => ({
+                        ...previous,
+                        gender: event.target.value,
+                      }))
                     }
                   >
                     <option value="">Select gender</option>
@@ -693,7 +840,10 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                     type="date"
                     value={registrationForm.dateOfBirth}
                     onChange={(event) =>
-                      setRegistrationForm((previous) => ({ ...previous, dateOfBirth: event.target.value }))
+                      setRegistrationForm((previous) => ({
+                        ...previous,
+                        dateOfBirth: event.target.value,
+                      }))
                     }
                   />
                 </div>
@@ -704,7 +854,10 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                     id="register-address"
                     value={registrationForm.address}
                     onChange={(event) =>
-                      setRegistrationForm((previous) => ({ ...previous, address: event.target.value }))
+                      setRegistrationForm((previous) => ({
+                        ...previous,
+                        address: event.target.value,
+                      }))
                     }
                   />
                 </div>
@@ -714,10 +867,15 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                 <Label>Farm Assignments</Label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 rounded-md border p-3">
                   {farms.map((farmEntry) => (
-                    <label key={farmEntry.id} className="flex items-center gap-2 text-sm">
+                    <label
+                      key={farmEntry.id}
+                      className="flex items-center gap-2 text-sm"
+                    >
                       <input
                         type="checkbox"
-                        checked={registrationForm.farmIds.includes(farmEntry.id)}
+                        checked={registrationForm.farmIds.includes(
+                          farmEntry.id,
+                        )}
                         onChange={() => toggleRegistrationFarm(farmEntry.id)}
                         className="h-4 w-4 rounded border-gray-300"
                       />
@@ -728,11 +886,18 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
               </div>
 
               <div className="flex gap-2">
-                <Button variant="outline" onClick={resetRegistrationForm} disabled={submitting}>
+                <Button
+                  variant="outline"
+                  onClick={resetRegistrationForm}
+                  disabled={submitting}
+                >
                   Reset
                 </Button>
-                <Button onClick={() => void submitRegistration()} disabled={submitting}>
-                  {submitting ? 'Creating...' : 'Create Staff Account'}
+                <Button
+                  onClick={() => void submitRegistration()}
+                  disabled={submitting}
+                >
+                  {submitting ? "Creating..." : "Create Staff Account"}
                 </Button>
               </div>
             </CardContent>
@@ -758,7 +923,12 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                 <p className="text-gray-500">Available Farms</p>
                 <p className="text-2xl font-semibold">{farms.length}</p>
               </div>
-              <Button variant="outline" onClick={() => void loadData()} className="w-full" disabled={submitting}>
+              <Button
+                variant="outline"
+                onClick={() => void loadData()}
+                className="w-full"
+                disabled={submitting}
+              >
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Reload Data
               </Button>
@@ -787,11 +957,18 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                       id="assign-tank"
                       className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm"
                       value={selectedTankId}
-                      onChange={(event) => setSelectedTankId(event.target.value)}
+                      onChange={(event) =>
+                        setSelectedTankId(event.target.value)
+                      }
                     >
-                      {tankOptions.length === 0 && <option value="">No tanks available</option>}
+                      {tankOptions.length === 0 && (
+                        <option value="">No tanks available</option>
+                      )}
                       {tankOptions.map((tankEntry) => (
-                        <option key={`assign-tank-${tankEntry.id}`} value={tankEntry.id}>
+                        <option
+                          key={`assign-tank-${tankEntry.id}`}
+                          value={tankEntry.id}
+                        >
                           {formatNameWithId(tankEntry.name, tankEntry.id)}
                         </option>
                       ))}
@@ -804,17 +981,24 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                       id="assign-technician"
                       className="h-9 w-full rounded-md border border-gray-300 px-3 text-sm"
                       value={selectedTechnicianId}
-                      onChange={(event) => setSelectedTechnicianId(event.target.value)}
+                      onChange={(event) =>
+                        setSelectedTechnicianId(event.target.value)
+                      }
                     >
                       <option value="">Select technician</option>
-                      {availableTechniciansForSelectedTank.map((technicianEntry) => (
-                        <option
-                          key={`assign-technician-${technicianEntry.id}`}
-                          value={technicianEntry.id}
-                        >
-                          {formatNameWithId(technicianEntry.name, technicianEntry.id)}
-                        </option>
-                      ))}
+                      {availableTechniciansForSelectedTank.map(
+                        (technicianEntry) => (
+                          <option
+                            key={`assign-technician-${technicianEntry.id}`}
+                            value={technicianEntry.id}
+                          >
+                            {formatNameWithId(
+                              technicianEntry.name,
+                              technicianEntry.id,
+                            )}
+                          </option>
+                        ),
+                      )}
                     </select>
                   </div>
                 </div>
@@ -844,29 +1028,39 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                 <div className="rounded-md border p-3 space-y-2">
                   <p className="text-sm font-medium">Assigned Technicians</p>
                   {loadingTankAssignments ? (
-                    <p className="text-sm text-gray-500">Loading assignments...</p>
+                    <p className="text-sm text-gray-500">
+                      Loading assignments...
+                    </p>
                   ) : selectedTankAssignedTechnicians.length === 0 ? (
-                    <p className="text-sm text-gray-500">No technicians assigned to this tank.</p>
+                    <p className="text-sm text-gray-500">
+                      No technicians assigned to this tank.
+                    </p>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {selectedTankAssignedTechnicians.map((technicianEntry) => (
-                        <Badge
-                          key={`assigned-technician-${technicianEntry.id}`}
-                          variant="outline"
-                          className="flex items-center gap-2"
-                        >
-                          <span>{technicianEntry.name}</span>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 px-2 text-red-600 hover:text-red-700"
-                            onClick={() => void unassignTechnicianFromTank(technicianEntry.id)}
-                            disabled={submitting}
+                      {selectedTankAssignedTechnicians.map(
+                        (technicianEntry) => (
+                          <Badge
+                            key={`assigned-technician-${technicianEntry.id}`}
+                            variant="outline"
+                            className="flex items-center gap-2"
                           >
-                            Remove
-                          </Button>
-                        </Badge>
-                      ))}
+                            <span>{technicianEntry.name}</span>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2 text-red-600 hover:text-red-700"
+                              onClick={() =>
+                                void unassignTechnicianFromTank(
+                                  technicianEntry.id,
+                                )
+                              }
+                              disabled={submitting}
+                            >
+                              Remove
+                            </Button>
+                          </Badge>
+                        ),
+                      )}
                     </div>
                   )}
                 </div>
@@ -906,31 +1100,54 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                 {filteredUsers.map((userEntry) => (
                   <TableRow key={userEntry.id}>
                     <TableCell>
-                      <div className="font-medium">{formatNameWithId(userEntry.name, userEntry.id)}</div>
-                      <div className="text-xs text-gray-500">{userEntry.email}</div>
+                      <div className="font-medium">
+                        {formatNameWithId(userEntry.name, userEntry.id)}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {userEntry.email}
+                      </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{roleLabelMap[userEntry.role] || userEntry.role}</Badge>
+                      <Badge variant="outline">
+                        {roleLabelMap[userEntry.role] || userEntry.role}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {userEntry.farmNames.length === 0 && <span className="text-xs text-gray-500">No farms</span>}
-                        {userEntry.farmNames.map((farmId, index) => {
-                          return (
-                            <Badge key={`${userEntry.id}-farm-${farmId}`} variant="outline" className="text-xs">
-                              {farmId}
-                            </Badge>
-                          );
-                        })}
+                        {userEntry.farmNames.length === 0 && (
+                          <span className="text-xs text-gray-500">
+                            No farms
+                          </span>
+                        )}
+                        {userEntry.farmNames.map((farmId) => (
+                          <Badge
+                            key={`${userEntry.id}-farm-${farmId}`}
+                            variant="outline"
+                            className="text-xs"
+                          >
+                            {farmId}
+                          </Badge>
+                        ))}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {userEntry.modules.length === 0 && <span className="text-xs text-gray-500">No module overrides</span>}
+                        {userEntry.modules.length === 0 && (
+                          <span className="text-xs text-gray-500">
+                            No module overrides
+                          </span>
+                        )}
                         {userEntry.modules.map((moduleName) => {
-                          const moduleLabel = modules.find((entry) => entry.id.toLowerCase() === moduleName)?.label?.en || moduleName;
+                          const moduleLabel =
+                            modules.find(
+                              (entry) => entry.id.toLowerCase() === moduleName,
+                            )?.label?.en || moduleName;
                           return (
-                            <Badge key={`${userEntry.id}-module-${moduleName}`} variant="secondary" className="text-xs">
+                            <Badge
+                              key={`${userEntry.id}-module-${moduleName}`}
+                              variant="secondary"
+                              className="text-xs"
+                            >
                               {moduleLabel}
                             </Badge>
                           );
@@ -939,9 +1156,26 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-
-                        <Button size="sm" variant="outline" onClick={() => openEditModulesDialog(userEntry)}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openEditModulesDialog(userEntry)}
+                        >
                           Module Overrides
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                          onClick={() =>
+                            setDeleteConfirmState({
+                              open: true,
+                              user: userEntry,
+                            })
+                          }
+                          disabled={submitting}
+                        >
+                          Delete
                         </Button>
                       </div>
                     </TableCell>
@@ -950,7 +1184,10 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
 
                 {filteredUsers.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center text-gray-600">
+                    <TableCell
+                      colSpan={6}
+                      className="h-24 text-center text-gray-600"
+                    >
                       No users found.
                     </TableCell>
                   </TableRow>
@@ -961,12 +1198,10 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
         </Card>
       </div>
 
-
-
-
+      {/* Module Overrides Dialog */}
       <Dialog
         open={editModulesState.open}
-        onOpenChange={(open) =>
+        onOpenChange={(open: boolean) =>
           setEditModulesState((previous) => ({
             ...previous,
             open,
@@ -980,7 +1215,7 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
             <DialogDescription>
               {editModulesState.user
                 ? `Adjust module access for ${formatNameWithId(editModulesState.user.name, editModulesState.user.id)}`
-                : ''}
+                : ""}
             </DialogDescription>
           </DialogHeader>
 
@@ -994,7 +1229,7 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
                 onChange={(event) =>
                   setEditModulesState((previous) => ({
                     ...previous,
-                    action: event.target.value === 'REMOVE' ? 'REMOVE' : 'ADD',
+                    action: event.target.value === "REMOVE" ? "REMOVE" : "ADD",
                   }))
                 }
               >
@@ -1007,10 +1242,15 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
               <Label>Modules</Label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 rounded-md border p-3">
                 {modules.map((moduleEntry) => (
-                  <label key={`module-${moduleEntry.id}`} className="flex items-center gap-2 text-sm">
+                  <label
+                    key={`module-${moduleEntry.id}`}
+                    className="flex items-center gap-2 text-sm"
+                  >
                     <input
                       type="checkbox"
-                      checked={editModulesState.moduleIds.includes(moduleEntry.id)}
+                      checked={editModulesState.moduleIds.includes(
+                        moduleEntry.id,
+                      )}
                       onChange={() => toggleModuleSelection(moduleEntry.id)}
                       className="h-4 w-4 rounded border-gray-300"
                     />
@@ -1024,15 +1264,62 @@ export default function UserManagement({ user, selectedFarm }: UserManagementPro
               <Button
                 variant="outline"
                 onClick={() =>
-                  setEditModulesState({ open: false, user: null, action: 'ADD', moduleIds: [] })
+                  setEditModulesState({
+                    open: false,
+                    user: null,
+                    action: "ADD",
+                    moduleIds: [],
+                  })
                 }
               >
                 Cancel
               </Button>
-              <Button onClick={() => void submitEditModules()} disabled={submitting}>
-                {submitting ? 'Applying...' : 'Apply Modules'}
+              <Button
+                onClick={() => void submitEditModules()}
+                disabled={submitting}
+              >
+                {submitting ? "Applying..." : "Apply Modules"}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteConfirmState.open}
+        onOpenChange={(open: boolean) =>
+          setDeleteConfirmState((previous) => ({
+            ...previous,
+            open,
+            user: open ? previous.user : null,
+          }))
+        }
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete User</DialogTitle>
+            <DialogDescription>
+              {deleteConfirmState.user
+                ? `Are you sure you want to permanently delete ${formatNameWithId(deleteConfirmState.user.name, deleteConfirmState.user.id)}? This action cannot be undone.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 justify-end pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirmState({ open: false, user: null })}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void submitDeleteUser()}
+              disabled={submitting}
+            >
+              {submitting ? "Deleting..." : "Delete User"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
