@@ -107,7 +107,6 @@ const DEFAULT_FORM: StaffRegistrationForm = {
 };
 
 const FALLBACK_ROLE_OPTIONS = [
-  "ADMIN",
   "MANAGER",
   "ACCOUNTANT",
   "TECNICAN",
@@ -139,8 +138,8 @@ const resolveRoleOptions = (
       const label = entry.label?.en || entry.label?.ar || entry.key || value;
       return { value, label };
     })
-    .filter((opt) => opt.value.length > 0);
-
+    .filter((opt) => opt.value.length > 0)
+    .filter((opt) => opt.value !== "ADMIN");
   console.log(options);
 
   if (options.length === 0) {
@@ -173,11 +172,11 @@ const getEnumOptionValues = (
   if (!entries || entries.length === 0) {
     return fallback;
   }
-
   const values = entries
     .map((entry) => (entry.value || entry.key || "").trim())
     .filter((value) => value.length > 0)
-    .map((value) => value.toUpperCase());
+    .map((value) => value.toUpperCase())
+    .filter((value) => value !== "ADMIN");
 
   return values.length > 0 ? Array.from(new Set(values)) : fallback;
 };
@@ -327,7 +326,7 @@ export default function UserManagement({
       const nextRoleOptions = getEnumOptionValues(
         metadata.enums.userRoles,
         FALLBACK_ROLE_OPTIONS,
-      );
+      ).filter((value) => value !== "ADMIN");
       setRegistrationForm((previous) => ({
         ...previous,
         role: previous.role || nextRoleOptions[0] || "TECNICAN",
@@ -800,14 +799,21 @@ export default function UserManagement({
                       }))
                     }
                   >
-                    {roleOptions.map((option) => (
-                      <option
-                        key={`register-role-${option.value}`}
-                        value={option.value}
-                      >
-                        {option.label}
-                      </option>
-                    ))}
+                    {roleOptions
+                      .filter((option) => {
+                        return (
+                          option.value.toUpperCase() !== "ADMIN" &&
+                          option.label.toUpperCase() !== "ADMIN"
+                        );
+                      })
+                      .map((option) => (
+                        <option
+                          key={`register-role-${option.value}`}
+                          value={option.value}
+                        >
+                          {option.label}
+                        </option>
+                      ))}
                   </select>
                 </div>
 
