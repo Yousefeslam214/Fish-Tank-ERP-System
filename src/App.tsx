@@ -12,6 +12,7 @@ import Procurement from "./components/Procurement";
 import SalesModule from "./components/SalesModule";
 import FishTypeManagement from "./components/FishTypeManagement";
 import FoodTypeManagement from "./components/FoodTypeManagement";
+import MedicineTypeManagement from "./components/MedicineTypeManagement";
 import { HarvestManagement } from "./components/HarvestManagement";
 import IoTManagement from "./components/IoTManagement";
 import Farms from "./components/Farms";
@@ -36,13 +37,13 @@ import {
 } from "./services/moduleAccess";
 
 const canAccessDashboard = (role?: string): boolean => {
-  const normalizedRole = String(role || "").trim().toLowerCase();
+  const normalizedRole = String(role || "")
+    .trim()
+    .toLowerCase();
   return normalizedRole === "admin" || normalizedRole === "manager";
 };
 
 export default function App() {
-
-
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState("dashboard");
   const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
@@ -61,7 +62,8 @@ export default function App() {
       return ["dashboard"];
     }
     return allowedPages.filter(
-      (pageId) => pageId !== "dashboard" || canAccessDashboard(currentUser.role),
+      (pageId) =>
+        pageId !== "dashboard" || canAccessDashboard(currentUser.role),
     );
   }, [allowedPages, currentUser]);
 
@@ -408,8 +410,8 @@ export default function App() {
         {currentPage === "dashboard" &&
           isPageAllowed("dashboard", effectiveAllowedPages) &&
           canAccessDashboard(currentUser.role) && (
-          <Dashboard user={currentUser} selectedFarm={selectedFarm} />
-        )}
+            <Dashboard user={currentUser} selectedFarm={selectedFarm} />
+          )}
         {currentPage === "tanks" && (
           <TankManagement user={currentUser} selectedFarm={selectedFarm} />
         )}
@@ -458,6 +460,12 @@ export default function App() {
         {currentPage === "food-types" && (
           <FoodTypeManagement user={currentUser} selectedFarm={selectedFarm} />
         )}
+        {currentPage === "medicine-types" && (
+          <MedicineTypeManagement
+            user={currentUser}
+            selectedFarm={selectedFarm}
+          />
+        )}
         {currentPage === "users" && (
           <UserManagement user={currentUser} selectedFarm={selectedFarm} />
         )}
@@ -470,8 +478,5 @@ export default function App() {
       </div>
       <Toaster />
     </div>
-
-
-
   );
 }

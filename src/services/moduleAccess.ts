@@ -11,6 +11,7 @@ export const MODULE_BACKED_PAGE_ORDER = [
   "analytics",
   "fish-types",
   "food-types",
+  "medicine-types",
   "users",
   "iot-management",
   "farms",

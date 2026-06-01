@@ -111,10 +111,13 @@ export interface MedicineOrderCreatePayload {
   supplierId: string;
   items: Array<{
     medicine: string;
+    medicineTypeId?: string;
     company: string;
     fishTypeIds: string[];
     quantity: number;
     unitCost: number;
+    receivedDate?: string;
+    expiryDate?: string;
   }>;
 }
 

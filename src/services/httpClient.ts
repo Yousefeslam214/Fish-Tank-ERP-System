@@ -87,7 +87,10 @@ const parseErrorMessage = (status: number, payload: unknown): string => {
 };
 
 const buildHeaders = (authenticated: boolean, extraHeaders?: HeadersInit): HeadersInit => {
-  const envToken = getEnvValue('FISH_API_TOKEN') || getEnvValue('VITE_FISH_API_TOKEN');
+  const isBrowser = typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+  const envToken = !isBrowser
+    ? getEnvValue('FISH_API_TOKEN') || getEnvValue('VITE_FISH_API_TOKEN')
+    : null;
   const token = authenticated ? getAccessToken() || envToken || null : null;
   return {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),

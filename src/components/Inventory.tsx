@@ -57,7 +57,6 @@ import {
 import {
   getFeedInventory,
   createFeed,
-  createMedicine,
   getFeedByFoodType,
   getBatches,
   getBatchById,
@@ -99,6 +98,14 @@ interface MedicineTotalItem {
   unit: string;
 }
 
+interface MedicineTypeItem {
+  id: string;
+  name: string;
+  arabicName?: string;
+  category?: string;
+  description?: string;
+}
+
 interface InventoryProps {
   user: User;
   selectedFarm: Farm | null;
@@ -133,11 +140,13 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
   // Food Types + Add Resources
   const [foodTypes, setFoodTypes] = useState<any[]>([]);
+  const [medicineTypes, setMedicineTypes] = useState<MedicineTypeItem[]>([]);
   const [isAddResourcesOpen, setIsAddResourcesOpen] = useState(false);
   const [newResourceData, setNewResourceData] = useState({
     resourceType: "feed" as ResourceType,
     feedItemId: "",
     medicineItemId: "",
+    medicineCompany: "",
     fishBatchItemId: "",
     quantityKg: "",
     receiveDate: new Date().toISOString().split("T")[0],
@@ -308,6 +317,8 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   ): string => {
     const rawName = String(
       entry?.medicineName ||
+        entry?.medicineType?.name ||
+        entry?.medicineTypeName ||
         entry?.medicine?.name ||
         entry?.name ||
         entry?.itemName ||
@@ -527,6 +538,33 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     }
   };
 
+  const loadMedicineTypes = async () => {
+    try {
+      const res = await apiGet<any>("/inventory/medicine-types");
+      const data = getArrayPayload(res?.data ?? res);
+      setMedicineTypes(
+        data
+          .map((entry: any) => {
+            const id = String(entry?.id || entry?._id || "").trim();
+            const name = String(entry?.name || "").trim();
+            if (!id || !name) return null;
+            return {
+              id,
+              name,
+              arabicName: String(entry?.arabicName || "").trim() || undefined,
+              category: String(entry?.category || "").trim() || undefined,
+              description:
+                String(entry?.description || "").trim() || undefined,
+            };
+          })
+          .filter((entry): entry is MedicineTypeItem => entry !== null),
+      );
+    } catch (error) {
+      console.error("Error loading medicine types", error);
+      setMedicineTypes([]);
+    }
+  };
+
   // GET /api/v1/tanks
   const loadTanks = async () => {
     setIsTanksLoading(true);
@@ -577,6 +615,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     loadMedicineTotals();
     loadTanks();
     loadFoodTypes();
+    loadMedicineTypes();
     loadFishTypeOptions();
   }, []);
 
@@ -600,6 +639,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   useEffect(() => {
     if (!isAddResourcesOpen) return;
     void loadFoodTypes();
+    void loadMedicineTypes();
     void loadFeed();
     void loadMedicine();
     void loadFishTypeOptions();
@@ -664,6 +704,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       resourceType: "feed",
       feedItemId: "",
       medicineItemId: "",
+      medicineCompany: "",
       fishBatchItemId: "",
       quantityKg: "",
       receiveDate: new Date().toISOString().split("T")[0],
@@ -940,75 +981,51 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           newResourceData.medicineItemId || "",
         ).trim();
         if (!selectedMedicineId) {
-          toast.error("Please select a medicine item");
+          toast.error("Please select a medicine type");
           return;
         }
 
-        const selectedMedicineItem = medicineInventory.find(
-          (entry) =>
-            Boolean(entry) &&
-            String((entry as MedicineInventoryBatch).id || "").trim() ===
-              selectedMedicineId,
+        const selectedMedicineType = medicineTypes.find(
+          (entry) => Boolean(entry) && String(entry.id).trim() === selectedMedicineId,
         );
-        if (!selectedMedicineItem) {
-          toast.error("Please select a medicine item");
+        if (!selectedMedicineType) {
+          toast.error("Please select a medicine type");
+          return;
+        }
+        const medicineCompany = String(
+          newResourceData.medicineCompany || "",
+        ).trim();
+        if (!medicineCompany) {
+          toast.error("Please enter a company");
           return;
         }
 
         const medicineQuantity = Math.max(1, Math.round(quantity));
         const supplierId = await ensureSupplierForResource("medicine");
         const selectedMedicineMeta =
-          selectedMedicineItem as MedicineInventoryBatch &
-            Record<string, unknown>;
-        const medicineName = resolveMedicineDisplayName(
-          selectedMedicineItem,
-          selectedMedicineId,
-        );
-        const medicineCompany =
-          String(selectedMedicineItem.company || "").trim() ||
-          "Unknown Company";
-        const medicineFishTypeId = String(
-          selectedMedicineMeta?.fishTypeId ||
-            (selectedMedicineMeta?.fishType as any)?.id ||
-            fishTypeOptions[0]?.id ||
-            "",
-        ).trim();
+          selectedMedicineType as MedicineTypeItem & Record<string, unknown>;
+        const medicineName = String(selectedMedicineType.name || "").trim();
         const medicineUnitCost = resolveUnitCost(
           selectedMedicineMeta?.unitCost,
           selectedMedicineMeta?.costPerUnit,
           selectedMedicineMeta?.purchasePrice,
+          1,
         );
-        await createMedicinePurchaseOrder({
+        response = await createMedicinePurchaseOrder({
           supplierId,
           items: [
             {
               medicine: medicineName,
+              medicineTypeId: selectedMedicineType.id,
               company: medicineCompany,
-              fishTypeIds: medicineFishTypeId ? [medicineFishTypeId] : [],
+              fishTypeIds: [],
               quantity: medicineQuantity,
               unitCost: medicineUnitCost,
+              receivedDate: receivedDateValue,
+              expiryDate: expiryDateValue,
             },
           ],
         });
-
-        const medicineTotalCost = Number(
-          (medicineUnitCost * medicineQuantity).toFixed(2),
-        );
-        const payload: Record<string, unknown> = {
-          medicine: medicineName,
-          company: medicineCompany,
-          quantity: medicineQuantity,
-          initialQuantity: medicineQuantity,
-          costPerUnit: medicineUnitCost,
-          totalCost: medicineTotalCost,
-          unitsReceived: medicineQuantity,
-          receivedDate: receivedDateValue,
-          packagingUnit: "unit",
-        };
-        if (expiryDateValue) {
-          payload.expiryDate = expiryDateValue;
-        }
-        response = await createMedicine(payload);
       } else if (resourceType === "fish_batch") {
         const selectedFishType = fishTypeOptions.find(
           (entry) =>
@@ -1448,14 +1465,16 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     }),
   ]);
 
-  const addResourceMedicineItems: ComboboxItem[] = medicineInventory
-    .map((medicineItem) => {
-      const id = String(medicineItem.id || "").trim();
+  const addResourceMedicineTypeItems: ComboboxItem[] = medicineTypes
+    .map((medicineType) => {
+      const id = String(medicineType.id || "").trim();
       if (!id) return null;
       return {
         value: id,
-        label: resolveMedicineDisplayName(medicineItem, id),
-        sub: `${medicineItem.company || "Unknown Company"} - ID: ${id.slice(0, 8)}`,
+        label: medicineType.name,
+        sub: medicineType.category
+          ? `${medicineType.category} - ID: ${id.slice(0, 8)}`
+          : `ID: ${id.slice(0, 8)}`,
       };
     })
     .filter((item): item is ComboboxItem => item !== null);
@@ -1472,28 +1491,28 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     newResourceData.resourceType === "feed"
       ? addResourceFeedItems
       : newResourceData.resourceType === "medicine"
-        ? addResourceMedicineItems
+        ? addResourceMedicineTypeItems
         : addResourceFishBatchItems;
 
   const addResourceItemLabel =
     newResourceData.resourceType === "feed"
       ? "Feed Item"
       : newResourceData.resourceType === "medicine"
-        ? "Medicine Item"
+        ? "Medicine Type"
         : "Fish Batch Item";
 
   const addResourceItemPlaceholder =
     newResourceData.resourceType === "feed"
       ? "Search or select feed item..."
       : newResourceData.resourceType === "medicine"
-        ? "Search or select medicine item..."
+        ? "Search or select medicine type..."
         : "Search or select fish batch item...";
 
   const addResourceEmptyText =
     newResourceData.resourceType === "feed"
       ? "No feed items available."
       : newResourceData.resourceType === "medicine"
-        ? "No medicine items available from API."
+        ? "No medicine types available from API."
         : "No fish batch items available from API.";
 
   const addResourceSelectedItemValue =
@@ -2176,6 +2195,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                       resourceType: value,
                       feedItemId: "",
                       medicineItemId: "",
+                      medicineCompany: "",
                       fishBatchItemId: "",
                     }));
                   }}
@@ -2223,6 +2243,23 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                   }
                 />
               </div>
+
+              {newResourceData.resourceType === "medicine" && (
+                <div className="grid gap-2">
+                  <Label htmlFor="medicineCompany">Company</Label>
+                  <Input
+                    id="medicineCompany"
+                    placeholder="Enter manufacturer or supplier"
+                    value={newResourceData.medicineCompany}
+                    onChange={(event) =>
+                      setNewResourceData((previous) => ({
+                        ...previous,
+                        medicineCompany: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              )}
 
               <div className="grid gap-2">
                 <Label htmlFor="receiveDate">Receive Date</Label>

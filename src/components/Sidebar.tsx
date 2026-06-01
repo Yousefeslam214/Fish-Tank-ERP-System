@@ -17,6 +17,7 @@ import {
   ListChecks,
   Cpu,
   Tractor,
+  Pill,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback } from "./ui/avatar";
@@ -50,6 +51,7 @@ export default function Sidebar({
     { id: "harvest", label: "Harvest", icon: Scissors },
     { id: "fish-types", label: "Fish Types", icon: Fish },
     { id: "food-types", label: "Food Types", icon: Wheat },
+    { id: "medicine-types", label: "Medicine Types", icon: Pill },
     { id: "health", label: "Health Library", icon: Heart },
     //{ id: "ai-assistant", label: "AI Assistant", icon: Bot },
     { id: "iot-management", label: "Sensors readings", icon: Cpu },
@@ -86,7 +88,6 @@ export default function Sidebar({
       icon: ShoppingCart,
       comingSoon: true,
     },
-    
   ];
 
   const visibleMenuItems = menuItems.filter(
