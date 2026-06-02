@@ -57,13 +57,14 @@ export default function Sidebar({
     { id: "iot-management", label: "Sensors readings", icon: Cpu },
     { id: "farms", label: "Farms", icon: Tractor },
     { id: "users", label: "User Management", icon: ShieldUser },
+
+    { id: "tasks", label: "Tasks", icon: ListChecks },
     {
       id: "notifications",
       label: "Notifications",
       icon: Bell,
       badge: unreadCount > 0 ? unreadCount : null,
     },
-    { id: "tasks", label: "Tasks", icon: ListChecks },
     {
       id: "sales",
       label: "Sales",

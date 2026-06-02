@@ -374,8 +374,12 @@ export default function App() {
   const handleLogin = (user: User) => {
     setCurrentUser(user);
     fetchFarms(user);
+    if (user.role?.toLowerCase() === "worker") {
+      setCurrentPage("tasks");
+    } else {
+      setCurrentPage("dashboard");
+    }
   };
-
   const handlePageChange = (page: string) => {
     if (!isPageAllowed(page, effectiveAllowedPages)) {
       return;

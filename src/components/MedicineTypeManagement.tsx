@@ -395,7 +395,7 @@ export default function MedicineTypeManagement({
                   </Label>
                   <Input
                     type="number"
-                    step="0.01"
+                    step="1"
                     placeholder="e.g. 10"
                     value={formData.lowStockThreshold}
                     onChange={(e) =>
