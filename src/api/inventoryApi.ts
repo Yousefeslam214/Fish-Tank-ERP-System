@@ -17,7 +17,6 @@ export const createHarvestedFish = (data: any) =>
 export const getFeedByFoodType = (foodId: string) =>
   apiGet<any>(`/inventory/feed/food-type/${foodId}`);
 
-
 export const getBatches = () =>
   apiGet<any>("/inventory/batches");
 
