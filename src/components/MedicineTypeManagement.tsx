@@ -126,7 +126,7 @@ export default function MedicineTypeManagement({
       } else {
         await apiPost("/inventory/medicine-types", submissionData);
       }
-      toast.success("تم الحفظ بنجاح عبر الـ API");
+      toast.success("Medicine type added successfully");
       fetchMedicineTypes();
     } catch (err) {
       console.warn("API Error - Switching to Mock Data:", err);

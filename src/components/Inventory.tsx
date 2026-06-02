@@ -49,7 +49,6 @@ import { getFishTypes } from "../services/fishTypesApi";
 import { FEEDING_TASK_COMPLETED_EVENT } from "../services/taskApi";
 import {
   createFishPurchaseOrder,
-  createMedicinePurchaseOrder,
   createProcurementSupplier,
   getProcurementSuppliers,
 } from "../services/procurementApi";
@@ -65,6 +64,7 @@ import {
   getMedicineInventory,
   getMedicineInventoryTotal,
   deleteMedicineBatch,
+  addMedicineStock,
 } from "../api/inventoryApi";
 
 // Types
@@ -155,7 +155,16 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   const [fishTypeOptions, setFishTypeOptions] = useState<
     Array<{ id: string; name: string }>
   >([]);
-
+  //delete modal
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteConfirmType, setDeleteConfirmType] = useState<
+    "feed" | "medicine"
+  >("feed");
+  const [deleteConfirmItem, setDeleteConfirmItem] = useState<{
+    id: string;
+    name: string;
+    medicineBatch?: MedicineInventoryBatch;
+  } | null>(null);
   // Health modal state
   const [healthModalOpen, setHealthModalOpen] = useState(false);
   const [healthModalMode, setHealthModalMode] = useState<
@@ -436,7 +445,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       const res = await getFeedInventory();
       const feed = getArrayPayload(res);
 
-
       setFeedInventory(feed);
     } catch (error) {
       console.error("Error loading feed inventory", error);
@@ -553,8 +561,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
               name,
               arabicName: String(entry?.arabicName || "").trim() || undefined,
               category: String(entry?.category || "").trim() || undefined,
-              description:
-                String(entry?.description || "").trim() || undefined,
+              description: String(entry?.description || "").trim() || undefined,
             };
           })
           .filter((entry): entry is MedicineTypeItem => entry !== null),
@@ -986,7 +993,8 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
         }
 
         const selectedMedicineType = medicineTypes.find(
-          (entry) => Boolean(entry) && String(entry.id).trim() === selectedMedicineId,
+          (entry) =>
+            Boolean(entry) && String(entry.id).trim() === selectedMedicineId,
         );
         if (!selectedMedicineType) {
           toast.error("Please select a medicine type");
@@ -1000,31 +1008,17 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           return;
         }
 
+        if (!expiryDateValue) {
+          toast.error("Please choose the expiry date");
+          return;
+        }
         const medicineQuantity = Math.max(1, Math.round(quantity));
-        const supplierId = await ensureSupplierForResource("medicine");
-        const selectedMedicineMeta =
-          selectedMedicineType as MedicineTypeItem & Record<string, unknown>;
-        const medicineName = String(selectedMedicineType.name || "").trim();
-        const medicineUnitCost = resolveUnitCost(
-          selectedMedicineMeta?.unitCost,
-          selectedMedicineMeta?.costPerUnit,
-          selectedMedicineMeta?.purchasePrice,
-          1,
-        );
-        response = await createMedicinePurchaseOrder({
-          supplierId,
-          items: [
-            {
-              medicine: medicineName,
-              medicineTypeId: selectedMedicineType.id,
-              company: medicineCompany,
-              fishTypeIds: [],
-              quantity: medicineQuantity,
-              unitCost: medicineUnitCost,
-              receivedDate: receivedDateValue,
-              expiryDate: expiryDateValue,
-            },
-          ],
+        response = await addMedicineStock({
+          medicineTypeId: selectedMedicineType.id,
+          quantity: medicineQuantity,
+          company: medicineCompany,
+          receivedDate: receivedDateValue,
+          expiryDate: expiryDateValue,
         });
       } else if (resourceType === "fish_batch") {
         const selectedFishType = fishTypeOptions.find(
@@ -1080,20 +1074,10 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
   };
 
   // DELETE /api/v1/inventory/feed/:id
-  const handleDeleteFeed = async (id: string) => {
-    if (
-      !window.confirm("Are you sure you want to delete this inventory record?")
-    ) {
-      return;
-    }
-    try {
-      await deleteFeed(id);
-      toast.success("Feed record deleted");
-      await loadFeed();
-    } catch (error) {
-      console.error("Delete feed failed", error);
-      toast.error("Failed to delete record.");
-    }
+  const handleDeleteFeed = (id: string, name: string) => {
+    setDeleteConfirmType("feed");
+    setDeleteConfirmItem({ id, name });
+    setDeleteConfirmOpen(true);
   };
 
   const openMedicineDetails = (batch: MedicineInventoryBatch) => {
@@ -1101,34 +1085,49 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     setIsMedicineDetailsOpen(true);
   };
 
-  const handleDeleteMedicine = async (batch: MedicineInventoryBatch) => {
-    if (
-      !window.confirm(
-        `Delete batch ${batch.batchNumber} for ${batch.medicineName}?`,
-      )
-    ) {
-      return;
-    }
-
-    try {
-      setIsMedicineDeleting(true);
-      await deleteMedicineBatch(batch.id);
-      toast.success("Medicine batch deleted");
-
-      if (selectedMedicineBatch?.id === batch.id) {
-        setIsMedicineDetailsOpen(false);
-        setSelectedMedicineBatch(null);
-      }
-
-      await Promise.all([loadMedicine(), loadMedicineTotals()]);
-    } catch (error) {
-      console.error("Medicine batch deletion failed", error);
-      toast.error("Failed to delete medicine batch");
-    } finally {
-      setIsMedicineDeleting(false);
-    }
+  const handleDeleteMedicine = (batch: MedicineInventoryBatch) => {
+    setDeleteConfirmType("medicine");
+    setDeleteConfirmItem({
+      id: batch.id,
+      name: batch.medicineName,
+      medicineBatch: batch,
+    });
+    setDeleteConfirmOpen(true);
   };
 
+  const confirmDelete = async () => {
+    if (!deleteConfirmItem) return;
+    setDeleteConfirmOpen(false);
+    if (deleteConfirmType === "feed") {
+      try {
+        await deleteFeed(deleteConfirmItem.id);
+        toast.success("Feed record deleted");
+        await loadFeed();
+      } catch (error) {
+        console.error("Delete feed failed", error);
+        toast.error("Failed to delete record.");
+      }
+    } else {
+      const batch = deleteConfirmItem.medicineBatch;
+      if (!batch) return;
+      try {
+        setIsMedicineDeleting(true);
+        await deleteMedicineBatch(batch.id);
+        toast.success("Medicine batch deleted");
+        if (selectedMedicineBatch?.id === batch.id) {
+          setIsMedicineDetailsOpen(false);
+          setSelectedMedicineBatch(null);
+        }
+        await Promise.all([loadMedicine(), loadMedicineTotals()]);
+      } catch (error) {
+        console.error("Medicine batch deletion failed", error);
+        toast.error("Failed to delete medicine batch");
+      } finally {
+        setIsMedicineDeleting(false);
+      }
+    }
+    setDeleteConfirmItem(null);
+  };
   // GET /api/v1/inventory/feed/food-type/:foodId
   const filterFeed = async (foodId: string) => {
     try {
@@ -1553,12 +1552,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
   // Render
   const currentFarm = selectedFarm;
-  console.log(
-    "🔍 user.role:",
-    user.role,
-    "| is warehouse:",
-    user.role === "warehouse",
-  ); // 👈 add here
+
   return (
     <>
       {" "}
@@ -1954,7 +1948,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                               className="w-7 h-7 text-red-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
                               onClick={(e: React.MouseEvent) => {
                                 e.stopPropagation();
-                                handleDeleteFeed(item.id);
+                                handleDeleteFeed(item.id, item.name);
                               }}
                             >
                               <Trash2 className="w-4 h-4" />
@@ -2388,6 +2382,48 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           />
         )}
       </div>
+      <Dialog
+        open={deleteConfirmOpen}
+        onOpenChange={(open: boolean) => {
+          if (!open) {
+            setDeleteConfirmOpen(false);
+            setDeleteConfirmItem(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-[360px]">
+          <DialogHeader>
+            <DialogTitle className="text-gray-900 font-bold">
+              {deleteConfirmType === "feed" ? "Delete Feed" : "Delete Medicine"}
+            </DialogTitle>
+            <DialogDescription className="text-gray-600 mt-1">
+              Are you sure you want to permanently delete{" "}
+              <span className="font-semibold text-gray-800">
+                {deleteConfirmItem?.name ?? "this item"}
+              </span>
+              ? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-2 flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteConfirmOpen(false);
+                setDeleteConfirmItem(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={confirmDelete}
+              disabled={isMedicineDeleting}
+            >
+              {deleteConfirmType === "feed" ? "Delete Feed" : "Delete Medicine"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

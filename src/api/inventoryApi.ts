@@ -47,3 +47,11 @@ export const updateMedicineBatchQuantity = (id: string, newQuantity: number) =>
 
 export const deleteMedicineBatch = (id: string) =>
   apiDelete<any>(`/inventory/medicine/${id}`);
+
+export const addMedicineStock = (data: {
+  medicineTypeId: string;
+  quantity: number;
+  company: string;
+  receivedDate: string;
+  expiryDate: string;
+}) => apiPost<any>("/inventory/medicine/stock", data);
