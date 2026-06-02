@@ -69,8 +69,14 @@ export default function App() {
 
   useEffect(() => {
     const user = getStoredAppUser();
+
     if (user) {
       setCurrentUser(user);
+
+      if (user.role?.toLowerCase() === "worker") {
+        setCurrentPage("tasks");
+      }
+
       fetchFarms(user);
     }
   }, []);
