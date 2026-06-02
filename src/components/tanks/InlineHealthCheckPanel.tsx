@@ -21,6 +21,7 @@ import {
 } from '../../services/aiDetectionApi';
 import { createHealthCheck } from '../../services/healthCheckApi';
 import { RobotHealthReport } from '../health/RobotHealthReport';
+import { apiGet } from '../../api';
 
 interface InlineHealthCheckPanelProps {
   tankName?: string;
@@ -49,6 +50,8 @@ export function InlineHealthCheckPanel({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [expandedImage, setExpandedImage] = useState<{ src: string; title: string } | null>(null);
+  const [selectedMedicineId, setSelectedMedicineId] = useState('');
+  const [medicineOptions, setMedicineOptions] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     setSelectedBatchId(defaultBatchId);
@@ -65,6 +68,27 @@ export function InlineHealthCheckPanel({
     return () => URL.revokeObjectURL(objectUrl);
   }, [selectedFile]);
 
+  useEffect(() => {
+    const loadMedicineTypes = async () => {
+      try {
+        const res = await apiGet<any>('/inventory/medicine-types');
+        const data = res?.data ?? res;
+        const items = Array.isArray(data)
+          ? data.map((entry: any) => {
+            const id = String(entry?.id || entry?._id || '').trim();
+            const name = String(entry?.name || '').trim();
+            if (!id || !name) return null;
+            return { id, name };
+          }).filter(Boolean)
+          : [];
+        setMedicineOptions(items);
+      } catch {
+        setMedicineOptions([]);
+      }
+    };
+    void loadMedicineTypes();
+  }, []);
+
   const selectedBatch = tankBatches.find((batch) => batch.id === selectedBatchId) || null;
   const annotatedImageSrc = getAnnotatedImageSrc(analysis);
 
@@ -73,6 +97,7 @@ export function InlineHealthCheckPanel({
     setAnalysis(null);
     setReport(null);
     setExpandedImage(null);
+    setSelectedMedicineId('');
   };
 
   const handleAnalyze = async () => {
@@ -119,6 +144,7 @@ export function InlineHealthCheckPanel({
         treatmentSuggestion: report.payload.treatmentSuggestion,
         feedingAdvice: report.payload.feedingAdvice,
         checkedAt: report.payload.checkedAt,
+        medicineId: selectedMedicineId || undefined,
       });
       toast.success('Health report saved to batch history.');
       resetAll();
@@ -165,6 +191,21 @@ export function InlineHealthCheckPanel({
                 {tankBatches.map((batch) => (
                   <SelectItem key={batch.id} value={batch.id}>
                     {getBatchLabel(batch)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="inline-health-medicine">Medicine</Label>
+            <Select value={selectedMedicineId} onValueChange={setSelectedMedicineId}>
+              <SelectTrigger id="inline-health-medicine">
+                <SelectValue placeholder="-- اختر الدواء --" />
+              </SelectTrigger>
+              <SelectContent>
+                {medicineOptions.map((med) => (
+                  <SelectItem key={med.id} value={med.id}>
+                    {med.name}
                   </SelectItem>
                 ))}
               </SelectContent>

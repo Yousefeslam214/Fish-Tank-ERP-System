@@ -31,6 +31,7 @@ import {
   recordRecoveredHealthCheck,
 } from '../services/healthCheckApi';
 import { fetchAllTankHealthOverviews, TankHealthOverview } from '../services/tankHealthOverview';
+import { apiGet } from '../api';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -88,6 +89,29 @@ export default function AIAssistant({ user }: AIAssistantProps) {
   const [selectedBatchForModal, setSelectedBatchForModal] = useState<any>(null);
   const [improvingRecordId, setImprovingRecordId] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<{ src: string; title: string } | null>(null);
+  const [selectedMedicineId, setSelectedMedicineId] = useState('');
+  const [medicineOptions, setMedicineOptions] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    const loadMedicineTypes = async () => {
+      try {
+        const res = await apiGet<any>('/inventory/medicine-types');
+        const data = res?.data ?? res;
+        const items = Array.isArray(data)
+          ? data.map((entry: any) => {
+            const id = String(entry?.id || entry?._id || '').trim();
+            const name = String(entry?.name || '').trim();
+            if (!id || !name) return null;
+            return { id, name };
+          }).filter(Boolean)
+          : [];
+        setMedicineOptions(items);
+      } catch {
+        setMedicineOptions([]);
+      }
+    };
+    void loadMedicineTypes();
+  }, []);
 
   const loadTankHealthHistory = useCallback(async () => {
     setLoadingHistory(true);
@@ -213,6 +237,7 @@ export default function AIAssistant({ user }: AIAssistantProps) {
         treatmentSuggestion: report.payload.treatmentSuggestion,
         feedingAdvice: report.payload.feedingAdvice,
         checkedAt: report.payload.checkedAt,
+        medicineId: selectedMedicineId || undefined,
       });
       toast.success('AI health report saved to tank history.');
       await loadTankHealthHistory();
@@ -323,6 +348,21 @@ export default function AIAssistant({ user }: AIAssistantProps) {
                     {selectedTankBatches.map((batch) => (
                       <SelectItem key={batch.id} value={batch.id}>
                         {getBatchLabel(batch)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ai-medicine">Medicine</Label>
+                <Select value={selectedMedicineId} onValueChange={setSelectedMedicineId}>
+                  <SelectTrigger id="ai-medicine">
+                    <SelectValue placeholder="-- اختر الدواء --" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {medicineOptions.map((med) => (
+                      <SelectItem key={med.id} value={med.id}>
+                        {med.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -453,6 +493,7 @@ export default function AIAssistant({ user }: AIAssistantProps) {
                       setSelectedFile(null);
                       setAnalysis(null);
                       setReport(null);
+                      setSelectedMedicineId('');
                     }}
                   >
                     Reset

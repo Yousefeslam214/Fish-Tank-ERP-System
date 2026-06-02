@@ -6,6 +6,7 @@ import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { User, Farm } from '../types';
+import { apiGet } from '../api';
 import { getHealthTemplateByKey, resolveHealthReportTemplate } from '../services/healthKnowledgeBase';
 import { fetchAllTankHealthOverviews, TankHealthOverview } from '../services/tankHealthOverview';
 import { RobotHealthReport } from './health/RobotHealthReport';
@@ -71,7 +72,9 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
   const [selectedConfigId, setSelectedConfigId] = useState<string>('');
   const [configConditionId, setConfigConditionId] = useState(DEFAULT_CONDITION_ID);
   const [configLevels, setConfigLevels] = useState<HealthLibraryRiskLevel[]>(normalizeHealthLibraryRiskLevels());
+  const [configMedicineId, setConfigMedicineId] = useState('');
   const [configMedicineName, setConfigMedicineName] = useState('');
+  const [medicineOptions, setMedicineOptions] = useState<{ id: string; name: string }[]>([]);
   const [configSummary, setConfigSummary] = useState('');
   const [configSymptoms, setConfigSymptoms] = useState<string[]>(['']);
   const [configFeedingGuidance, setConfigFeedingGuidance] = useState<string[]>(['']);
@@ -125,8 +128,27 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
     }
   };
 
+  const loadMedicineTypes = async () => {
+    try {
+      const res = await apiGet<any>('/inventory/medicine-types');
+      const data = res?.data ?? res;
+      const items = Array.isArray(data)
+        ? data.map((entry: any) => {
+          const id = String(entry?.id || entry?._id || '').trim();
+          const name = String(entry?.name || '').trim();
+          if (!id || !name) return null;
+          return { id, name };
+        }).filter(Boolean)
+        : [];
+      setMedicineOptions(items);
+    } catch {
+      setMedicineOptions([]);
+    }
+  };
+
   useEffect(() => {
     void loadHealthData();
+    void loadMedicineTypes();
   }, []);
 
   useEffect(() => {
@@ -215,6 +237,7 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
       level: previewLevel.level,
       status: previewLevel.status || 'Draft',
       risk: previewLevel.risk,
+      medicineId: configMedicineId.trim() || undefined,
       medicineName: configMedicineName.trim() || undefined,
       summary: configSummary.trim() || selectedTemplate.summary,
       symptoms: compactTextList(configSymptoms).length ? compactTextList(configSymptoms) : selectedTemplate.symptoms,
@@ -233,6 +256,7 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
     : null;
 
   const setConfigDetails = (config?: HealthLibraryConfiguration, template = selectedTemplate) => {
+    setConfigMedicineId(String(config?.medicineId || ''));
     setConfigMedicineName(String(config?.medicineName || ''));
     setConfigSummary(String(config?.summary || template.summary || ''));
     setConfigSymptoms(normalizeTextList(config?.symptoms, template.symptoms));
@@ -246,6 +270,7 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
     setSelectedConfigId('');
     setConfigConditionId(selectedTemplateConditionId || DEFAULT_CONDITION_ID);
     setConfigLevels(normalizeHealthLibraryRiskLevels(undefined, getDefaultRiskLevelsForTemplate(selectedTemplate)));
+    setConfigMedicineId('');
     setConfigDetails(undefined, selectedTemplate);
   };
 
@@ -378,6 +403,7 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
         name: selectedTemplate.title,
         description: `AI health library configuration for ${selectedTemplate.title}`,
         diseaseKey: selectedTemplate.key,
+        medicineId: configMedicineId.trim() || undefined,
         medicineName: configMedicineName.trim() || undefined,
         summary: configSummary.trim(),
         symptoms: compactTextList(configSymptoms),
@@ -421,13 +447,11 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
       let savedConfig: HealthLibraryConfiguration;
       if (selectedConfigId) {
         savedConfig = await updateHealthLibraryConfiguration(selectedConfigId, payload);
-        toast.success(savedConfig.savedLocally
-          ? 'Configuration saved locally because the backend rejected the current DTO body.'
-          : 'Health library configuration updated.');
+        toast.success('Update health library');
       } else {
         savedConfig = await createHealthLibraryConfiguration(payload);
         toast.success(savedConfig.savedLocally
-          ? 'Configuration saved locally because the backend rejected the current DTO body.'
+          ? 'health library created'
           : 'Health library configuration created.');
       }
 
@@ -623,14 +647,26 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
                           <div className="mt-4 grid gap-3 md:grid-cols-2">
                             <div className="space-y-2">
                               <label className="text-xs font-semibold text-slate-600" htmlFor="library-medicine-name">
-                                Medicine name
+                                Medicine
                               </label>
-                              <Input
+                              <select
                                 id="library-medicine-name"
-                                value={configMedicineName}
-                                onChange={(event) => setConfigMedicineName(event.target.value)}
-                                placeholder="اكتب اسم الدواء"
-                              />
+                                value={configMedicineId}
+                                onChange={(event) => {
+                                  const selectedId = event.target.value;
+                                  setConfigMedicineId(selectedId);
+                                  const selected = medicineOptions.find((m) => m.id === selectedId);
+                                  setConfigMedicineName(selected ? selected.name : '');
+                                }}
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                <option value="">-- اختر الدواء --</option>
+                                {medicineOptions.map((med) => (
+                                  <option key={med.id} value={med.id}>
+                                    {med.name}
+                                  </option>
+                                ))}
+                              </select>
                             </div>
                             <div className="space-y-2 md:col-span-2">
                               <label className="text-xs font-semibold text-slate-600" htmlFor="library-summary">

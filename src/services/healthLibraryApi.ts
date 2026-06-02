@@ -36,6 +36,7 @@ export interface HealthLibraryConfiguration {
   description?: string;
   configuration?: Record<string, unknown>;
   diseaseKey?: string;
+  medicineId?: string;
   medicineName?: string;
   summary?: string;
   symptoms?: string[];
@@ -61,6 +62,7 @@ export interface HealthLibraryRecommendation {
   status: string;
   risk?: string;
   message?: string;
+  medicineId?: string;
   medicineName?: string;
   summary?: string;
   symptoms?: string[];
@@ -140,6 +142,7 @@ const toApiConfigurationPayload = (data: HealthLibraryConfiguration) => {
   const conditionId = getHealthLibraryConditionId(data);
   const configuration = {
     diseaseKey: data.diseaseKey,
+    medicineId: data.medicineId,
     medicineName: data.medicineName,
     summary: data.summary,
     symptoms: data.symptoms,
@@ -700,6 +703,7 @@ export const resolveHealthLibraryRecommendation = (
       range: { min: Number(riskLevel.range.min), max: Number(riskLevel.range.max) },
       status: riskLevel.status,
       risk: riskLevel.risk,
+      medicineId: config.medicineId,
       medicineName: config.medicineName,
       summary: config.summary,
       symptoms: config.symptoms,
