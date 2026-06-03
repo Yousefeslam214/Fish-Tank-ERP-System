@@ -159,7 +159,7 @@ export default function MedicineTypeManagement({
       });
     }
   };
-
+  const isTechnician = _user.role.toLowerCase() === "technician";
   return (
     <div className="min-h-screen bg-[#F9FAFB]">
       <div className="bg-[#0A4D68] text-white px-6 py-4">
@@ -193,15 +193,17 @@ export default function MedicineTypeManagement({
               />
               Refresh
             </Button>
-            <Button
-              className="bg-[#088395] hover:bg-[#0A4D68]"
-              onClick={() => {
-                setEditingId(null);
-                setShowCreateModal(true);
-              }}
-            >
-              <Plus className="w-4 h-4 mr-2" /> Add Medicine Type
-            </Button>
+            {isTechnician && (
+              <Button
+                className="bg-[#088395] hover:bg-[#0A4D68]"
+                onClick={() => {
+                  setEditingId(null);
+                  setShowCreateModal(true);
+                }}
+              >
+                <Plus className="w-4 h-4 mr-2" /> Add Medicine Type
+              </Button>
+            )}
           </div>
         </div>
 
