@@ -825,6 +825,28 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     return created.id;
   };
 
+  const getExpiryWarning = (expiryDate?: string) => {
+    const days = getDaysUntilExpiry(expiryDate);
+
+    if (days === null || days < 0) return null;
+
+    if (days <= 14) {
+      return {
+        text: "Critical Expiry",
+        className: "bg-red-100 text-red-700 border border-red-200",
+      };
+    }
+
+    if (days <= 30) {
+      return {
+        text: "Expiring Soon",
+        className: "bg-yellow-100 text-yellow-700 border border-yellow-200",
+      };
+    }
+
+    return null;
+  };
+
   const handleAddResourceSubmit = async () => {
     const expectsFishCount = newResourceData.resourceType === "fish_batch";
     const expectsUnits = newResourceData.resourceType === "medicine";
@@ -1401,7 +1423,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     if (!item.expiryDate) return false;
     const daysUntilExpiry = getDaysUntilExpiry(item.expiryDate);
     return (
-      daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0
+      daysUntilExpiry !== null && daysUntilExpiry <= 30 && daysUntilExpiry > 0
     );
   });
 
@@ -1835,11 +1857,11 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                     {
                       expiringItems.filter((i: any) => {
                         const days = getDaysUntilExpiry(i.expiryDate);
-                        return days !== null && days <= 90;
+                        return days !== null && days <= 30;
                       }).length
                     }
                   </div>
-                  <p className="text-xs text-gray-600 mt-1">Within 90 days</p>
+                  <p className="text-xs text-gray-600 mt-1">Within 30 days</p>
                 </CardContent>
               </Card>
             </div>
@@ -1877,6 +1899,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                   {finalFilteredInventory.map((item: any) => {
                     const Icon = getTypeIcon("feed");
                     const daysUntilExpiry = getDaysUntilExpiry(item.expiryDate);
+                    const expiryWarning = getExpiryWarning(item.expiryDate);
                     const itemName = item.name;
                     const stockStatus = getStockStatus(item);
                     const quantity = toNumber(item.quantity, 0);
@@ -1908,9 +1931,17 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
-                                <p className="font-semibold text-[#0A4D68]">
-                                  {itemName}
-                                </p>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-semibold text-[#0A4D68]">
+                                    {itemName}
+                                  </p>
+
+                                  {expiryWarning && (
+                                    <Badge className={expiryWarning.className}>
+                                      {expiryWarning.text}
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
                               <p className="text-xs text-gray-600">
                                 {item.supplier
@@ -2092,6 +2123,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                       <tbody className="divide-y divide-[#f1f5f9]">
                         {medicineInventory.map((batch) => {
                           const status = getMedicineBatchStatus(batch);
+                          const expiryWarning = getExpiryWarning(
+                            batch.expiryDate,
+                          );
                           return (
                             <tr
                               key={batch.id}
@@ -2108,7 +2142,9 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                               </td>
                               <td className="px-4 py-3">
                                 {batch.mlPerUnit && batch.mlPerUnit > 0
-                                  ? (batch.quantity * batch.mlPerUnit).toLocaleString() + " ml"
+                                  ? (
+                                      batch.quantity * batch.mlPerUnit
+                                    ).toLocaleString() + " ml"
                                   : "—"}
                               </td>
                               <td className="px-4 py-3 text-gray-700">
@@ -2119,12 +2155,20 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                                   : "-"}
                               </td>
                               <td className="px-4 py-3">
-                                <Badge
-                                  variant="outline"
-                                  className={medicineStatusBadgeClass(status)}
-                                >
-                                  {status.replace(/_/g, " ")}
-                                </Badge>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <Badge
+                                    variant="outline"
+                                    className={medicineStatusBadgeClass(status)}
+                                  >
+                                    {status.replace(/_/g, " ")}
+                                  </Badge>
+
+                                  {expiryWarning && (
+                                    <Badge className={expiryWarning.className}>
+                                      {expiryWarning.text}
+                                    </Badge>
+                                  )}
+                                </div>
                               </td>
                               <td className="px-4 py-3">
                                 <div className="flex items-center justify-end gap-2">
@@ -2273,7 +2317,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
               {newResourceData.resourceType === "medicine" && (
                 <div className="grid gap-2">
-                  <Label htmlFor="mlPerUnit">Each unit contains (ml)</Label>
+                  <Label htmlFor="mlPerUnit">Each unit contains (ml)*</Label>
                   <Input
                     id="mlPerUnit"
                     type="number"
@@ -2368,6 +2412,14 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                     <p className="text-xs text-gray-500">Batch</p>
                     <p className="font-mono text-xs">
                       {selectedMedicineBatch.batchNumber || "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">
+                      Each unit contains (ml)
+                    </p>
+                    <p className="font-mono text-xs">
+                      {selectedMedicineBatch.mlPerUnit || "-"}
                     </p>
                   </div>
                   <div>
