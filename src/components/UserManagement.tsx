@@ -27,6 +27,7 @@ import {
   Search,
   Loader2,
 } from "lucide-react";
+import Pagination from "@mui/material/Pagination";
 import { User, Farm } from "../types";
 import { apiGet } from "../api";
 import { mockFarms } from "../mockData";
@@ -99,7 +100,7 @@ const DEFAULT_FORM: StaffRegistrationForm = {
   password: "",
   firstName: "",
   lastName: "",
-  role: "TECNICAN",
+  role: "2",
   farmIds: [],
   gender: "",
   dateOfBirth: "",
@@ -232,7 +233,8 @@ export default function UserManagement({
   const [selectedTechnicianId, setSelectedTechnicianId] = useState("");
   const [assignedTankUserIds, setAssignedTankUserIds] = useState<string[]>([]);
   const [loadingTankAssignments, setLoadingTankAssignments] = useState(false);
-
+  const [currentPage, setCurrentPage] = useState(0);
+  const USERS_PER_PAGE = 5;
   const roleOptions = useMemo(
     () => resolveRoleOptions(metadataEnums.userRoles),
     [metadataEnums],
@@ -280,7 +282,17 @@ export default function UserManagement({
       return haystack.includes(query);
     });
   }, [searchTerm, users]);
+  const userPages = useMemo(() => {
+    const pages = [];
 
+    for (let i = 0; i < filteredUsers.length; i += USERS_PER_PAGE) {
+      pages.push(filteredUsers.slice(i, i + USERS_PER_PAGE));
+    }
+
+    return pages;
+  }, [filteredUsers]);
+
+  const currentUsers = userPages[currentPage] || [];
   const canManageTechnicianAssignments =
     String(user.role || "")
       .trim()
@@ -508,13 +520,27 @@ export default function UserManagement({
       setSubmitting(true);
       setErrorMessage(null);
       setSuccessMessage(null);
-
-      await signupStaffMember({
+      const payload = {
         email: registrationForm.email.trim(),
         password: registrationForm.password,
         firstName: registrationForm.firstName.trim(),
         lastName: registrationForm.lastName.trim(),
         role: registrationForm.role,
+        farmIds: registrationForm.farmIds,
+        gender: registrationForm.gender || undefined,
+        dateOfBirth: registrationForm.dateOfBirth || undefined,
+        address: registrationForm.address.trim() || undefined,
+      };
+
+      console.log("STAFF REGISTRATION REQUEST:", payload);
+      console.log("ROLE OPTIONS", roleOptions);
+      await signupStaffMember({
+        email: registrationForm.email.trim(),
+        password: registrationForm.password,
+        firstName: registrationForm.firstName.trim(),
+        lastName: registrationForm.lastName.trim(),
+        role:
+          registrationForm.role === "TECNICAN" ? "2" : registrationForm.role,
         farmIds: registrationForm.farmIds,
         gender: registrationForm.gender || undefined,
         dateOfBirth: registrationForm.dateOfBirth || undefined,
@@ -1103,7 +1129,7 @@ export default function UserManagement({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map((userEntry) => (
+                {currentUsers.map((userEntry) => (
                   <TableRow key={userEntry.id}>
                     <TableCell>
                       <div className="font-medium">
@@ -1200,6 +1226,16 @@ export default function UserManagement({
                 )}
               </TableBody>
             </Table>
+            <div className="flex justify-center py-4">
+              <Pagination
+                count={userPages.length}
+                page={currentPage + 1}
+                onChange={(_, page) => setCurrentPage(page - 1)}
+                color="primary"
+                showFirstButton
+                showLastButton
+              />
+            </div>
           </CardContent>
         </Card>
       </div>

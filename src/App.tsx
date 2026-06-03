@@ -36,13 +36,6 @@ import {
   resolveAllowedPages,
 } from "./services/moduleAccess";
 
-const canAccessDashboard = (role?: string): boolean => {
-  const normalizedRole = String(role || "")
-    .trim()
-    .toLowerCase();
-  return normalizedRole === "admin" || normalizedRole === "manager";
-};
-
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState("dashboard");
@@ -61,12 +54,9 @@ export default function App() {
     if (!currentUser) {
       return ["dashboard"];
     }
-    return allowedPages.filter(
-      (pageId) =>
-        pageId !== "dashboard" || canAccessDashboard(currentUser.role),
-    );
-  }, [allowedPages, currentUser]);
 
+    return allowedPages;
+  }, [allowedPages, currentUser]);
   useEffect(() => {
     const user = getStoredAppUser();
 
@@ -342,7 +332,10 @@ export default function App() {
   useEffect(() => {
     if (!currentUser) return;
 
-    if (currentPage === "dashboard" && !canAccessDashboard(currentUser.role)) {
+    if (
+      currentPage === "dashboard" &&
+      !effectiveAllowedPages.includes("dashboard")
+    ) {
       const fallbackPage = effectiveAllowedPages[0] || "tanks";
       setCurrentPage(fallbackPage);
       return;
@@ -418,8 +411,7 @@ export default function App() {
 
       <div className="flex-1 overflow-auto">
         {currentPage === "dashboard" &&
-          isPageAllowed("dashboard", effectiveAllowedPages) &&
-          canAccessDashboard(currentUser.role) && (
+          isPageAllowed("dashboard", effectiveAllowedPages) && (
             <Dashboard user={currentUser} selectedFarm={selectedFarm} />
           )}
         {currentPage === "tanks" && (

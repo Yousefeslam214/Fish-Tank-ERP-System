@@ -187,7 +187,8 @@ const normalizeFarm = (entry: unknown): ManagedFarmRecord | null => {
 };
 
 export const getManagementUsers = async (): Promise<ManagedUserRecord[]> => {
-  const payload = await requestJson("/users");
+  const payload = await requestJson("/users?offset=0&limit=1000");
+
   return normalizeArrayPayload(payload, ["users", "items", "rows", "data"])
     .map((entry) => normalizeUser(entry))
     .filter((entry): entry is ManagedUserRecord => entry !== null);
