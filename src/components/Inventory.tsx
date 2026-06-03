@@ -85,6 +85,7 @@ interface MedicineInventoryBatch {
   company: string;
   batchNumber: string;
   quantity: number;
+  mlPerUnit?: number;
   unit: string;
   reorderLevel: number;
   expiryDate?: string;
@@ -149,6 +150,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     medicineCompany: "",
     fishBatchItemId: "",
     quantityKg: "",
+    mlPerUnit: "",
     receiveDate: new Date().toISOString().split("T")[0],
     expiryDate: "",
   });
@@ -392,6 +394,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           entry?.quantityKg,
         0,
       ),
+      mlPerUnit: toNumber(entry?.mlPerUnit ?? entry?.ml_per_unit, 0),
       unit: String(entry?.unit || entry?.quantityUnit || "unit"),
       reorderLevel: toNumber(
         entry?.reorderLevel ??
@@ -714,6 +717,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       medicineCompany: "",
       fishBatchItemId: "",
       quantityKg: "",
+      mlPerUnit: "",
       receiveDate: new Date().toISOString().split("T")[0],
       expiryDate: "",
     });
@@ -1013,9 +1017,15 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           return;
         }
         const medicineQuantity = Math.max(1, Math.round(quantity));
+        const mlPerUnitValue = Number(newResourceData.mlPerUnit);
+        if (!Number.isFinite(mlPerUnitValue) || mlPerUnitValue <= 0) {
+          toast.error("Please enter a valid ml per unit value");
+          return;
+        }
         response = await addMedicineStock({
           medicineTypeId: selectedMedicineType.id,
           quantity: medicineQuantity,
+          mlPerUnit: mlPerUnitValue,
           company: medicineCompany,
           receivedDate: receivedDateValue,
           expiryDate: expiryDateValue,
@@ -2073,6 +2083,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                           <th className="px-4 py-3">Medicine</th>
                           <th className="px-4 py-3">Company</th>
                           <th className="px-4 py-3">Quantity</th>
+                          <th className="px-4 py-3">Quantity (ml)</th>
                           <th className="px-4 py-3">Expiry Date</th>
                           <th className="px-4 py-3">Status</th>
                           <th className="px-4 py-3 text-right">Actions</th>
@@ -2094,6 +2105,11 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                               </td>
                               <td className="px-4 py-3">
                                 {batch.quantity.toLocaleString()} {batch.unit}
+                              </td>
+                              <td className="px-4 py-3">
+                                {batch.mlPerUnit && batch.mlPerUnit > 0
+                                  ? (batch.quantity * batch.mlPerUnit).toLocaleString() + " ml"
+                                  : "—"}
                               </td>
                               <td className="px-4 py-3 text-gray-700">
                                 {batch.expiryDate
@@ -2249,6 +2265,26 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                       setNewResourceData((previous) => ({
                         ...previous,
                         medicineCompany: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              )}
+
+              {newResourceData.resourceType === "medicine" && (
+                <div className="grid gap-2">
+                  <Label htmlFor="mlPerUnit">Each unit contains (ml)</Label>
+                  <Input
+                    id="mlPerUnit"
+                    type="number"
+                    min="0.1"
+                    step="0.1"
+                    placeholder="e.g. 500"
+                    value={newResourceData.mlPerUnit}
+                    onChange={(event) =>
+                      setNewResourceData((previous) => ({
+                        ...previous,
+                        mlPerUnit: event.target.value,
                       }))
                     }
                   />

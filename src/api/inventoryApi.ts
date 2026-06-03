@@ -50,6 +50,7 @@ export const deleteMedicineBatch = (id: string) =>
 export const addMedicineStock = (data: {
   medicineTypeId: string;
   quantity: number;
+  mlPerUnit: number;
   company: string;
   receivedDate: string;
   expiryDate: string;
