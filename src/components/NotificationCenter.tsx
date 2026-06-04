@@ -234,6 +234,7 @@ export default function NotificationCenter({ user, notifications, onUpdateNotifi
                   const subjectText = notification.subject || notification.title || 'Notification';
                   const bodyText = notification.message || notification.body || '';
 
+                  
                   return (
                     <div
                       key={notification.id}
