@@ -18,6 +18,7 @@ import { HealthChecksTab } from "./tabs/HealthChecksTab";
 import { TankTasksTab } from "./tabs/TankTasksTab";
 import { TankAssignmentsTab } from "./tabs/TankAssignmentsTab";
 import { SensorTab } from "./tabs/SensorTab";
+import { MedicineTreatmentView } from "./MedicineTreatmentView";
 
 // Modals
 import { FeedingModal } from "./modals/FeedingModal";
@@ -225,6 +226,7 @@ export default function TankDetailView({
   const [inlineHealthCheckBatchId, setInlineHealthCheckBatchId] = useState<
     string | null
   >(null);
+  const [preSelectedMedicineId, setPreSelectedMedicineId] = useState('');
 
   // Growth History Modal (legacy)
   const [showGrowthHistoryModal, setShowGrowthHistoryModal] = useState(false);
@@ -587,6 +589,11 @@ export default function TankDetailView({
     setInlineHealthCheckBatchId(batch?.id || tankBatches[0]?.id || null);
   };
 
+  const handleApplyTreatment = (medicineId?: string) => {
+    setPreSelectedMedicineId(medicineId || '');
+    setActiveTab("medicine");
+  };
+
   const handleQuarantine = (batch: any) => {
     setSelectedBatchForHealth(batch);
     setHealthModalMode("quarantine");
@@ -783,6 +790,15 @@ export default function TankDetailView({
             </TabsTrigger>
 
             <TabsTrigger
+              value="medicine"
+              style={getStyle("medicine")}
+              onMouseEnter={() => setHovered("medicine")}
+              onMouseLeave={() => setHovered(null)}
+            >
+              Medicine
+            </TabsTrigger>
+
+            <TabsTrigger
               value="tasks"
               style={getStyle("tasks")}
               onMouseEnter={() => setHovered("tasks")}
@@ -890,6 +906,17 @@ export default function TankDetailView({
                 setTimeout(fetchTankDetails, 1000);
               }}
               onRefresh={fetchTankDetails}
+              onApplyTreatment={handleApplyTreatment}
+              tankId={currentTank.id}
+            />
+          </TabsContent>
+
+          <TabsContent value="medicine">
+            <MedicineTreatmentView
+              tankId={currentTank.id}
+              tankName={currentTank.name}
+              preSelectedMedicineId={preSelectedMedicineId}
+              onSuccess={() => setTimeout(fetchTankDetails, 1000)}
             />
           </TabsContent>
 

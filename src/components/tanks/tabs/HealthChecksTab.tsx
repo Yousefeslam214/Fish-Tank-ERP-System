@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, Bot, CheckCircle2, ClipboardList, RefreshCw, ShieldPlus, Stethoscope } from 'lucide-react';
+import { Activity, Bot, CheckCircle2, ClipboardList, Pill, RefreshCw, ShieldPlus, Stethoscope } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
@@ -26,6 +26,8 @@ interface HealthChecksTabProps {
   onRefresh: () => void;
   onMarkImproved?: (batch: any, record: HealthCheckResponseDTO) => void;
   improvingRecordId?: string | null;
+  onApplyTreatment?: (medicineId?: string) => void;
+  tankId?: string;
 }
 
 const formatDateTime = (value?: string) => {
@@ -56,6 +58,8 @@ export function HealthChecksTab({
   onRefresh,
   onMarkImproved,
   improvingRecordId,
+  onApplyTreatment,
+  tankId,
 }: HealthChecksTabProps) {
   const historyByBatch = useMemo(() => {
     const grouped = new Map<string, HealthCheckResponseDTO[]>();
@@ -319,15 +323,26 @@ export function HealthChecksTab({
                   </div>
 
                   {selectedRecord ? (
-                    <RobotHealthReport
-                      template={selectedTemplate}
-                      healthStatus={selectedRecord.healthStatus}
-                      confidencePercent={selectedRecord.bacterialLoadPercentage ?? null}
-                      checkedAt={selectedRecord.checkedAt}
-                      batchLabel={getBatchLabel(selectedBatchEntry.batch)}
-                      topPredictionLabel={selectedRecord.bacterialType}
-                      title={selectedRecord.checkType === 'POST_TREATMENT' ? 'Recovery Health Report' : 'Saved Health Report'}
-                    />
+                    <>
+                      <RobotHealthReport
+                        template={selectedTemplate}
+                        healthStatus={selectedRecord.healthStatus}
+                        confidencePercent={selectedRecord.bacterialLoadPercentage ?? null}
+                        checkedAt={selectedRecord.checkedAt}
+                        batchLabel={getBatchLabel(selectedBatchEntry.batch)}
+                        topPredictionLabel={selectedRecord.bacterialType}
+                        title={selectedRecord.checkType === 'POST_TREATMENT' ? 'Recovery Health Report' : 'Saved Health Report'}
+                      />
+                      {onApplyTreatment && (
+                        <Button
+                          className="w-full bg-[#088395] hover:bg-[#0A4D68]"
+                          onClick={() => onApplyTreatment(selectedRecord.medicineId || '')}
+                        >
+                          <Pill className="mr-2 h-4 w-4" />
+                          Apply Treatment
+                        </Button>
+                      )}
+                    </>
                   ) : (
                     <div className="flex min-h-[360px] flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
                       <Bot className="mb-4 h-12 w-12 text-slate-400" />
