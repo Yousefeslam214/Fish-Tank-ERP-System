@@ -272,24 +272,26 @@ export default function MedicineTypeManagement({
                       {medicineType.description}
                     </p>
                   )}
-                  <div className="flex gap-2 pt-2 border-t">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => handleEdit(medicineType)}
-                    >
-                      <Edit className="w-3 h-3 mr-1" /> Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-red-500 hover:bg-red-50"
-                      onClick={() => setDeleteConfirmId(medicineType.id)}
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  </div>
+                  {isTechnician && (
+                    <div className="flex gap-2 pt-2 border-t">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => handleEdit(medicineType)}
+                      >
+                        <Edit className="w-3 h-3 mr-1" /> Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-red-500 hover:bg-red-50"
+                        onClick={() => setDeleteConfirmId(medicineType.id)}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))

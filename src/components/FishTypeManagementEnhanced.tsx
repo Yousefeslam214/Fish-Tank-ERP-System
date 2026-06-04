@@ -751,13 +751,15 @@ export default function FishTypeManagementEnhanced({
               )}
               Refresh
             </Button>
-           { isTechnician && ( <Button
-              className="bg-[#088395] hover:bg-[#0A4D68]"
-              onClick={openCreateModal}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Fish Type
-            </Button>)}
+            {isTechnician && (
+              <Button
+                className="bg-[#088395] hover:bg-[#0A4D68]"
+                onClick={openCreateModal}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Fish Type
+              </Button>
+            )}
           </div>
         </div>
 
@@ -813,13 +815,15 @@ export default function FishTypeManagementEnhanced({
                     FCR Target: {fishType.fcrMin} - {fishType.fcrMax}
                   </p>
                   <p>Survival Rate: {fishType.survivalRate}%</p>
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => void openEditModal(fishType.id)}
-                  >
-                    Edit
-                  </Button>
+                  {isTechnician && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => void openEditModal(fishType.id)}
+                    >
+                      Edit
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ))}

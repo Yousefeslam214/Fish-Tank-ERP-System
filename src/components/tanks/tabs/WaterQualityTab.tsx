@@ -26,8 +26,10 @@ import {
   subscribeToTankSensorStream,
   SensorReadingEvent,
 } from "../../../services/iotApi";
+import { User } from "../../../types";
 
 interface WaterQualityTabProps {
+  user: User;
   batchAssessments: Record<string, any>;
   tankBatches: any[];
   waterQualityHistory: any[];
@@ -88,6 +90,7 @@ function SensorBadge({ status }: { status: StatusLevel }) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export function WaterQualityTab({
+  user,
   batchAssessments,
   tankBatches,
   waterQualityHistory,
@@ -201,7 +204,7 @@ export function WaterQualityTab({
         return "bg-gray-500 text-white";
     }
   };
-
+  const isTechnician = user.role.toLowerCase() === "technician";
   return (
     <div className="space-y-4 pt-4">
       {/* Real-Time Sensor Feed Card */}
@@ -340,14 +343,16 @@ export function WaterQualityTab({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Water Quality Trends - Last 30 Days</CardTitle>
-          <Button
-            size="sm"
-            className="bg-[#088395] hover:bg-[#0A4D68]"
-            onClick={() => setShowWaterQualityModal(true)}
-          >
-            <Droplet className="w-4 h-4 mr-2" />
-            Record New Reading
-          </Button>
+          {isTechnician && (
+            <Button
+              size="sm"
+              className="bg-[#088395] hover:bg-[#0A4D68]"
+              onClick={() => setShowWaterQualityModal(true)}
+            >
+              <Droplet className="w-4 h-4 mr-2" />
+              Record New Reading
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>

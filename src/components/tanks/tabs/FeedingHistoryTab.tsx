@@ -15,7 +15,6 @@ interface FeedingHistoryTabProps {
   tankBatches: any[];
 }
 
-
 export function FeedingHistoryTab({
   tankFeedingCalculation,
   feedingHistory,
@@ -26,7 +25,6 @@ export function FeedingHistoryTab({
   user,
   tankBatches,
 }: FeedingHistoryTabProps) {
-
   const parseVal = (val: any) => {
     if (typeof val === "number") return val;
     if (typeof val === "string")
@@ -58,31 +56,31 @@ export function FeedingHistoryTab({
 
   const dailyTarget = parseVal(
     tankFeedingCalculation?.recommendedAmount ||
-    tankFeedingCalculation?.totalRecommended ||
-    "0",
+      tankFeedingCalculation?.totalRecommended ||
+      "0",
   );
 
   React.useEffect(() => {
     console.log("Feeding History Records:", feedingRecords);
   }, [feedingRecords]);
-
+  const isTecnhician = user?.role === "technician";
   return (
     <div className="space-y-4 pt-4">
-
-
-
-
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900">Feeding History Records</h3>
-          <Button
-            size="sm"
-            className="bg-[#088395] hover:bg-[#0A4D68]"
-            onClick={() => setShowFeedingModal(true)}
-          >
-            <Fish className="w-4 h-4 mr-2" />
-            Record Feeding
-          </Button>
+          <h3 className="font-semibold text-gray-900">
+            Feeding History Records
+          </h3>
+          {isTecnhician && (
+            <Button
+              size="sm"
+              className="bg-[#088395] hover:bg-[#0A4D68]"
+              onClick={() => setShowFeedingModal(true)}
+            >
+              <Fish className="w-4 h-4 mr-2" />
+              Record Feeding
+            </Button>
+          )}
         </div>
         <div className="space-y-3">
           {feedingRecords.length === 0 ? (
@@ -139,7 +137,6 @@ export function FeedingHistoryTab({
                                 >
                                   {record.status || "PENDING"}
                                 </Badge>
-                                
                               </div>
                             </div>
                           </div>
@@ -181,14 +178,14 @@ export function FeedingHistoryTab({
                                 title={
                                   typeof record.foodType === "object"
                                     ? record.foodType?.name ||
-                                    record.foodType?.brand
+                                      record.foodType?.brand
                                     : record.foodType || record.feedType
                                 }
                               >
                                 {typeof record.foodType === "object"
                                   ? record.foodType?.name ||
-                                  record.foodType?.brand ||
-                                  "Standard Feed"
+                                    record.foodType?.brand ||
+                                    "Standard Feed"
                                   : record.foodType || record.feedType || "N/A"}
                               </p>
                             </div>
@@ -208,9 +205,7 @@ export function FeedingHistoryTab({
                           </div>
                         </div>
 
-                        <div className="flex sm:flex-col gap-2">
-                          
-                        </div>
+                        <div className="flex sm:flex-col gap-2"></div>
                       </div>
                     </CardContent>
                   </Card>

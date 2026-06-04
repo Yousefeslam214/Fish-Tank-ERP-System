@@ -61,31 +61,31 @@ const normalizeGrowthMeasurement = (measurement: any) => ({
   ...measurement,
   measuredAt: toValidDate(
     measurement?.measuredAt ??
-    measurement?.measurementDate ??
-    measurement?.date ??
-    measurement?.timestamp ??
-    measurement?.createdAt,
+      measurement?.measurementDate ??
+      measurement?.date ??
+      measurement?.timestamp ??
+      measurement?.createdAt,
   ),
   daysInCulture:
     toFiniteNumber(
       measurement?.daysInCulture ??
-      measurement?.dayInCulture ??
-      measurement?.day,
+        measurement?.dayInCulture ??
+        measurement?.day,
     ) ?? 0,
   sampleSize:
     toFiniteNumber(
       measurement?.sampleSize ??
-      measurement?.sampleCount ??
-      measurement?.numberOfFishSampled ??
-      measurement?.count,
+        measurement?.sampleCount ??
+        measurement?.numberOfFishSampled ??
+        measurement?.count,
     ) ?? 0,
   averageWeightGrams:
     toFiniteNumber(
       measurement?.averageWeightGrams ??
-      measurement?.averageWeight ??
-      measurement?.avgWeight ??
-      measurement?.weightGrams ??
-      measurement?.weight,
+        measurement?.averageWeight ??
+        measurement?.avgWeight ??
+        measurement?.weightGrams ??
+        measurement?.weight,
     ) ?? 0,
   sgr: toFiniteNumber(measurement?.sgr),
   fcr: toFiniteNumber(measurement?.fcr),
@@ -116,9 +116,9 @@ const normalizeTodayFeedingEntry = (entry: any) => {
     entry?.timestamp || entry?.fedAt || entry?.date || entry?.createdAt;
   const computedTime = timestamp
     ? new Date(timestamp).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    })
+        hour: "2-digit",
+        minute: "2-digit",
+      })
     : "–";
 
   return {
@@ -132,9 +132,9 @@ const normalizeTodayFeedingEntry = (entry: any) => {
       typeof entry?.foodType === "object"
         ? entry?.foodType?.name || entry?.foodType?.brand || "Standard Feed"
         : entry?.foodType ||
-        entry?.foodTypeName ||
-        entry?.feedType ||
-        "Standard Feed",
+          entry?.foodTypeName ||
+          entry?.feedType ||
+          "Standard Feed",
     operator: entry?.fedBy || entry?.recordedBy || "Operator",
   };
 };
@@ -226,7 +226,7 @@ export default function TankDetailView({
   const [inlineHealthCheckBatchId, setInlineHealthCheckBatchId] = useState<
     string | null
   >(null);
-  const [preSelectedMedicineId, setPreSelectedMedicineId] = useState('');
+  const [preSelectedMedicineId, setPreSelectedMedicineId] = useState("");
 
   // Growth History Modal (legacy)
   const [showGrowthHistoryModal, setShowGrowthHistoryModal] = useState(false);
@@ -411,9 +411,9 @@ export default function TankDetailView({
               const existing = uniqueFdMap.get(r.id);
               const exDate = existing
                 ? existing.timestamp ||
-                existing.fedAt ||
-                existing.date ||
-                existing.createdAt
+                  existing.fedAt ||
+                  existing.date ||
+                  existing.createdAt
                 : null;
               if (!existing || new Date(rDate) > new Date(exDate)) {
                 uniqueFdMap.set(r.id, r);
@@ -462,15 +462,15 @@ export default function TankDetailView({
             setIsActionRequired(true);
             setActionReason(
               tankAction.reason ||
-              tankAction.message ||
-              "Parameters outside safe range",
+                tankAction.message ||
+                "Parameters outside safe range",
             );
           } else {
             setIsActionRequired(false);
             setActionReason(null);
           }
         }
-      } catch (e) { }
+      } catch (e) {}
 
       // Fetch Tank Level Feeding Calculation
       try {
@@ -478,7 +478,7 @@ export default function TankDetailView({
           `/tanks/feeding-records/calculation/tank/${tank.id}`,
         );
         setTankFeedingCalculation(tankCalcRes.data ?? tankCalcRes);
-      } catch (e) { }
+      } catch (e) {}
 
       setWaterQualityRecords(wqData);
       setHealthCheckRecords(healthData);
@@ -500,25 +500,25 @@ export default function TankDetailView({
             volume: dashData.tankInfo?.volumeCubicMeters || prev.volume,
             waterQuality: wq
               ? {
-                overall: (
-                  wq.overallStatus ||
-                  wq.overall ||
-                  "unknown"
-                ).toLowerCase(),
-                temp: {
-                  value: wq.temperature || wq.temp?.value || 0,
-                  status: "unknown",
-                },
-                do: {
-                  value: wq.dissolvedOxygen || wq.do?.value || 0,
-                  status: "unknown",
-                },
-                ph: { value: wq.ph || wq.phValue || 0, status: "unknown" },
-                nh3: {
-                  value: wq.ammonia || wq.totalAmmonia || 0,
-                  status: "unknown",
-                },
-              }
+                  overall: (
+                    wq.overallStatus ||
+                    wq.overall ||
+                    "unknown"
+                  ).toLowerCase(),
+                  temp: {
+                    value: wq.temperature || wq.temp?.value || 0,
+                    status: "unknown",
+                  },
+                  do: {
+                    value: wq.dissolvedOxygen || wq.do?.value || 0,
+                    status: "unknown",
+                  },
+                  ph: { value: wq.ph || wq.phValue || 0, status: "unknown" },
+                  nh3: {
+                    value: wq.ammonia || wq.totalAmmonia || 0,
+                    status: "unknown",
+                  },
+                }
               : prev.waterQuality,
           };
         });
@@ -590,7 +590,7 @@ export default function TankDetailView({
   };
 
   const handleApplyTreatment = (medicineId?: string) => {
-    setPreSelectedMedicineId(medicineId || '');
+    setPreSelectedMedicineId(medicineId || "");
     setActiveTab("medicine");
   };
 
@@ -647,11 +647,11 @@ export default function TankDetailView({
             r.time ||
             (r.timestamp || r.fedAt || r.createdAt
               ? new Date(
-                r.timestamp || r.fedAt || r.createdAt,
-              ).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })
+                  r.timestamp || r.fedAt || r.createdAt,
+                ).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
               : "–"),
           fed,
           recommended,
@@ -850,6 +850,7 @@ export default function TankDetailView({
 
           <TabsContent value="water">
             <WaterQualityTab
+              user={user}
               batchAssessments={batchAssessments}
               tankBatches={tankBatches}
               waterQualityHistory={waterQualityHistory}
@@ -964,8 +965,8 @@ export default function TankDetailView({
                   currentTank.species,
                 stockedDate: new Date(
                   selectedBatchForHistory.dates?.stockedDate ||
-                  selectedBatchForHistory.stockedDate ||
-                  Date.now(),
+                    selectedBatchForHistory.stockedDate ||
+                    Date.now(),
                 ),
                 initialCount:
                   selectedBatchForHistory.counts?.initial ||
@@ -979,10 +980,10 @@ export default function TankDetailView({
                   typeof selectedBatchForHistory.weights?.initial === "number"
                     ? selectedBatchForHistory.weights.initial
                     : parseFloat(
-                      selectedBatchForHistory.weights?.initial ||
-                      selectedBatchForHistory.initialAverageWeight ||
-                      "0",
-                    ),
+                        selectedBatchForHistory.weights?.initial ||
+                          selectedBatchForHistory.initialAverageWeight ||
+                          "0",
+                      ),
               }}
               measurements={batchGrowthHistory}
               onMeasurementAdded={() =>
@@ -1072,11 +1073,11 @@ export default function TankDetailView({
               typeof selectedBatchForUpdate.weights?.currentAvg === "number"
                 ? selectedBatchForUpdate.weights.currentAvg
                 : parseFloat(
-                  selectedBatchForUpdate.weights?.currentAvg ||
-                  selectedBatchForUpdate.currentAverageWeight ||
-                  selectedBatchForUpdate.avgWeight ||
-                  "0",
-                ),
+                    selectedBatchForUpdate.weights?.currentAvg ||
+                      selectedBatchForUpdate.currentAverageWeight ||
+                      selectedBatchForUpdate.avgWeight ||
+                      "0",
+                  ),
             lastMeasurementDate: selectedBatchForUpdate.dates?.lastSampled
               ? new Date(selectedBatchForUpdate.dates.lastSampled)
               : undefined,

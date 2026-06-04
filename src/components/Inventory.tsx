@@ -455,7 +455,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     }
   };
 
-  const loadMedicine = async () => {
+  const loadMedicine = async (): Promise<MedicineInventoryBatch[]> => {
     try {
       const res = await getMedicineInventory();
       const normalized = getArrayPayload(res)
@@ -467,9 +467,11 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
           )
         : normalized;
       setMedicineInventory(filtered);
+      return filtered;
     } catch (error) {
       console.error("Error loading medicine inventory", error);
       setMedicineInventory([]);
+      return [];
     }
   };
 
@@ -1145,12 +1147,16 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
       try {
         setIsMedicineDeleting(true);
         await deleteMedicineBatch(batch.id);
-        toast.success("Medicine batch deleted");
         if (selectedMedicineBatch?.id === batch.id) {
           setIsMedicineDetailsOpen(false);
           setSelectedMedicineBatch(null);
         }
-        await Promise.all([loadMedicine(), loadMedicineTotals()]);
+        const refreshedMedicine = await loadMedicine();
+        await loadMedicineTotals();
+        if (refreshedMedicine.some((item) => item.id === batch.id)) {
+          throw new Error("Deleted medicine batch still present after refresh");
+        }
+        toast.success("Medicine batch deleted");
       } catch (error) {
         console.error("Medicine batch deletion failed", error);
         toast.error("Failed to delete medicine batch");
@@ -1584,7 +1590,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
   // Render
   const currentFarm = selectedFarm;
-
+  const isWarehouse = user.role === "warehouse";
   return (
     <>
       {" "}
@@ -1614,7 +1620,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
             </p>
           </div>
 
-          {user.role === "warehouse" && (
+          {isWarehouse && (
             <Button
               onClick={() => setIsAddResourcesOpen(true)}
               className="bg-[#088395] hover:bg-[#0A4D68]"
@@ -1802,16 +1808,18 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                     </div>
                     <div className="flex items-center gap-2">
                       {getStatusBadge(batch.status)}
-                      <Button
-                        className="bg-[#0A4D68] hover:bg-[#083d52]"
-                        onClick={() => {
-                          setSelectedBatch(batch);
-                          setShowAllocateModal(true);
-                        }}
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Allocate to Tank
-                      </Button>
+                      {isWarehouse && (
+                        <Button
+                          className="bg-[#0A4D68] hover:bg-[#083d52]"
+                          onClick={() => {
+                            setSelectedBatch(batch);
+                            setShowAllocateModal(true);
+                          }}
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Allocate to Tank
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1983,17 +1991,19 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                             </div>
                           </div>
                           <div className="text-right flex flex-col items-end gap-2 text-right">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="w-7 h-7 text-red-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e: React.MouseEvent) => {
-                                e.stopPropagation();
-                                handleDeleteFeed(item.id, item.name);
-                              }}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            {isWarehouse && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="w-7 h-7 text-red-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={(e: React.MouseEvent) => {
+                                  e.stopPropagation();
+                                  handleDeleteFeed(item.id, item.name);
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -2180,15 +2190,19 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                                     <Eye className="w-4 h-4 mr-2" />
                                     Details
                                   </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    onClick={() => handleDeleteMedicine(batch)}
-                                    disabled={isMedicineDeleting}
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
+                                  {isWarehouse && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      onClick={() =>
+                                        handleDeleteMedicine(batch)
+                                      }
+                                      disabled={isMedicineDeleting}
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  )}
                                 </div>
                               </td>
                             </tr>

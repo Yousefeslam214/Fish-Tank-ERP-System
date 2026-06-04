@@ -1,12 +1,21 @@
-import { useState } from 'react';
-import { Card, CardContent } from '../ui/card';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingUp, Calendar, Users, Scale } from 'lucide-react';
-import { getTranslation, Language } from '../../i18n/translations';
-import RecordGrowthMeasurement from './RecordGrowthMeasurement';
-
+import { useState } from "react";
+import { Card, CardContent } from "../ui/card";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+import { TrendingUp, Calendar, Users, Scale } from "lucide-react";
+import { getTranslation, Language } from "../../i18n/translations";
+import RecordGrowthMeasurement from "./RecordGrowthMeasurement";
+import { User } from "../../types";
 interface GrowthMeasurement {
   id: string;
   measuredAt: Date;
@@ -21,6 +30,7 @@ interface GrowthMeasurement {
 }
 
 interface GrowthHistoryProps {
+  user: User;
   batch: {
     id: string;
     batchNumber: string;
@@ -41,12 +51,12 @@ interface GrowthHistoryProps {
 }
 
 const toFiniteNumber = (value: any): number | undefined => {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value === 'string') {
-    const parsed = Number.parseFloat(value.replace(/[^\d.-]/g, ''));
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value.replace(/[^\d.-]/g, ""));
     return Number.isFinite(parsed) ? parsed : undefined;
   }
-  if (value && typeof value === 'object' && 'value' in value) {
+  if (value && typeof value === "object" && "value" in value) {
     return toFiniteNumber((value as { value?: unknown }).value);
   }
   return undefined;
@@ -58,51 +68,55 @@ const toValidDate = (value: any): Date => {
 };
 
 export default function GrowthHistory({
+  user,
   batch,
   measurements,
-  language = 'en',
+  language = "en",
   onMeasurementAdded,
-  onViewDetails
+  onViewDetails,
 }: GrowthHistoryProps) {
   const t = (key: string) => getTranslation(language, key);
-  const isRTL = language === 'ar';
+  const isRTL = language === "ar";
   const [showRecordModal, setShowRecordModal] = useState(false);
-  const [editingMeasurement, setEditingMeasurement] = useState<GrowthMeasurement | null>(null);
+  const [editingMeasurement, setEditingMeasurement] =
+    useState<GrowthMeasurement | null>(null);
 
   const normalizedMeasurements = measurements.map((measurement) => ({
     ...measurement,
     measuredAt: toValidDate(
       (measurement as any).measuredAt ??
-      (measurement as any).measurementDate ??
-      (measurement as any).date ??
-      (measurement as any).timestamp ??
-      (measurement as any).createdAt,
+        (measurement as any).measurementDate ??
+        (measurement as any).date ??
+        (measurement as any).timestamp ??
+        (measurement as any).createdAt,
     ),
     daysInCulture:
       toFiniteNumber(
         (measurement as any).daysInCulture ??
-        (measurement as any).dayInCulture ??
-        (measurement as any).day,
+          (measurement as any).dayInCulture ??
+          (measurement as any).day,
       ) ?? 0,
     sampleSize:
       toFiniteNumber(
         (measurement as any).sampleSize ??
-        (measurement as any).sampleCount ??
-        (measurement as any).numberOfFishSampled ??
-        (measurement as any).count,
+          (measurement as any).sampleCount ??
+          (measurement as any).numberOfFishSampled ??
+          (measurement as any).count,
       ) ?? 0,
     averageWeightGrams:
       toFiniteNumber(
         (measurement as any).averageWeightGrams ??
-        (measurement as any).averageWeight ??
-        (measurement as any).avgWeight ??
-        (measurement as any).weightGrams ??
-        (measurement as any).weight,
+          (measurement as any).averageWeight ??
+          (measurement as any).avgWeight ??
+          (measurement as any).weightGrams ??
+          (measurement as any).weight,
       ) ?? 0,
     sgr: toFiniteNumber((measurement as any).sgr),
     fcr: toFiniteNumber((measurement as any).fcr),
-    sgrRating: (measurement as any).sgrRating ?? (measurement as any).sgr?.rating,
-    fcrRating: (measurement as any).fcrRating ?? (measurement as any).fcr?.rating,
+    sgrRating:
+      (measurement as any).sgrRating ?? (measurement as any).sgr?.rating,
+    fcrRating:
+      (measurement as any).fcrRating ?? (measurement as any).fcr?.rating,
     overallRating:
       (measurement as any).overallRating ??
       (measurement as any).rating ??
@@ -110,30 +124,40 @@ export default function GrowthHistory({
   })) as GrowthMeasurement[];
 
   const daysInCulture = Math.floor(
-    (new Date().getTime() - batch.stockedDate.getTime()) / (1000 * 60 * 60 * 24)
+    (new Date().getTime() - batch.stockedDate.getTime()) /
+      (1000 * 60 * 60 * 24),
   );
 
-  const lastMeasurement = normalizedMeasurements.length > 0
-    ? normalizedMeasurements[0]
-    : null;
+  const lastMeasurement =
+    normalizedMeasurements.length > 0 ? normalizedMeasurements[0] : null;
 
   const getRatingColor = (rating?: string) => {
     switch (rating) {
-      case 'EXCELLENT': return 'bg-[#10B981] text-white';
-      case 'GOOD': return 'bg-[#3B82F6] text-white';
-      case 'ACCEPTABLE': return 'bg-[#F59E0B] text-white';
-      case 'POOR': return 'bg-[#EF4444] text-white';
-      default: return 'bg-gray-500 text-white';
+      case "EXCELLENT":
+        return "bg-[#10B981] text-white";
+      case "GOOD":
+        return "bg-[#3B82F6] text-white";
+      case "ACCEPTABLE":
+        return "bg-[#F59E0B] text-white";
+      case "POOR":
+        return "bg-[#EF4444] text-white";
+      default:
+        return "bg-gray-500 text-white";
     }
   };
 
   const getRatingIcon = (rating?: string) => {
     switch (rating) {
-      case 'EXCELLENT': return '🟢';
-      case 'GOOD': return '🟡';
-      case 'ACCEPTABLE': return '🟠';
-      case 'POOR': return '🔴';
-      default: return '';
+      case "EXCELLENT":
+        return "🟢";
+      case "GOOD":
+        return "🟡";
+      case "ACCEPTABLE":
+        return "🟠";
+      case "POOR":
+        return "🔴";
+      default:
+        return "";
     }
   };
 
@@ -142,34 +166,37 @@ export default function GrowthHistory({
     {
       day: 0,
       weight: batch.initialWeight,
-      sgr: undefined
+      sgr: undefined,
     },
-    ...normalizedMeasurements.map(m => ({
+    ...normalizedMeasurements.map((m) => ({
       day: m.daysInCulture,
       weight: m.averageWeightGrams,
-      sgr: m.sgr
-    }))
+      sgr: m.sgr,
+    })),
   ].sort((a, b) => a.day - b.day);
-
+  const isTechnician = user?.role === "technician";
   return (
-    <div className={`space-y-6 ${isRTL ? 'rtl' : 'ltr'}`}>
+    <div className={`space-y-6 ${isRTL ? "rtl" : "ltr"}`}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold">
-            {t('growthMeasurement.growthHistory')} - {batch.batchNumber}
+            {t("growthMeasurement.growthHistory")} - {batch.batchNumber}
           </h2>
           <p className="text-sm text-gray-600 mt-1">
-            {batch.fishType} • {daysInCulture} {t('growthMeasurement.days')} {t('growthMeasurement.daysInCulture')}
+            {batch.fishType} • {daysInCulture} {t("growthMeasurement.days")}{" "}
+            {t("growthMeasurement.daysInCulture")}
           </p>
         </div>
-        <Button
-          className="bg-[#088395] hover:bg-[#0A4D68]"
-          onClick={() => setShowRecordModal(true)}
-        >
-          <Scale className="w-4 h-4 mr-2" />
-          {t('growthMeasurement.recordNew')}
-        </Button>
+        {isTechnician && (
+          <Button
+            className="bg-[#088395] hover:bg-[#0A4D68]"
+            onClick={() => setShowRecordModal(true)}
+          >
+            <Scale className="w-4 h-4 mr-2" />
+            {t("growthMeasurement.recordNew")}
+          </Button>
+        )}
       </div>
 
       {/* Growth Chart */}
@@ -184,16 +211,28 @@ export default function GrowthHistory({
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="day"
-                label={{ value: 'Days in Culture', position: 'insideBottom', offset: -5 }}
+                label={{
+                  value: "Days in Culture",
+                  position: "insideBottom",
+                  offset: -5,
+                }}
               />
               <YAxis
                 yAxisId="left"
-                label={{ value: 'Weight (g)', angle: -90, position: 'insideLeft' }}
+                label={{
+                  value: "Weight (g)",
+                  angle: -90,
+                  position: "insideLeft",
+                }}
               />
               <YAxis
                 yAxisId="right"
                 orientation="right"
-                label={{ value: 'SGR (%/day)', angle: 90, position: 'insideRight' }}
+                label={{
+                  value: "SGR (%/day)",
+                  angle: 90,
+                  position: "insideRight",
+                }}
               />
               <Tooltip />
               <Legend />
@@ -226,7 +265,10 @@ export default function GrowthHistory({
 
         <div className="space-y-4">
           {normalizedMeasurements.map((measurement, index) => (
-            <Card key={measurement.id} className="bg-white shadow-sm border-l-4 border-l-[#088395]">
+            <Card
+              key={measurement.id}
+              className="bg-white shadow-sm border-l-4 border-l-[#088395]"
+            >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -236,11 +278,14 @@ export default function GrowthHistory({
                         {measurement.measuredAt.toLocaleDateString()}
                       </span>
                       <Badge variant="outline">
-                        {t('growthMeasurement.day')} {measurement.daysInCulture}
+                        {t("growthMeasurement.day")} {measurement.daysInCulture}
                       </Badge>
                       {measurement.overallRating && (
-                        <Badge className={getRatingColor(measurement.overallRating)}>
-                          {getRatingIcon(measurement.overallRating)} {measurement.overallRating}
+                        <Badge
+                          className={getRatingColor(measurement.overallRating)}
+                        >
+                          {getRatingIcon(measurement.overallRating)}{" "}
+                          {measurement.overallRating}
                         </Badge>
                       )}
                     </div>
@@ -249,16 +294,23 @@ export default function GrowthHistory({
                       <div className="flex items-center gap-2">
                         <Scale className="w-4 h-4 text-gray-400" />
                         <div>
-                          <p className="text-xs text-gray-600">{t('common.weight')}</p>
-                          <p className="font-semibold">{measurement.averageWeightGrams.toFixed(1)}{t('common.g')}</p>
+                          <p className="text-xs text-gray-600">
+                            {t("common.weight")}
+                          </p>
+                          <p className="font-semibold">
+                            {measurement.averageWeightGrams.toFixed(1)}
+                            {t("common.g")}
+                          </p>
                         </div>
                       </div>
 
                       {measurement.sgr !== undefined && (
                         <div>
                           <p className="text-xs text-gray-600">SGR</p>
-                          <Badge className={getRatingColor(measurement.sgrRating)}>
-                            {measurement.sgr.toFixed(2)}%/{t('common.day')}
+                          <Badge
+                            className={getRatingColor(measurement.sgrRating)}
+                          >
+                            {measurement.sgr.toFixed(2)}%/{t("common.day")}
                           </Badge>
                         </div>
                       )}
@@ -266,7 +318,9 @@ export default function GrowthHistory({
                       {measurement.fcr !== undefined && (
                         <div>
                           <p className="text-xs text-gray-600">FCR</p>
-                          <Badge className={getRatingColor(measurement.fcrRating)}>
+                          <Badge
+                            className={getRatingColor(measurement.fcrRating)}
+                          >
                             {measurement.fcr.toFixed(2)}
                           </Badge>
                         </div>
@@ -275,13 +329,17 @@ export default function GrowthHistory({
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4 text-gray-400" />
                         <div>
-                          <p className="text-xs text-gray-600">{t('growthMeasurement.sample')}</p>
-                          <p className="font-semibold">{measurement.sampleSize} {t('growthMeasurement.fish')}</p>
+                          <p className="text-xs text-gray-600">
+                            {t("growthMeasurement.sample")}
+                          </p>
+                          <p className="font-semibold">
+                            {measurement.sampleSize}{" "}
+                            {t("growthMeasurement.fish")}
+                          </p>
                         </div>
                       </div>
                     </div>
                   </div>
-
                 </div>
               </CardContent>
             </Card>
@@ -297,12 +355,13 @@ export default function GrowthHistory({
                     {batch.stockedDate.toLocaleDateString()}
                   </span>
                   <Badge variant="outline" className="ml-2">
-                    {t('growthMeasurement.stocked')}
+                    {t("growthMeasurement.stocked")}
                   </Badge>
                 </div>
               </div>
               <div className="ml-8 mt-2 text-sm text-gray-600">
-                {t('growthMeasurement.initial')}: {batch.initialWeight}g • {batch.initialCount} {t('growthMeasurement.fish')}
+                {t("growthMeasurement.initial")}: {batch.initialWeight}g •{" "}
+                {batch.initialCount} {t("growthMeasurement.fish")}
               </div>
             </CardContent>
           </Card>
@@ -324,9 +383,13 @@ export default function GrowthHistory({
           tankId: batch.tankId,
           fishType: batch.fishType,
           daysInCulture,
-          lastWeight: lastMeasurement?.averageWeightGrams || batch.lastWeight || batch.initialWeight,
-          lastMeasurementDate: lastMeasurement?.measuredAt || batch.lastMeasurementDate,
-          currentCount: batch.currentCount
+          lastWeight:
+            lastMeasurement?.averageWeightGrams ||
+            batch.lastWeight ||
+            batch.initialWeight,
+          lastMeasurementDate:
+            lastMeasurement?.measuredAt || batch.lastMeasurementDate,
+          currentCount: batch.currentCount,
         }}
         language={language}
         onSuccess={() => {
