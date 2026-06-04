@@ -167,7 +167,6 @@ export function MedicineTreatmentView({
       if (appliedAt) payload.appliedAt = new Date(appliedAt).toISOString();
 
       const response = await apiPost<any>("/inventory/medicine/apply", payload);
-      void response;
 
       toast.success("Treatment applied.");
       setQuantityUsed("");
