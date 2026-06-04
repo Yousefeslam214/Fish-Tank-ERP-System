@@ -38,7 +38,7 @@ interface MedicineTreatmentViewProps {
   tankName: string;
   preSelectedMedicineId?: string;
   onSuccess?: () => void;
-  user?: User;
+  user: User;
 }
 
 export function MedicineTreatmentView({
@@ -185,7 +185,7 @@ export function MedicineTreatmentView({
       setIsSubmitting(false);
     }
   };
-  const isTechnician = user?.role === "technician";
+  const isTechnician = user.role === "technician";
   return (
     <div className="space-y-4 pt-4">
       <Card>

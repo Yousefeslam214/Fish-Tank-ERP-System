@@ -877,6 +877,7 @@ export default function TankDetailView({
 
           <TabsContent value="growth">
             <GrowthMeasurementsTab
+              user={user}
               tankBatches={tankBatches}
               selectedBatchId={selectedBatchId}
               setSelectedBatchId={setSelectedBatchId}
@@ -891,6 +892,7 @@ export default function TankDetailView({
 
           <TabsContent value="health">
             <HealthChecksTab
+              user={user}
               tankName={currentTank.name}
               tankBatches={tankBatches}
               healthChecks={healthCheckRecords}
@@ -914,6 +916,7 @@ export default function TankDetailView({
 
           <TabsContent value="medicine">
             <MedicineTreatmentView
+              user={user}
               tankId={currentTank.id}
               tankName={currentTank.name}
               preSelectedMedicineId={preSelectedMedicineId}
@@ -953,6 +956,7 @@ export default function TankDetailView({
             </div>
           ) : selectedBatchForHistory ? (
             <GrowthHistory
+              user={user}
               batch={{
                 id: selectedBatchForHistory.id,
                 batchNumber:
@@ -1043,6 +1047,7 @@ export default function TankDetailView({
       />
 
       <GrowthDetailsModal
+        
         open={showGrowthDetailsModal}
         onOpenChange={setShowGrowthDetailsModal}
         record={selectedGrowthRecord}
@@ -1051,6 +1056,7 @@ export default function TankDetailView({
 
       {selectedBatchForUpdate && (
         <RecordGrowthMeasurement
+          
           open={showRecordGrowthModal}
           onClose={() => setShowRecordGrowthModal(false)}
           batch={{

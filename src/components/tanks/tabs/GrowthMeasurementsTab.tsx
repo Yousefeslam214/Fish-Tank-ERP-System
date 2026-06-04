@@ -5,7 +5,7 @@ import { Label } from "../../ui/label";
 import { Fish, RefreshCw } from "lucide-react";
 import GrowthHistory from "../GrowthHistory";
 import { apiGet } from "../../../api";
-
+import { User } from "../../../types";
 interface GrowthMeasurementsTabProps {
   tankBatches: any[];
   selectedBatchId: string | null;
@@ -16,6 +16,7 @@ interface GrowthMeasurementsTabProps {
   fetchTankDetails: () => void;
   setSelectedGrowthRecord: (record: any) => void;
   setShowGrowthDetailsModal: (show: boolean) => void;
+  user: User;
 }
 
 export function GrowthMeasurementsTab({
@@ -28,11 +29,12 @@ export function GrowthMeasurementsTab({
   fetchTankDetails,
   setSelectedGrowthRecord,
   setShowGrowthDetailsModal,
+  user,
 }: GrowthMeasurementsTabProps) {
-  console.log('[GrowthDebug] GrowthMeasurementsTab received props:', {
+  console.log("[GrowthDebug] GrowthMeasurementsTab received props:", {
     selectedBatchId,
-    analysis: batchGrowthAnalysis[selectedBatchId || ''],
-    history: selectedBatchGrowthHistory[selectedBatchId || '']
+    analysis: batchGrowthAnalysis[selectedBatchId || ""],
+    history: selectedBatchGrowthHistory[selectedBatchId || ""],
   });
 
   const activeBatchId = selectedBatchId || tankBatches[0]?.id;
@@ -60,20 +62,19 @@ export function GrowthMeasurementsTab({
     history.length > 0
       ? history[0].averageWeightGrams
       : parseFloat(
-        activeBatch.weights?.currentAvg ||
-        activeBatch.weights?.current ||
-        activeBatch.currentAvgWeight ||
-        activeBatch.avgWeight ||
-        activeBatch.currentAvg ||
-        activeBatch.weights?.initial ||
-        activeBatch.initialAverageWeight ||
-        "0",
-      );
+          activeBatch.weights?.currentAvg ||
+            activeBatch.weights?.current ||
+            activeBatch.currentAvgWeight ||
+            activeBatch.avgWeight ||
+            activeBatch.currentAvg ||
+            activeBatch.weights?.initial ||
+            activeBatch.initialAverageWeight ||
+            "0",
+        );
 
   return (
     <div className="space-y-4 pt-4">
       {/* Batch Selector */}
-      
 
       {/* Analysis Summary Cards */}
       {/* Horizontal Analysis Metrics Indicators - Forced Row */}
@@ -123,10 +124,10 @@ export function GrowthMeasurementsTab({
             </div>
           </CardContent>
         </Card>
-
       </div>
 
       <GrowthHistory
+        user={user}
         batch={{
           id: activeBatch.id,
           batchNumber:
@@ -137,9 +138,9 @@ export function GrowthMeasurementsTab({
             activeBatch.fishType || activeBatch.species || currentTank.species,
           stockedDate: new Date(
             activeBatch.dates?.stockedDate ||
-            activeBatch.stockedDate ||
-            activeBatch.createdAt ||
-            Date.now(),
+              activeBatch.stockedDate ||
+              activeBatch.createdAt ||
+              Date.now(),
           ),
           initialCount:
             activeBatch.counts?.initial || activeBatch.initialCount || 0,
@@ -150,8 +151,8 @@ export function GrowthMeasurementsTab({
             0,
           initialWeight: parseFloat(
             activeBatch.weights?.initial ||
-            activeBatch.initialAverageWeight ||
-            "0",
+              activeBatch.initialAverageWeight ||
+              "0",
           ),
           lastWeight: currentWeight,
           lastMeasurementDate: activeBatch.dates?.lastMeasurement
