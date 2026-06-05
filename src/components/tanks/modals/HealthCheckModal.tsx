@@ -155,7 +155,7 @@ export function HealthCheckModal({
         treatmentSuggestion: report.payload.treatmentSuggestion,
         feedingAdvice: report.payload.feedingAdvice,
         checkedAt: report.payload.checkedAt,
-        medicineId: selectedMedicineId || undefined,
+        medicineId: selectedMedicineId || report.payload.medicineId || undefined,
       });
       toast.success('Health report saved to batch history.');
       onOpenChange(false);
@@ -182,7 +182,7 @@ export function HealthCheckModal({
 
         <div className="grid gap-6 lg:grid-cols-[430px_minmax(0,640px)] lg:items-start lg:justify-start">
           <div className="space-y-4">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="health-batch">Batch</Label>
@@ -241,7 +241,7 @@ export function HealthCheckModal({
                     </Button>
                   )}
                 </div>
-                <div className="h-44 w-44 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 sm:h-52 sm:w-52">
+                <div className="h-44 w-44 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 sm:h-52 sm:w-52">
                   {previewUrl ? (
                     <button
                       type="button"
@@ -281,7 +281,7 @@ export function HealthCheckModal({
                     </Button>
                   )}
                 </div>
-                <div className="h-44 w-44 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 sm:h-52 sm:w-52">
+                <div className="h-44 w-44 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 sm:h-52 sm:w-52">
                   {annotatedImageSrc ? (
                     <button
                       type="button"
@@ -335,14 +335,14 @@ export function HealthCheckModal({
             </div>
 
             {expandedImage && (
-              <div className="w-full max-w-[430px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
+              <div className="w-full max-w-[430px] overflow-hidden rounded-lg border border-slate-200 bg-white p-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{expandedImage.title}</p>
                   <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setExpandedImage(null)}>
                     Hide
                   </Button>
                 </div>
-                <div className="flex h-[320px] items-center justify-center overflow-auto rounded-xl bg-slate-50">
+                <div className="flex h-[320px] items-center justify-center overflow-auto rounded-lg bg-slate-50">
                   <img src={expandedImage.src} alt={expandedImage.title} className="max-h-[300px] w-auto max-w-full object-contain p-2" />
                 </div>
               </div>
@@ -350,7 +350,7 @@ export function HealthCheckModal({
           </div>
 
           <div className="min-w-0 max-w-[640px] space-y-4">
-            <div className="rounded-2xl border border-[#D7E9EE] bg-white p-4">
+            <div className="rounded-lg border border-[#D7E9EE] bg-white p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">Selected save target</p>
@@ -371,21 +371,24 @@ export function HealthCheckModal({
             {report ? (
               <>
                 {!report.isKnownClassification && (
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
                     {report.saveBlockedReason || 'Unknown AI results are displayed for review only and cannot be saved to history.'}
                   </div>
                 )}
-                <RobotHealthReport
-                  template={report.template}
-                  healthStatus={report.mappedHealthStatus}
-                  confidencePercent={report.confidencePercent}
-                  checkedAt={report.payload.checkedAt}
-                  batchLabel={selectedBatch ? getBatchLabel(selectedBatch) : undefined}
-                  topPredictionLabel={report.topPredictionDisplay}
-                  title="Fixed AI Health Report"
-                  libraryRecommendation={report.libraryRecommendation}
-                  requireLibraryRecommendation
-                />
+                {report.isKnownClassification && (
+                  <RobotHealthReport
+                    template={report.template}
+                    healthStatus={report.mappedHealthStatus}
+                    confidencePercent={report.confidencePercent}
+                    checkedAt={report.payload.checkedAt}
+                    batchLabel={selectedBatch ? getBatchLabel(selectedBatch) : undefined}
+                    topPredictionLabel={report.topPredictionDisplay}
+                    title="Fixed AI Health Report"
+                    compact
+                    libraryRecommendation={report.libraryRecommendation}
+                    requireLibraryRecommendation={report.diseaseDetected}
+                  />
+                )}
                 <DialogFooter>
                   <Button variant="outline" onClick={() => onOpenChange(false)}>
                     Cancel
@@ -405,7 +408,7 @@ export function HealthCheckModal({
                 </DialogFooter>
               </>
             ) : (
-              <div className="flex min-h-[320px] flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+              <div className="flex min-h-[320px] flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
                 <Bot className="mb-4 h-14 w-14 text-slate-400" />
                 <p className="text-base font-semibold text-slate-800">No report generated yet</p>
                 <p className="mt-2 max-w-md text-sm text-slate-500">

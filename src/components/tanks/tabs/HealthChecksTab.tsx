@@ -20,6 +20,12 @@ import {
   isActiveHealthConcern,
 } from "../../../services/healthCheckApi";
 import { resolveHealthReportTemplate } from "../../../services/healthKnowledgeBase";
+import {
+  HealthLibraryConfiguration,
+  HealthLibraryRecommendation,
+  listHealthLibraryConfigurations,
+  resolveHealthLibraryRecommendation,
+} from "../../../services/healthLibraryApi";
 import { RobotHealthReport } from "../../health/RobotHealthReport";
 import { InlineHealthCheckPanel } from "../InlineHealthCheckPanel";
 import { User } from "../../../types";
@@ -117,6 +123,21 @@ export function HealthChecksTab({
 
   const [selectedBatchId, setSelectedBatchId] = useState("");
   const [selectedRecordId, setSelectedRecordId] = useState("");
+  const [libraryConfigs, setLibraryConfigs] = useState<HealthLibraryConfiguration[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    listHealthLibraryConfigurations()
+      .then((configs) => {
+        if (active) setLibraryConfigs(configs);
+      })
+      .catch(() => {
+        if (active) setLibraryConfigs([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const firstBatchWithHistory = batchEntries.find(
@@ -159,6 +180,20 @@ export function HealthChecksTab({
   const selectedTemplate = resolveHealthReportTemplate(
     selectedRecord?.bacterialType,
   );
+  const selectedLibraryRecommendation = useMemo<HealthLibraryRecommendation | null>(() => {
+    if (!selectedRecord) return null;
+    return resolveHealthLibraryRecommendation(
+      libraryConfigs,
+      [
+        selectedRecord.bacterialType || "",
+        selectedTemplate.key,
+        selectedTemplate.title,
+        ...selectedTemplate.aliases,
+      ],
+      Number(selectedRecord.bacterialLoadPercentage ?? 0),
+      selectedRecord.healthStatus === "HEALTHY",
+    );
+  }, [libraryConfigs, selectedRecord, selectedTemplate]);
 
   const totalChecks = healthChecks.length;
   const activeBatches = batchEntries.filter(
@@ -265,7 +300,7 @@ export function HealthChecksTab({
           )}
 
           {tankBatches.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center">
+            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center">
               <Stethoscope className="mx-auto mb-3 h-12 w-12 text-slate-400" />
               <p className="text-base font-semibold text-slate-700">
                 No batches available for this tank.
@@ -278,7 +313,7 @@ export function HealthChecksTab({
                   <button
                     key={entry.batch.id}
                     onClick={() => setSelectedBatchId(entry.batch.id)}
-                    className={`rounded-2xl border px-4 py-3 text-left transition-colors ${
+                    className={`rounded-lg border px-4 py-3 text-left transition-colors ${
                       selectedBatchId === entry.batch.id
                         ? "border-[#088395] bg-[#F3FBFC]"
                         : "border-slate-200 bg-white hover:bg-slate-50"
@@ -316,7 +351,7 @@ export function HealthChecksTab({
 
               {selectedBatchEntry ? (
                 <div className="grid gap-4 xl:grid-cols-[320px_1fr]">
-                  <div className="space-y-3 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-slate-900">
@@ -364,7 +399,7 @@ export function HealthChecksTab({
                       )}
 
                     {selectedBatchHistory.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+                      <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
                         No health reports saved for this batch yet.
                       </div>
                     ) : (
@@ -372,7 +407,7 @@ export function HealthChecksTab({
                         <button
                           key={record.id}
                           onClick={() => setSelectedRecordId(record.id)}
-                          className={`w-full rounded-2xl border p-3 text-left transition-colors ${
+                          className={`w-full rounded-lg border p-3 text-left transition-colors ${
                             selectedRecord?.id === record.id
                               ? "border-[#088395] bg-white shadow-sm"
                               : "border-transparent bg-white/70 hover:border-slate-200"
@@ -423,6 +458,9 @@ export function HealthChecksTab({
                         checkedAt={selectedRecord.checkedAt}
                         batchLabel={getBatchLabel(selectedBatchEntry.batch)}
                         topPredictionLabel={selectedRecord.bacterialType}
+                        compact
+                        libraryRecommendation={selectedLibraryRecommendation}
+                        requireLibraryRecommendation={selectedRecord.healthStatus !== "HEALTHY"}
                         title={
                           selectedRecord.checkType === "POST_TREATMENT"
                             ? "Recovery Health Report"
@@ -442,7 +480,7 @@ export function HealthChecksTab({
                       )}
                     </>
                   ) : (
-                    <div className="flex min-h-[360px] flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+                      <div className="flex min-h-[360px] flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
                       <Bot className="mb-4 h-12 w-12 text-slate-400" />
                       <p className="text-sm text-slate-600">
                         Select a report from the batch list to review the full

@@ -3,12 +3,14 @@ import {
   CalendarClock,
   ClipboardList,
   ListChecks,
+  Printer,
   ShieldAlert,
   Syringe,
   UtensilsCrossed,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { formatHealthStatus, HealthStatus } from '../../services/healthCheckApi';
 import { HealthReportTemplate } from '../../services/healthKnowledgeBase';
@@ -65,6 +67,19 @@ const uniqueItems = (...groups: Array<string[] | undefined>) => {
       return true;
     });
 };
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+const listMarkup = (items: string[]) =>
+  items.length
+    ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+    : '<p class="muted">Not configured</p>';
 
 function InfoBlock({
   icon,
@@ -132,6 +147,79 @@ export function RobotHealthReport({
     libraryRecommendation?.recoveryChecklist,
     template.recoveryChecklist,
   ).slice(0, compact ? 2 : 4);
+  const signsItems = cleanItems(
+    libraryRecommendation?.symptoms?.length
+      ? libraryRecommendation.symptoms
+      : template.symptoms,
+    4,
+  );
+  const preventionItems = cleanItems(
+    libraryRecommendation?.preventiveMeasures?.length
+      ? libraryRecommendation.preventiveMeasures
+      : template.preventiveMeasures,
+    4,
+  );
+  const handlePrint = () => {
+    if (typeof window === 'undefined') return;
+    const printWindow = window.open('', '_blank', 'width=900,height=720');
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+    const libraryLabel =
+      libraryRecommendation?.level ||
+      libraryRecommendation?.status ||
+      (libraryMissing ? 'Missing rule' : 'Default protocol');
+    const ruleDetails = [
+      libraryRecommendation?.conditionId,
+      libraryRecommendation?.medicineName,
+      libraryRecommendation?.risk || libraryRecommendation?.message,
+    ].filter(Boolean) as string[];
+
+    printWindow.document.write(`<!doctype html>
+<html>
+  <head>
+    <title>${escapeHtml(title)}</title>
+    <style>
+      body { color: #0f172a; font-family: Arial, sans-serif; margin: 32px; }
+      header { border-bottom: 2px solid #0a4d68; margin-bottom: 20px; padding-bottom: 16px; }
+      h1 { font-size: 24px; margin: 0 0 8px; }
+      h2 { color: #0a4d68; font-size: 15px; margin: 22px 0 8px; }
+      p { line-height: 1.55; margin: 0 0 8px; }
+      .grid { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 16px 0; }
+      .box { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; }
+      .label { color: #64748b; font-size: 11px; margin-bottom: 4px; text-transform: uppercase; }
+      .value { font-size: 14px; font-weight: 700; }
+      ul { margin: 0; padding-left: 20px; }
+      li { margin: 5px 0; }
+      .muted { color: #64748b; }
+      @media print { body { margin: 18mm; } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>${escapeHtml(title)}</h1>
+      <p>${escapeHtml(summary)}</p>
+    </header>
+    <section class="grid">
+      <div class="box"><div class="label">Detected pattern</div><div class="value">${escapeHtml(predictionLabel)}</div></div>
+      <div class="box"><div class="label">Status</div><div class="value">${escapeHtml(formatHealthStatus(healthStatus))}</div></div>
+      <div class="box"><div class="label">Confidence</div><div class="value">${escapeHtml(confidenceLabel)}</div></div>
+      <div class="box"><div class="label">Batch</div><div class="value">${escapeHtml(batchLabel || 'Not selected')}</div></div>
+      <div class="box"><div class="label">Checked at</div><div class="value">${escapeHtml(formatDateTime(checkedAt))}</div></div>
+      <div class="box"><div class="label">Library match</div><div class="value">${escapeHtml(libraryLabel)}</div></div>
+    </section>
+    ${ruleDetails.length ? `<h2>Health Library Rule</h2>${listMarkup(ruleDetails)}` : ''}
+    <h2>Next Actions</h2>${listMarkup(treatmentItems)}
+    <h2>Feeding</h2>${listMarkup(feedingItems)}
+    <h2>Follow-up</h2>${listMarkup(followUpItems)}
+    ${compact ? '' : `<h2>Main Signs</h2>${listMarkup(signsItems)}<h2>Prevention</h2><p>${escapeHtml(libraryRecommendation?.quarantineAdvice || template.quarantineAdvice)}</p>${listMarkup(preventionItems)}`}
+  </body>
+</html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
 
   return (
     <Card className="w-full border-slate-200 bg-white shadow-sm">
@@ -150,6 +238,10 @@ export function RobotHealthReport({
               {formatHealthStatus(healthStatus)}
             </Badge>
             <Badge className="bg-[#0A4D68] text-white">{confidenceLabel}</Badge>
+            <Button type="button" variant="outline" size="sm" onClick={handlePrint}>
+              <Printer className="mr-2 h-3.5 w-3.5" />
+              Print
+            </Button>
           </div>
         </div>
 
@@ -241,12 +333,7 @@ export function RobotHealthReport({
             <InfoBlock
               icon={<ShieldAlert className="h-4 w-4 text-amber-600" />}
               title="Main signs"
-              items={cleanItems(
-                libraryRecommendation?.symptoms?.length
-                  ? libraryRecommendation.symptoms
-                  : template.symptoms,
-                4,
-              )}
+              items={signsItems}
               emptyText="No symptom list is configured yet."
             />
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -255,12 +342,7 @@ export function RobotHealthReport({
                 {libraryRecommendation?.quarantineAdvice || template.quarantineAdvice}
               </p>
               <ul className="mt-3 grid gap-2 text-sm text-slate-700 md:grid-cols-2">
-                {cleanItems(
-                  libraryRecommendation?.preventiveMeasures?.length
-                    ? libraryRecommendation.preventiveMeasures
-                    : template.preventiveMeasures,
-                  4,
-                ).map((item) => (
+                {preventionItems.map((item) => (
                   <li key={item} className="flex gap-2">
                     <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
                     <span>{item}</span>

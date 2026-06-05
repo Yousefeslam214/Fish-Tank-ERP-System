@@ -155,6 +155,8 @@ export const buildAutomatedHealthReportFromAnalysis = (
       ...libraryRecommendation.recommendations,
     ]
     : [];
+  const templateTreatment = template.treatmentProtocol.join(' ');
+  const templateFeeding = template.feedingGuidance.join(' ');
 
   return {
     topPredictionLabel,
@@ -171,17 +173,25 @@ export const buildAutomatedHealthReportFromAnalysis = (
       healthStatus: diseaseDetected ? mappedHealthStatus : 'HEALTHY',
       bacterialType: isKnownClassification ? template.title : 'Unknown / Unrecognized Result',
       bacterialLoadPercentage: Number(confidencePercent.toFixed(2)),
-      treatmentSuggestion: isKnownClassification
-        ? (adminRecommendationLines.length
+      treatmentSuggestion: !isKnownClassification
+        ? 'No treatment protocol is generated for unknown or invalid classifications.'
+        : adminRecommendationLines.length
           ? adminRecommendationLines.join(' ')
-          : 'No Disease Library level matched this disease and confidence range.')
-        : 'No treatment protocol is generated for unknown or invalid classifications.',
-      dosageInstructions: undefined,
-      suggestedDuration: undefined,
+          : diseaseDetected
+            ? 'No Disease Library level matched this disease and confidence range.'
+            : templateTreatment,
+      dosageInstructions: template.dosageInstructions,
+      suggestedDuration: template.suggestedDuration,
       feedingAdvice: isKnownClassification
-        ? (libraryRecommendation?.feedingGuidance?.join(' ') || libraryRecommendation?.message || libraryRecommendation?.risk || undefined)
+        ? (libraryRecommendation?.feedingGuidance?.join(' ') ||
+          libraryRecommendation?.message ||
+          libraryRecommendation?.risk ||
+          templateFeeding ||
+          undefined)
         : 'Run another check with a clear fish image before taking action.',
-      medicineId: undefined,
+      medicineId: isKnownClassification
+        ? (libraryRecommendation?.medicineId || template.medicineId)
+        : undefined,
       checkedAt: analysis.timestamp || new Date().toISOString(),
     },
   };

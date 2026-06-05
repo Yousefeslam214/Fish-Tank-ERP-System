@@ -114,7 +114,7 @@ export function InlineHealthCheckPanel({
         treatmentSuggestion: report.payload.treatmentSuggestion,
         feedingAdvice: report.payload.feedingAdvice,
         checkedAt: report.payload.checkedAt,
-        medicineId: undefined,
+        medicineId: report.payload.medicineId || undefined,
       });
       toast.success('Health report saved to batch history.');
       resetAll();
@@ -127,7 +127,7 @@ export function InlineHealthCheckPanel({
   };
 
   return (
-    <div className="w-full max-w-[1120px] rounded-3xl border border-[#B9E0E7] bg-white p-4 shadow-sm">
+    <div className="w-full max-w-[1120px] rounded-lg border border-[#B9E0E7] bg-white p-4 shadow-sm">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#B9E0E7] bg-[#F4FBFC] px-3 py-1 text-xs font-semibold text-[#0A4D68]">
@@ -163,7 +163,7 @@ export function InlineHealthCheckPanel({
           <div className="grid w-fit grid-cols-2 gap-3">
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Original</p>
-              <div className="h-40 w-40 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 sm:h-48 sm:w-48">
+              <div className="h-40 w-40 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 sm:h-48 sm:w-48">
                 {previewUrl ? (
                   <button
                     type="button"
@@ -186,7 +186,7 @@ export function InlineHealthCheckPanel({
 
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">AI Output</p>
-              <div className="h-40 w-40 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 sm:h-48 sm:w-48">
+              <div className="h-40 w-40 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 sm:h-48 sm:w-48">
                 {annotatedImageSrc ? (
                   <button
                     type="button"
@@ -226,14 +226,14 @@ export function InlineHealthCheckPanel({
           </div>
 
           {expandedImage && (
-            <div className="w-full max-w-[420px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-3">
+            <div className="w-full max-w-[420px] overflow-hidden rounded-lg border border-slate-200 bg-white p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{expandedImage.title}</p>
                 <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setExpandedImage(null)}>
                   Hide
                 </Button>
               </div>
-              <div className="flex h-[300px] items-center justify-center overflow-auto rounded-xl bg-slate-50">
+              <div className="flex h-[300px] items-center justify-center overflow-auto rounded-lg bg-slate-50">
                 <img src={expandedImage.src} alt={expandedImage.title} className="max-h-[280px] w-auto max-w-full object-contain p-2" />
               </div>
             </div>
@@ -241,7 +241,7 @@ export function InlineHealthCheckPanel({
         </div>
 
         <div className="min-w-0 space-y-4">
-          <div className="rounded-2xl border border-[#D7E9EE] bg-[#F8FBFC] p-4">
+          <div className="rounded-lg border border-[#D7E9EE] bg-[#F8FBFC] p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-slate-900">Selected save target</p>
@@ -258,22 +258,24 @@ export function InlineHealthCheckPanel({
             {report ? (
               <div className="space-y-4">
                 {!report.isKnownClassification && (
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
                     {report.saveBlockedReason || 'Unknown AI results are displayed for review only and cannot be saved to history.'}
                   </div>
                 )}
-                <RobotHealthReport
-                  template={report.template}
-                  healthStatus={report.mappedHealthStatus}
-                  confidencePercent={report.confidencePercent}
-                  checkedAt={report.payload.checkedAt}
-                  batchLabel={selectedBatch ? getBatchLabel(selectedBatch) : undefined}
-                  topPredictionLabel={report.topPredictionDisplay}
-                  title="Fixed AI Health Report"
-                  compact
-                  libraryRecommendation={report.libraryRecommendation}
-                  requireLibraryRecommendation
-                />
+                {report.isKnownClassification && (
+                  <RobotHealthReport
+                    template={report.template}
+                    healthStatus={report.mappedHealthStatus}
+                    confidencePercent={report.confidencePercent}
+                    checkedAt={report.payload.checkedAt}
+                    batchLabel={selectedBatch ? getBatchLabel(selectedBatch) : undefined}
+                    topPredictionLabel={report.topPredictionDisplay}
+                    title="Fixed AI Health Report"
+                    compact
+                    libraryRecommendation={report.libraryRecommendation}
+                    requireLibraryRecommendation={report.diseaseDetected}
+                  />
+                )}
                 <div className="flex flex-wrap gap-2">
                   <Button
                     className="bg-[#088395] hover:bg-[#0A4D68]"
@@ -291,7 +293,7 @@ export function InlineHealthCheckPanel({
                 </div>
               </div>
             ) : (
-              <div className="flex min-h-[280px] flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+              <div className="flex min-h-[280px] flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
                 <Bot className="mb-4 h-12 w-12 text-slate-400" />
                 <p className="text-base font-semibold text-slate-800">No report generated yet</p>
                 <p className="mt-2 max-w-md text-sm text-slate-500">

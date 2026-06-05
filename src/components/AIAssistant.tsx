@@ -237,7 +237,7 @@ export default function AIAssistant({ user }: AIAssistantProps) {
         treatmentSuggestion: report.payload.treatmentSuggestion,
         feedingAdvice: report.payload.feedingAdvice,
         checkedAt: report.payload.checkedAt,
-        medicineId: selectedMedicineId || undefined,
+        medicineId: selectedMedicineId || report.payload.medicineId || undefined,
       });
       toast.success('AI health report saved to tank history.');
       await loadTankHealthHistory();
@@ -370,7 +370,7 @@ export default function AIAssistant({ user }: AIAssistantProps) {
               </div>
               <div className="space-y-2">
                 <Label>Current tank status</Label>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
                   {selectedTankOverview?.latestRecord
                     ? `${formatHealthStatus(selectedTankOverview.latestRecord.healthStatus)} • ${selectedTankOverview.currentDiseaseLabel}`
                     : 'No saved reports yet'}
@@ -410,7 +410,7 @@ export default function AIAssistant({ user }: AIAssistantProps) {
                         </Button>
                       )}
                     </div>
-                    <div className="h-44 w-44 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 sm:h-52 sm:w-52">
+                    <div className="h-44 w-44 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 sm:h-52 sm:w-52">
                       {previewUrl ? (
                         <button
                           type="button"
@@ -450,7 +450,7 @@ export default function AIAssistant({ user }: AIAssistantProps) {
                         </Button>
                       )}
                     </div>
-                    <div className="h-44 w-44 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 sm:h-52 sm:w-52">
+                    <div className="h-44 w-44 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 sm:h-52 sm:w-52">
                       {annotatedImageSrc ? (
                         <button
                           type="button"
@@ -501,7 +501,7 @@ export default function AIAssistant({ user }: AIAssistantProps) {
                 </div>
 
                 {expandedImage && (
-                  <div className="w-full max-w-[460px] overflow-hidden rounded-xl border border-slate-200 bg-white p-3">
+                  <div className="w-full max-w-[460px] overflow-hidden rounded-lg border border-slate-200 bg-white p-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
                       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{expandedImage.title}</p>
                       <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setExpandedImage(null)}>
@@ -524,11 +524,11 @@ export default function AIAssistant({ user }: AIAssistantProps) {
                 {report ? (
                   <div className="space-y-4">
                     {!report.isKnownClassification && (
-                      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
                         {report.saveBlockedReason || 'Unknown AI results are displayed for review only and cannot be saved to history.'}
                       </div>
                     )}
-                    <div className="rounded-xl border border-[#CBE7EC] bg-[#F4FBFC] p-4">
+                    <div className="rounded-lg border border-[#CBE7EC] bg-[#F4FBFC] p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-wide text-[#088395]">Top Prediction</p>
@@ -543,7 +543,7 @@ export default function AIAssistant({ user }: AIAssistantProps) {
                     </div>
 
                     {analysis?.predictions?.length ? (
-                      <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-4">
+                      <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-4">
                         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Prediction Breakdown</p>
                         {analysis.predictions.slice(0, 4).map((prediction) => (
                           <div key={`${prediction.class}-${prediction.confidence}`} className="space-y-1">
@@ -562,18 +562,20 @@ export default function AIAssistant({ user }: AIAssistantProps) {
                       </div>
                     ) : null}
 
-                    <RobotHealthReport
-                      template={report.template}
-                      healthStatus={report.mappedHealthStatus}
-                      confidencePercent={report.confidencePercent}
-                      checkedAt={report.payload.checkedAt}
-                      batchLabel={selectedBatch ? getBatchLabel(selectedBatch) : undefined}
-                      topPredictionLabel={report.topPredictionDisplay}
-                      title="Fixed AI Health Report"
-                      compact
-                      libraryRecommendation={report.libraryRecommendation}
-                      requireLibraryRecommendation
-                    />
+                    {report.isKnownClassification && (
+                      <RobotHealthReport
+                        template={report.template}
+                        healthStatus={report.mappedHealthStatus}
+                        confidencePercent={report.confidencePercent}
+                        checkedAt={report.payload.checkedAt}
+                        batchLabel={selectedBatch ? getBatchLabel(selectedBatch) : undefined}
+                        topPredictionLabel={report.topPredictionDisplay}
+                        title="Fixed AI Health Report"
+                        compact
+                        libraryRecommendation={report.libraryRecommendation}
+                        requireLibraryRecommendation={report.diseaseDetected}
+                      />
+                    )}
 
                     <Button
                       className="w-full bg-[#088395] hover:bg-[#0A4D68]"
@@ -605,7 +607,7 @@ export default function AIAssistant({ user }: AIAssistantProps) {
               ) : (
                 <div className="space-y-3">
                   {recentHistory.map((record) => (
-                    <div key={record.id} className="rounded-xl border border-slate-200 p-4">
+                    <div key={record.id} className="rounded-lg border border-slate-200 p-4">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline" className={getHealthStatusColor(record.healthStatus)}>
                           {formatHealthStatus(record.healthStatus)}
@@ -648,7 +650,7 @@ export default function AIAssistant({ user }: AIAssistantProps) {
                       <button
                         key={tank.id}
                         onClick={() => setSelectedTankId(tank.id)}
-                        className={`w-full rounded-xl border p-3 text-left transition-colors ${
+                        className={`w-full rounded-lg border p-3 text-left transition-colors ${
                           isActive ? 'border-[#088395] bg-[#F3FBFC]' : 'border-slate-200 hover:bg-slate-50'
                         }`}
                       >
