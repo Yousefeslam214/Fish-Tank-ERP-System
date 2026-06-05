@@ -53,7 +53,7 @@ export default function Sidebar({
     { id: "food-types", label: "Food Types", icon: Wheat },
     { id: "medicine-types", label: "Medicine Types", icon: Pill },
     { id: "health", label: "Health Library", icon: Heart },
-    //{ id: "ai-assistant", label: "AI Assistant", icon: Bot },
+    { id: "ai-assistant", label: "AI Assistant", icon: Bot },
     { id: "iot-management", label: "Sensors readings", icon: Cpu },
     { id: "farms", label: "Farms", icon: Tractor },
     { id: "users", label: "User Management", icon: ShieldUser },

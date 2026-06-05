@@ -1,5 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Book, CheckCircle2, Heart, Plus, RefreshCw, Save, Search, ShieldCheck, Stethoscope, Trash2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  Book,
+  CheckCircle2,
+  Heart,
+  Layers3,
+  Plus,
+  RefreshCw,
+  Save,
+  Search,
+  ShieldCheck,
+  Stethoscope,
+  Trash2,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
@@ -34,7 +47,6 @@ interface HealthLibraryProps {
   user: User;
   selectedFarm: Farm | null;
 }
-
 const formatDate = (value?: string) => {
   if (!value) return 'Unknown';
   const date = new Date(value);
@@ -481,22 +493,28 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
   };
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-2xl">Health Library</h1>
-          <p className="text-gray-600">
-            Disease protocols, editable AI level controls, active cases, and recovered tanks with recorded dates.
-          </p>
+    <div className="space-y-5 p-6">
+      <div className="rounded-lg border border-[#B9E0E7] bg-[#F4FBFC] p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="mb-2 inline-flex items-center gap-2 rounded-lg border border-[#B9E0E7] bg-white px-3 py-1 text-xs font-semibold text-[#0A4D68]">
+              <Book className="h-3.5 w-3.5" />
+              Health Library
+            </div>
+            <h1 className="text-2xl font-semibold text-slate-950">Health protocol workspace</h1>
+            <p className="mt-1 max-w-3xl text-sm text-slate-600">
+              Manage disease rules, AI confidence ranges, medicine guidance, active cases, and recovered tanks from one clear workflow.
+            </p>
+          </div>
+          <Button variant="outline" className="bg-white" onClick={() => void loadHealthData()} disabled={loading}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh Data
+          </Button>
         </div>
-        <Button variant="outline" onClick={() => void loadHealthData()} disabled={loading}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh Data
-        </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <Card>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+        <Card className="border-slate-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm">Active Cases</CardTitle>
             <AlertTriangle className="h-4 w-4 text-rose-600" />
@@ -506,7 +524,7 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
             <p className="mt-1 text-xs text-gray-600">Tanks needing action</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-slate-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm">Recovered Tanks</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-emerald-600" />
@@ -516,7 +534,7 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
             <p className="mt-1 text-xs text-gray-600">Treatment completed</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-slate-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm">Saved Reports</CardTitle>
             <Stethoscope className="h-4 w-4 text-[#088395]" />
@@ -526,7 +544,7 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
             <p className="mt-1 text-xs text-gray-600">Across monitored tanks</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-slate-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm">Monitored Batches</CardTitle>
             <Heart className="h-4 w-4 text-violet-600" />
@@ -539,7 +557,7 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
       </div>
 
       <Tabs defaultValue="library" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 bg-white lg:w-auto">
+        <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-lg border border-slate-200 bg-white p-1 lg:w-auto">
           <TabsTrigger value="library">
             <Book className="mr-2 h-4 w-4" />
             Disease Library
@@ -555,33 +573,56 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
         </TabsList>
 
         <TabsContent value="library" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="relative max-w-xl">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <Input
-                  placeholder="Search disease name, alias, or symptom..."
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  className="pl-10"
-                />
+          <Card className="border-slate-200 shadow-sm">
+            <CardHeader className="border-b border-slate-200">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <CardTitle className="text-lg">Disease rules and AI levels</CardTitle>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Choose a disease, review the fixed protocol, then tune the exact Health Library rules used by AI reports.
+                  </p>
+                </div>
+                <div className="relative w-full max-w-xl">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <Input
+                    placeholder="Search disease name, alias, or symptom..."
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    className="h-11 bg-white pl-10"
+                  />
+                </div>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-                <div className="space-y-2 rounded-3xl border border-slate-200 bg-slate-50 p-3">
+            <CardContent className="p-4">
+              <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
+                <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="flex items-center justify-between gap-3 px-1">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">Disease protocols</p>
+                      <p className="text-xs text-slate-500">{filteredTemplates.length} available protocols</p>
+                    </div>
+                    <Layers3 className="h-4 w-4 text-[#088395]" />
+                  </div>
                   {filteredTemplates.map((template) => (
                     <button
                       key={template.key}
                       onClick={() => setSelectedTemplateKey(template.key)}
-                      className={`w-full rounded-2xl border p-3 text-left transition-colors ${
+                      className={`w-full rounded-lg border p-3 text-left transition-colors ${
                         selectedTemplateKey === template.key
                           ? 'border-[#088395] bg-white shadow-sm'
                           : 'border-transparent bg-white/70 hover:border-slate-200'
                       }`}
                     >
-                      <p className="font-semibold text-slate-900">{template.title}</p>
-                      <p className="mt-1 text-xs text-slate-500">{template.symptoms.length} key signs</p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-slate-900">{template.title}</p>
+                          <p className="mt-1 text-xs text-slate-500">{template.symptoms.length} key signs</p>
+                        </div>
+                        <Badge variant="outline" className={getHealthStatusColor(template.defaultHealthStatus)}>
+                          {formatHealthStatus(template.defaultHealthStatus)}
+                        </Badge>
+                      </div>
+                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">{template.summary}</p>
                     </button>
                   ))}
                 </div>
@@ -639,7 +680,7 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        <div className="rounded-2xl border border-[#D7E9EE] bg-[#F7FCFD] p-4">
+                        <div className="rounded-lg border border-[#D7E9EE] bg-[#F7FCFD] p-4">
                           <p className="text-sm font-semibold text-slate-900">Report content controlled by admin</p>
                           <p className="mt-1 text-xs text-slate-500">
                             These fields replace the fixed protocol text in the AI report for this disease.
@@ -719,7 +760,7 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
                             placeholder: 'اكتب إجراء وقائي',
                           },
                         ].map((section) => (
-                          <div key={section.title} className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <div key={section.title} className="rounded-lg border border-slate-200 bg-white p-4">
                             <div className="mb-3 flex items-center justify-between gap-3">
                               <p className="text-sm font-semibold text-slate-900">{section.title}</p>
                               <Button variant="outline" size="sm" onClick={() => addListItem(section.setter)}>
@@ -749,7 +790,7 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
                           </div>
                         ))}
 
-                        <div className="flex flex-col gap-3 rounded-2xl border border-[#D7E9EE] bg-[#F7FCFD] p-4 md:flex-row md:items-center md:justify-between">
+                        <div className="flex flex-col gap-3 rounded-lg border border-[#D7E9EE] bg-[#F7FCFD] p-4 md:flex-row md:items-center md:justify-between">
                           <div>
                             <p className="text-sm font-semibold text-slate-900">Disease percentage levels</p>
                             <p className="mt-1 text-xs text-slate-500">
@@ -764,7 +805,7 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
 
                         <div className="space-y-4">
                           {configLevels.map((level, levelIndex) => (
-                            <div key={`disease-level-${levelIndex}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <div key={`disease-level-${levelIndex}`} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                               <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                 <div>
                                   <p className="text-sm font-semibold text-slate-900">Level {levelIndex + 1}</p>
@@ -890,17 +931,17 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
           <Card>
             <CardContent className="p-4">
               {activeOverviews.length === 0 ? (
-                <div className="flex min-h-[280px] items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-500">
+                <div className="flex min-h-[280px] items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-500">
                   No active health alerts right now.
                 </div>
               ) : (
                 <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-                  <div className="space-y-2 rounded-3xl border border-slate-200 bg-slate-50 p-3">
+                  <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
                     {activeOverviews.map((overview) => (
                       <button
                         key={overview.tank.id}
                         onClick={() => setSelectedActiveTankId(overview.tank.id)}
-                        className={`w-full rounded-2xl border p-3 text-left transition-colors ${
+                        className={`w-full rounded-lg border p-3 text-left transition-colors ${
                           selectedActiveOverview?.tank.id === overview.tank.id
                             ? 'border-[#088395] bg-white shadow-sm'
                             : 'border-transparent bg-white/70 hover:border-slate-200'
@@ -935,17 +976,17 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
                           </p>
                         </CardHeader>
                         <CardContent className="grid gap-4 md:grid-cols-3">
-                          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Latest disease</p>
                             <p className="mt-2 text-sm font-semibold text-slate-900">{selectedActiveRecord.bacterialType}</p>
                           </div>
-                          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Affected batches</p>
                             <p className="mt-2 text-sm font-semibold text-slate-900">
                               {selectedActiveOverview.batchOverviews.filter((batch) => batch.requiresAttention).map((batch) => getBatchLabel(batch.batch)).join(', ') || 'N/A'}
                             </p>
                           </div>
-                          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Saved reports</p>
                             <p className="mt-2 text-sm font-semibold text-slate-900">{selectedActiveOverview.healthChecks.length}</p>
                           </div>
@@ -973,17 +1014,17 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
           <Card>
             <CardContent className="p-4">
               {recoveredOverviews.length === 0 ? (
-                <div className="flex min-h-[280px] items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-500">
+                <div className="flex min-h-[280px] items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-500">
                   No recovered tanks recorded yet.
                 </div>
               ) : (
                 <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-                  <div className="space-y-2 rounded-3xl border border-slate-200 bg-slate-50 p-3">
+                  <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
                     {recoveredOverviews.map((overview) => (
                       <button
                         key={overview.tank.id}
                         onClick={() => setSelectedRecoveredTankId(overview.tank.id)}
-                        className={`w-full rounded-2xl border p-3 text-left transition-colors ${
+                        className={`w-full rounded-lg border p-3 text-left transition-colors ${
                           selectedRecoveredOverview?.tank.id === overview.tank.id
                             ? 'border-emerald-500 bg-white shadow-sm'
                             : 'border-transparent bg-white/70 hover:border-slate-200'
@@ -1012,15 +1053,15 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
                           <CardTitle className="text-lg">Recovered Tank Record</CardTitle>
                         </CardHeader>
                         <CardContent className="grid gap-4 md:grid-cols-3">
-                          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tank</p>
                             <p className="mt-2 text-sm font-semibold text-slate-900">{selectedRecoveredOverview.tank.name}</p>
                           </div>
-                          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recovered from</p>
                             <p className="mt-2 text-sm font-semibold text-slate-900">{selectedRecoveredOverview.latestActiveRecord?.bacterialType || selectedRecoveredOverview.currentDiseaseLabel}</p>
                           </div>
-                          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recovery date</p>
                             <p className="mt-2 text-sm font-semibold text-slate-900">{formatDate(selectedRecoveredOverview.recoveredAt)}</p>
                           </div>
