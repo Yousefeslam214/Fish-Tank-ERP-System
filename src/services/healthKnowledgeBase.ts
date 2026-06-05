@@ -193,6 +193,49 @@ const HEALTH_REPORT_TEMPLATES: HealthReportTemplate[] = [
     medicineId: 'STREP-EMR-03',
   },
   {
+    key: 'tilv',
+    title: 'Tilapia Lake Virus',
+    aliases: ['tilv', 'tilapia lake virus', 'lake virus'],
+    defaultHealthStatus: 'CRITICAL',
+    summary:
+      'The AI result matches Tilapia Lake Virus. Treat this as a high-risk viral event and escalate quickly because losses can rise fast in stressed batches.',
+    symptoms: [
+      'Weak swimming and loss of appetite',
+      'Darkening or general stress appearance',
+      'Sudden mortality pattern in the affected batch',
+    ],
+    causes: [
+      'Viral exposure through fish movement or shared equipment',
+      'Poor biosecurity between tanks',
+      'Stress from handling, water instability, or crowding',
+    ],
+    treatmentProtocol: [
+      'Escalate immediately to the health supervisor.',
+      'Isolate the affected batch and stop unnecessary movement.',
+      'Focus on supportive care, oxygen stability, and mortality tracking.',
+    ],
+    feedingGuidance: [
+      'Reduce feed while appetite is weak.',
+      'Resume gradually only after behavior and mortality stabilize.',
+    ],
+    preventiveMeasures: [
+      'Apply strict biosecurity between tanks.',
+      'Quarantine new or transferred fish before mixing.',
+      'Disinfect equipment and avoid shared handling tools.',
+    ],
+    recoveryChecklist: [
+      'Mortality returns to baseline',
+      'Fish regain normal swimming and appetite',
+      'No new linked tanks show the same pattern',
+    ],
+    quarantineAdvice:
+      'Strict isolation is recommended until the health team clears the batch.',
+    dosageInstructions:
+      'No medication should be improvised for viral cases. Follow the farm health team plan.',
+    suggestedDuration: 'Escalated case: follow health team schedule',
+    medicineId: 'TILV-EMR-08',
+  },
+  {
     key: 'aeromonas',
     title: 'Aeromonas-Type Infection',
     aliases: ['aeromonas', 'motile aeromonas', 'hemorrhagic septicemia'],
@@ -320,6 +363,49 @@ const HEALTH_REPORT_TEMPLATES: HealthReportTemplate[] = [
       'Use the approved anti-parasitic dosage schedule and verify compatibility with the current water parameters.',
     suggestedDuration: 'Follow parasite treatment cycle',
     medicineId: 'ICH-PROT-06',
+  },
+  {
+    key: 'parasitic-disease',
+    title: 'Parasitic Disease Pattern',
+    aliases: ['parasitic', 'parasite', 'parasitic disease', 'parasitic diseases', 'external parasite'],
+    defaultHealthStatus: 'MODERATE_CONCERN',
+    summary:
+      'The AI result points to a parasitic disease pattern. Early control should focus on confirming visible irritation, reducing stress, and preventing spread.',
+    symptoms: [
+      'Flashing, rubbing, or irritation behavior',
+      'Visible spots, surface irritation, or skin stress',
+      'Reduced appetite in affected fish',
+    ],
+    causes: [
+      'Parasite exposure from new fish or shared water/equipment',
+      'Weak quarantine practices',
+      'Stress from water quality instability',
+    ],
+    treatmentProtocol: [
+      'Confirm the signs with a manual inspection.',
+      'Apply the approved anti-parasitic protocol for the tank.',
+      'Watch for secondary bacterial lesions after treatment.',
+    ],
+    feedingGuidance: [
+      'Keep ration moderate while stress behavior is present.',
+      'Avoid overfeeding if fish are flashing or gasping.',
+    ],
+    preventiveMeasures: [
+      'Quarantine new fish before mixing.',
+      'Disinfect nets and shared tools.',
+      'Keep water quality stable during the treatment cycle.',
+    ],
+    recoveryChecklist: [
+      'Rubbing behavior stops',
+      'Surface irritation reduces',
+      'Appetite returns without new lesions',
+    ],
+    quarantineAdvice:
+      'Avoid moving the affected batch until irritation and parasite signs are controlled.',
+    dosageInstructions:
+      'Use only the approved anti-parasitic dosage schedule for the farm and tank volume.',
+    suggestedDuration: 'Follow parasite treatment cycle',
+    medicineId: 'PARA-PROT-09',
   },
   {
     key: 'water-stress',

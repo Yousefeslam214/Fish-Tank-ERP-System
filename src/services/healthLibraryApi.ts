@@ -80,7 +80,9 @@ export const DISEASE_LIBRARY_TEMPLATE_KEYS = [
   'columnaris',
   'bacterial-gill-disease',
   'streptococcosis',
+  'tilv',
   'aeromonas',
+  'parasitic-disease',
 ] as const;
 
 const asRecord = (value: unknown): Record<string, any> =>
