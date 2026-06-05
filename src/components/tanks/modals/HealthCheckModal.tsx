@@ -29,7 +29,6 @@ import {
 } from '../../../services/aiDetectionApi';
 import { createHealthCheck } from '../../../services/healthCheckApi';
 import { RobotHealthReport } from '../../health/RobotHealthReport';
-import { apiGet } from '../../../api';
 
 interface HealthCheckModalProps {
   open: boolean;
@@ -61,8 +60,6 @@ export function HealthCheckModal({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [expandedImage, setExpandedImage] = useState<{ src: string; title: string } | null>(null);
-  const [selectedMedicineId, setSelectedMedicineId] = useState('');
-  const [medicineOptions, setMedicineOptions] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -72,7 +69,6 @@ export function HealthCheckModal({
     setAnalysis(null);
     setReport(null);
     setExpandedImage(null);
-    setSelectedMedicineId('');
   }, [defaultBatchId, open]);
 
   useEffect(() => {
@@ -86,26 +82,6 @@ export function HealthCheckModal({
     return () => URL.revokeObjectURL(objectUrl);
   }, [selectedFile]);
 
-  useEffect(() => {
-    const loadMedicineTypes = async () => {
-      try {
-        const res = await apiGet<any>('/inventory/medicine-types');
-        const data = res?.data ?? res;
-        const items = Array.isArray(data)
-          ? data.map((entry: any) => {
-            const id = String(entry?.id || entry?._id || '').trim();
-            const name = String(entry?.name || '').trim();
-            if (!id || !name) return null;
-            return { id, name };
-          }).filter(Boolean)
-          : [];
-        setMedicineOptions(items);
-      } catch {
-        setMedicineOptions([]);
-      }
-    };
-    void loadMedicineTypes();
-  }, []);
 
   const selectedBatch = tankBatches.find((batch) => batch.id === selectedBatchId) || null;
   const annotatedImageSrc = getAnnotatedImageSrc(analysis);
@@ -155,7 +131,7 @@ export function HealthCheckModal({
         treatmentSuggestion: report.payload.treatmentSuggestion,
         feedingAdvice: report.payload.feedingAdvice,
         checkedAt: report.payload.checkedAt,
-        medicineId: selectedMedicineId || report.payload.medicineId || undefined,
+        medicineId: report.payload.medicineId || undefined,
       });
       toast.success('Health report saved to batch history.');
       onOpenChange(false);
@@ -194,21 +170,6 @@ export function HealthCheckModal({
                       {tankBatches.map((batch) => (
                         <SelectItem key={batch.id} value={batch.id}>
                           {getBatchLabel(batch)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="health-medicine">Medicine</Label>
-                  <Select value={selectedMedicineId} onValueChange={setSelectedMedicineId}>
-                    <SelectTrigger id="health-medicine">
-                      <SelectValue placeholder="-- اختر الدواء --" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {medicineOptions.map((med) => (
-                        <SelectItem key={med.id} value={med.id}>
-                          {med.name}
                         </SelectItem>
                       ))}
                     </SelectContent>

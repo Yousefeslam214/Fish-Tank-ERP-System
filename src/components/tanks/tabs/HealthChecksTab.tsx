@@ -450,9 +450,8 @@ export function HealthChecksTab({
                       </div>
                     ) : (
                       selectedBatchHistory.map((record) => (
-                        <button
+                        <div
                           key={record.id}
-                          onClick={() => setSelectedRecordId(record.id)}
                           className={`w-full rounded-lg border p-3 text-left transition-colors ${
                             selectedRecord?.id === record.id
                               ? "border-[#088395] bg-white shadow-sm"
@@ -488,7 +487,33 @@ export function HealthChecksTab({
                               </span>
                             )}
                           </div>
-                        </button>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-8"
+                              onClick={() => setSelectedRecordId(record.id)}
+                            >
+                              <FileText className="mr-2 h-3.5 w-3.5" />
+                              View Report
+                            </Button>
+                            {onApplyTreatment && record.medicineId && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="h-8 bg-[#088395] hover:bg-[#0A4D68]"
+                                onClick={() => {
+                                  setSelectedRecordId(record.id);
+                                  onApplyTreatment(record.medicineId || "");
+                                }}
+                              >
+                                <Pill className="mr-2 h-3.5 w-3.5" />
+                                Apply Treatment
+                              </Button>
+                            )}
+                          </div>
+                        </div>
                       ))
                     )}
                     </div>

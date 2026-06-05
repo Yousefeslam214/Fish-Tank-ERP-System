@@ -31,7 +31,6 @@ import {
   recordRecoveredHealthCheck,
 } from '../services/healthCheckApi';
 import { fetchAllTankHealthOverviews, TankHealthOverview } from '../services/tankHealthOverview';
-import { apiGet } from '../api';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -89,29 +88,6 @@ export default function AIAssistant({ user }: AIAssistantProps) {
   const [selectedBatchForModal, setSelectedBatchForModal] = useState<any>(null);
   const [improvingRecordId, setImprovingRecordId] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<{ src: string; title: string } | null>(null);
-  const [selectedMedicineId, setSelectedMedicineId] = useState('');
-  const [medicineOptions, setMedicineOptions] = useState<{ id: string; name: string }[]>([]);
-
-  useEffect(() => {
-    const loadMedicineTypes = async () => {
-      try {
-        const res = await apiGet<any>('/inventory/medicine-types');
-        const data = res?.data ?? res;
-        const items = Array.isArray(data)
-          ? data.map((entry: any) => {
-            const id = String(entry?.id || entry?._id || '').trim();
-            const name = String(entry?.name || '').trim();
-            if (!id || !name) return null;
-            return { id, name };
-          }).filter(Boolean)
-          : [];
-        setMedicineOptions(items);
-      } catch {
-        setMedicineOptions([]);
-      }
-    };
-    void loadMedicineTypes();
-  }, []);
 
   const loadTankHealthHistory = useCallback(async () => {
     setLoadingHistory(true);
@@ -192,6 +168,24 @@ export default function AIAssistant({ user }: AIAssistantProps) {
   const recentHistory = selectedTankHistory.slice(0, 3);
   const selectedBatch = selectedTankBatches.find((batch) => batch.id === selectedBatchId) || null;
   const annotatedImageSrc = getAnnotatedImageSrc(analysis);
+  const matchingDiseaseHistory = useMemo(() => {
+    if (!report?.isKnownClassification) return [];
+    const labels = [
+      report.payload.bacterialType,
+      report.template.key,
+      report.template.title,
+      ...report.template.aliases,
+    ]
+      .filter(Boolean)
+      .map((value) => String(value).toLowerCase());
+
+    return selectedTankHistory
+      .filter((record) => {
+        const disease = String(record.bacterialType || '').toLowerCase();
+        return labels.some((label) => disease && (disease.includes(label) || label.includes(disease)));
+      })
+      .slice(0, 5);
+  }, [report, selectedTankHistory]);
 
   const handleAnalyze = async () => {
     if (!selectedFile) {
@@ -237,7 +231,7 @@ export default function AIAssistant({ user }: AIAssistantProps) {
         treatmentSuggestion: report.payload.treatmentSuggestion,
         feedingAdvice: report.payload.feedingAdvice,
         checkedAt: report.payload.checkedAt,
-        medicineId: selectedMedicineId || report.payload.medicineId || undefined,
+        medicineId: report.payload.medicineId || undefined,
       });
       toast.success('AI health report saved to tank history.');
       await loadTankHealthHistory();
@@ -348,21 +342,6 @@ export default function AIAssistant({ user }: AIAssistantProps) {
                     {selectedTankBatches.map((batch) => (
                       <SelectItem key={batch.id} value={batch.id}>
                         {getBatchLabel(batch)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="ai-medicine">Medicine</Label>
-                <Select value={selectedMedicineId} onValueChange={setSelectedMedicineId}>
-                  <SelectTrigger id="ai-medicine">
-                    <SelectValue placeholder="-- اختر الدواء --" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {medicineOptions.map((med) => (
-                      <SelectItem key={med.id} value={med.id}>
-                        {med.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -493,7 +472,6 @@ export default function AIAssistant({ user }: AIAssistantProps) {
                       setSelectedFile(null);
                       setAnalysis(null);
                       setReport(null);
-                      setSelectedMedicineId('');
                     }}
                   >
                     Reset
@@ -563,18 +541,60 @@ export default function AIAssistant({ user }: AIAssistantProps) {
                     ) : null}
 
                     {report.isKnownClassification && (
-                      <RobotHealthReport
-                        template={report.template}
-                        healthStatus={report.mappedHealthStatus}
-                        confidencePercent={report.confidencePercent}
-                        checkedAt={report.payload.checkedAt}
-                        batchLabel={selectedBatch ? getBatchLabel(selectedBatch) : undefined}
-                        topPredictionLabel={report.topPredictionDisplay}
-                        title="Fixed AI Health Report"
-                        compact
-                        libraryRecommendation={report.libraryRecommendation}
-                        requireLibraryRecommendation={report.diseaseDetected}
-                      />
+                      <>
+                        <RobotHealthReport
+                          template={report.template}
+                          healthStatus={report.mappedHealthStatus}
+                          confidencePercent={report.confidencePercent}
+                          checkedAt={report.payload.checkedAt}
+                          batchLabel={selectedBatch ? getBatchLabel(selectedBatch) : undefined}
+                          topPredictionLabel={report.topPredictionDisplay}
+                          title="Fixed AI Health Report"
+                          compact
+                          libraryRecommendation={report.libraryRecommendation}
+                          requireLibraryRecommendation={report.diseaseDetected}
+                        />
+
+                        <div className="rounded-lg border border-slate-200 bg-white p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">Previous records for this disease</p>
+                              <p className="mt-1 text-xs text-slate-500">
+                                Matched from saved health records for this tank using the disease name and Health Library aliases.
+                              </p>
+                            </div>
+                            <Badge variant="outline" className="border-[#B9E0E7] text-[#0A4D68]">
+                              {matchingDiseaseHistory.length} record{matchingDiseaseHistory.length === 1 ? '' : 's'}
+                            </Badge>
+                          </div>
+                          {matchingDiseaseHistory.length === 0 ? (
+                            <p className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                              No older saved records for this disease in the selected tank yet.
+                            </p>
+                          ) : (
+                            <div className="mt-4 space-y-2">
+                              {matchingDiseaseHistory.map((record) => (
+                                <div key={record.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <p className="text-sm font-semibold text-slate-900">
+                                      {record.bacterialType || 'Automated report'}
+                                    </p>
+                                    <Badge variant="outline" className={getHealthStatusColor(record.healthStatus)}>
+                                      {formatHealthStatus(record.healthStatus)}
+                                    </Badge>
+                                  </div>
+                                  <p className="mt-1 text-xs text-slate-500">{formatDateTime(record.checkedAt)}</p>
+                                  {record.bacterialLoadPercentage != null && (
+                                    <p className="mt-2 text-xs text-slate-600">
+                                      Recorded disease percentage: {Number(record.bacterialLoadPercentage).toFixed(1)}%
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </>
                     )}
 
                     <Button
