@@ -224,7 +224,6 @@ export default function NotificationCenter({
             <Bell className="w-4 h-4 mr-2" />
             Notifications
           </TabsTrigger>
-          <TabsTrigger value="preferences">Preferences</TabsTrigger>
         </TabsList>
 
         {/* Notifications Tab */}
