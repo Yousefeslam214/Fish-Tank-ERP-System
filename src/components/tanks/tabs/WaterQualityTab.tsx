@@ -45,23 +45,23 @@ interface WaterQualityTabProps {
 type StatusLevel = "optimal" | "acceptable" | "warning" | "critical";
 
 const getTemperatureStatus = (temp: number): StatusLevel => {
-  if (temp >= 22 && temp <= 28) return "optimal";
-  if ((temp >= 18 && temp < 22) || (temp > 28 && temp <= 30))
+  if (temp > 22 && temp < 28) return "optimal"; // strictly inside
+  if ((temp >= 18 && temp <= 22) || (temp >= 28 && temp <= 30))
     return "acceptable";
   if ((temp >= 15 && temp < 18) || (temp > 30 && temp <= 32)) return "warning";
   return "critical";
 };
 
 const getPhStatus = (ph: number): StatusLevel => {
-  if (ph >= 7.0 && ph <= 8.0) return "optimal";
-  if ((ph >= 6.5 && ph < 7.0) || (ph > 8.0 && ph <= 8.5)) return "acceptable";
+  if (ph >= 7.0 && ph <= 8.0) return "optimal"; // 7.0 and 8.0 → optimal
+  if ((ph >= 6.5 && ph < 7.0) || (ph > 8.0 && ph <= 8.5)) return "acceptable"; // strictly outside 7–8
   if ((ph >= 6.0 && ph < 6.5) || (ph > 8.5 && ph <= 9.0)) return "warning";
   return "critical";
 };
 
 const getTurbidityStatus = (ntu: number): StatusLevel => {
-  if (ntu <= 25) return "optimal";
-  if (ntu <= 50) return "acceptable";
+  if (ntu < 25) return "optimal";
+  if (ntu < 50) return "acceptable"; // changed <= to
   if (ntu <= 150) return "warning";
   return "critical";
 };
@@ -69,7 +69,7 @@ const getTurbidityStatus = (ntu: number): StatusLevel => {
 // Dissolved oxygen (mg/L) — higher is better. Mirrors the chart's 5 (warning)
 // and 3 (danger) reference lines.
 const getDoStatus = (mgL: number): StatusLevel => {
-  if (mgL >= 6) return "optimal";
+  if (mgL > 6) return "optimal";
   if (mgL >= 5) return "acceptable";
   if (mgL >= 3) return "warning";
   return "critical";
@@ -77,7 +77,7 @@ const getDoStatus = (mgL: number): StatusLevel => {
 
 // Total Ammonia Nitrogen (TAN / NH3, mg/L) — lower is better.
 const getAmmoniaStatus = (mgL: number): StatusLevel => {
-  if (mgL <= 0.02) return "optimal";
+  if (mgL < 0.02) return "optimal";
   if (mgL <= 0.05) return "acceptable";
   if (mgL <= 0.1) return "warning";
   return "critical";
@@ -86,7 +86,7 @@ const getAmmoniaStatus = (mgL: number): StatusLevel => {
 // Nitrite (NO2, mg/L) — lower is better.
 const getNitriteStatus = (mgL: number): StatusLevel => {
   if (mgL < 0.1) return "optimal";
-  if (mgL <= 0.3) return "acceptable";
+  if (mgL < 0.3) return "acceptable"; // changed <= to
   if (mgL <= 1.0) return "warning";
   return "critical";
 };
