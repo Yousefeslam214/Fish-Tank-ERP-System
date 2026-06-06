@@ -2,7 +2,7 @@
 // FoodTypeManagement.tsx  –  Updated by Ziad (Clean Version)
 // ============================================================
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -36,6 +36,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "./ui/alert-dialog";
+import Pagination from "@mui/material/Pagination";
 import {
   User,
   Farm,
@@ -65,6 +66,9 @@ export default function FoodTypeManagement({
   const [foodTypes, setFoodTypes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [currentPage, setCurrentPage] = useState(0);
+  const ITEMS_PER_PAGE = 6;
 
   const [formData, setFormData] = useState({
     name: "",
@@ -101,6 +105,7 @@ export default function FoodTypeManagement({
           }))
         : [];
       setFoodTypes(normalizedData);
+      setCurrentPage(0);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -111,6 +116,18 @@ export default function FoodTypeManagement({
   useEffect(() => {
     fetchFoodTypes();
   }, [fetchFoodTypes]);
+
+  const foodTypePages = useMemo(() => {
+    const pages = [];
+
+    for (let i = 0; i < foodTypes.length; i += ITEMS_PER_PAGE) {
+      pages.push(foodTypes.slice(i, i + ITEMS_PER_PAGE));
+    }
+
+    return pages;
+  }, [foodTypes]);
+
+  const currentFoodTypes = foodTypePages[currentPage] || [];
 
   const handleEdit = (foodType: any) => {
     setFormData({
@@ -253,7 +270,7 @@ export default function FoodTypeManagement({
               </Button>
             </div>
           ) : (
-            foodTypes.map((foodType) => (
+            currentFoodTypes.map((foodType) => (
               <Card
                 key={foodType.id}
                 className="bg-white shadow-sm border-t-4 border-[#088395]"
@@ -312,6 +329,19 @@ export default function FoodTypeManagement({
             ))
           )}
         </div>
+
+        {!loading && foodTypePages.length > 1 && (
+          <div className="flex justify-center py-4">
+            <Pagination
+              count={foodTypePages.length}
+              page={currentPage + 1}
+              onChange={(_, page) => setCurrentPage(page - 1)}
+              color="primary"
+              showFirstButton
+              showLastButton
+            />
+          </div>
+        )}
       </div>
 
       <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>

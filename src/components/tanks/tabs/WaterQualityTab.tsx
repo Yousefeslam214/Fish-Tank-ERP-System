@@ -66,6 +66,46 @@ const getTurbidityStatus = (ntu: number): StatusLevel => {
   return "critical";
 };
 
+// Dissolved oxygen (mg/L) — higher is better. Mirrors the chart's 5 (warning)
+// and 3 (danger) reference lines.
+const getDoStatus = (mgL: number): StatusLevel => {
+  if (mgL >= 6) return "optimal";
+  if (mgL >= 5) return "acceptable";
+  if (mgL >= 3) return "warning";
+  return "critical";
+};
+
+// Total Ammonia Nitrogen (TAN / NH3, mg/L) — lower is better.
+const getAmmoniaStatus = (mgL: number): StatusLevel => {
+  if (mgL <= 0.02) return "optimal";
+  if (mgL <= 0.05) return "acceptable";
+  if (mgL <= 0.1) return "warning";
+  return "critical";
+};
+
+// Nitrite (NO2, mg/L) — lower is better.
+const getNitriteStatus = (mgL: number): StatusLevel => {
+  if (mgL < 0.1) return "optimal";
+  if (mgL <= 0.3) return "acceptable";
+  if (mgL <= 1.0) return "warning";
+  return "critical";
+};
+
+// Maps a status level to a hex color (applied via inline style so it can't be
+// purged by Tailwind, unlike arbitrary `text-[#...]` classes).
+const statusHex = (status: StatusLevel): string => {
+  switch (status) {
+    case "optimal":
+      return "#10B981"; // green
+    case "acceptable":
+      return "#3B82F6"; // blue
+    case "warning":
+      return "#F59E0B"; // yellow / amber
+    case "critical":
+      return "#EF4444"; // red
+  }
+};
+
 function SensorBadge({ status }: { status: StatusLevel }) {
   return (
     <Badge
@@ -204,6 +244,20 @@ export function WaterQualityTab({
         return "bg-gray-500 text-white";
     }
   };
+
+  // Returns the hex color for a single reading, or undefined when the value is
+  // missing/unparseable (so the text falls back to its default color).
+  const valueColor = (
+    value: number | string | null | undefined,
+    statusFn: (n: number) => StatusLevel,
+  ): string | undefined => {
+    if (value === null || value === undefined || value === "") return undefined;
+    // parseFloat tolerates trailing units/spaces (e.g. "50 NTU" -> 50)
+    const n = typeof value === "number" ? value : parseFloat(String(value));
+    if (Number.isNaN(n)) return undefined;
+    return statusHex(statusFn(n));
+  };
+
   const isTechnician = user.role.toLowerCase() === "technician";
   return (
     <div className="space-y-4 pt-4">
@@ -473,10 +527,14 @@ export function WaterQualityTab({
                 const status =
                   record.overallStatus || record.status || "unknown";
 
-                // resolve each field once so we can both display and badge it
+                // resolve each field once so we can both display and color it
                 const recTemp = record.temperature ?? record.temp;
                 const recPh = record.pH ?? record.ph;
                 const recNtu = record.turbidity ?? record.ntu;
+                const recDo = record.dissolvedOxygen ?? record.do;
+                const recAmmonia =
+                  record.totalAmmonia ?? record.ammonia ?? record.nh3;
+                const recNitrite = record.nitrite;
 
                 return (
                   <Card
@@ -518,19 +576,31 @@ export function WaterQualityTab({
                               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
                                 Temperature
                               </p>
-                              <p className="font-bold text-gray-900">
+                              <p
+                                className="font-bold text-gray-900"
+                                style={{
+                                  color: valueColor(
+                                    recTemp,
+                                    getTemperatureStatus,
+                                  ),
+                                }}
+                              >
                                 {recTemp ?? "–"}°C
                               </p>
                             </div>
 
-                            {/* DO — no thresholds provided, no badge */}
+                            {/* DO */}
                             <div className="space-y-1">
                               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
                                 DO
                               </p>
-                              <p className="font-bold text-gray-900">
-                                {record.dissolvedOxygen ?? record.do ?? "–"}{" "}
-                                mg/L
+                              <p
+                                className="font-bold text-gray-900"
+                                style={{
+                                  color: valueColor(recDo, getDoStatus),
+                                }}
+                              >
+                                {recDo ?? "–"} mg/L
                               </p>
                             </div>
 
@@ -539,35 +609,50 @@ export function WaterQualityTab({
                               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
                                 pH
                               </p>
-                              <p className="font-bold text-gray-900">
+                              <p
+                                className="font-bold text-gray-900"
+                                style={{
+                                  color: valueColor(recPh, getPhStatus),
+                                }}
+                              >
                                 {recPh ?? "–"}
                               </p>
                             </div>
 
-                            {/* Ammonia — no thresholds provided, no badge */}
+                            {/* Ammonia */}
                             <div className="space-y-1">
                               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
                                 Ammonia
                               </p>
                               <p
-                                className={`font-bold ${(record.totalAmmonia ?? record.ammonia ?? 0) > 0.5 ? "text-red-600" : "text-gray-900"}`}
+                                className="font-bold text-gray-900"
+                                style={{
+                                  color: valueColor(
+                                    recAmmonia,
+                                    getAmmoniaStatus,
+                                  ),
+                                }}
                               >
-                                {record.totalAmmonia ??
-                                  record.ammonia ??
-                                  record.nh3 ??
-                                  "–"}{" "}
-                                mg/L
+                                {recAmmonia ?? "–"} mg/L
                               </p>
                             </div>
 
                             {/* Nitrite */}
-                            {record.nitrite !== undefined && (
+                            {recNitrite !== undefined && (
                               <div className="space-y-1">
                                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
                                   Nitrite
                                 </p>
-                                <p className="font-bold text-gray-900">
-                                  {record.nitrite} mg/L
+                                <p
+                                  className="font-bold text-gray-900"
+                                  style={{
+                                    color: valueColor(
+                                      recNitrite,
+                                      getNitriteStatus,
+                                    ),
+                                  }}
+                                >
+                                  {recNitrite} mg/L
                                 </p>
                               </div>
                             )}
@@ -578,7 +663,15 @@ export function WaterQualityTab({
                                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
                                   Turbidity
                                 </p>
-                                <p className="font-bold text-gray-900">
+                                <p
+                                  className="font-bold text-gray-900"
+                                  style={{
+                                    color: valueColor(
+                                      recNtu,
+                                      getTurbidityStatus,
+                                    ),
+                                  }}
+                                >
                                   {recNtu} NTU
                                 </p>
                               </div>

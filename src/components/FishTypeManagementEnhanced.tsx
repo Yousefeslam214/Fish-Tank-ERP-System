@@ -45,7 +45,7 @@ import {
   getProteinRequirement,
   updateFishType,
 } from "../services/fishTypesApi";
-
+import Pagination from "@mui/material/Pagination";
 interface FishTypeManagementProps {
   user: User;
   selectedFarm: Farm | null;
@@ -372,7 +372,7 @@ export default function FishTypeManagementEnhanced({
   const [gradePricingError, setGradePricingError] = useState<string | null>(
     null,
   );
-
+  const [foodTypePage, setFoodTypePage] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeFormTab, setActiveFormTab] = useState<FormTab>("basic");
   const [editingFishTypeId, setEditingFishTypeId] = useState<string | null>(
@@ -456,6 +456,7 @@ export default function FishTypeManagementEnhanced({
     setFormState(getDefaultFormState());
     setGradePricingOptions([]);
     setGradePricingError(null);
+    setFoodTypePage(0);
     setIsModalOpen(true);
   };
 
@@ -466,6 +467,7 @@ export default function FishTypeManagementEnhanced({
     setGradePricingOptions([]);
     setActiveFormTab("basic");
     setIsModalOpen(true);
+    setFoodTypePage(0);
     setIsSaving(true);
     setIsLoadingGradePricing(true);
     try {
@@ -953,31 +955,56 @@ export default function FishTypeManagementEnhanced({
             <TabsList className="grid w-full grid-cols-3 rounded-xl bg-[#E4EDF1] p-1 h-auto gap-1 border border-[#C7D8DF]">
               <TabsTrigger
                 value="basic"
-                className="h-auto min-h-10 whitespace-normal text-center leading-tight py-2 px-2 text-sm font-semibold rounded-lg border border-transparent text-[#2C4250] data-[state=active]:bg-white data-[state=active]:text-[#0A4D68] data-[state=active]:border-[#AEC7D2] data-[state=active]:shadow-sm"
+                style={
+                  activeFormTab === "basic"
+                    ? { backgroundColor: "#1591DC", color: "#fff" }
+                    : undefined
+                }
+                className="h-auto min-h-10 whitespace-normal text-center leading-tight py-2 px-2 text-sm font-semibold rounded-lg border border-transparent text-[#2C4250] data-[state=active]:bg-[#1591DC] data-[state=active]:text-white data-[state=active]:border-[#1591DC] data-[state=active]:shadow-sm"
               >
                 Basic Info
               </TabsTrigger>
               <TabsTrigger
                 value="water"
-                className="h-auto min-h-10 whitespace-normal text-center leading-tight py-2 px-2 text-sm font-semibold rounded-lg border border-transparent text-[#2C4250] data-[state=active]:bg-white data-[state=active]:text-[#0A4D68] data-[state=active]:border-[#AEC7D2] data-[state=active]:shadow-sm"
+                style={
+                  activeFormTab === "water"
+                    ? { backgroundColor: "#1591DC", color: "#fff" }
+                    : undefined
+                }
+                className="h-auto min-h-10 whitespace-normal text-center leading-tight py-2 px-2 text-sm font-semibold rounded-lg border border-transparent text-[#2C4250] data-[state=active]:bg-[#1591DC] data-[state=active]:text-white data-[state=active]:border-[#1591DC] data-[state=active]:shadow-sm"
               >
                 Water Quality
               </TabsTrigger>
               <TabsTrigger
                 value="feeding"
-                className="h-auto min-h-10 whitespace-normal text-center leading-tight py-2 px-2 text-sm font-semibold rounded-lg border border-transparent text-[#2C4250] data-[state=active]:bg-white data-[state=active]:text-[#0A4D68] data-[state=active]:border-[#AEC7D2] data-[state=active]:shadow-sm"
+                style={
+                  activeFormTab === "feeding"
+                    ? { backgroundColor: "#1591DC", color: "#fff" }
+                    : undefined
+                }
+                className="h-auto min-h-10 whitespace-normal text-center leading-tight py-2 px-2 text-sm font-semibold rounded-lg border border-transparent text-[#2C4250] data-[state=active]:bg-[#1591DC] data-[state=active]:text-white data-[state=active]:border-[#1591DC] data-[state=active]:shadow-sm"
               >
                 Feeding Rates
               </TabsTrigger>
               <TabsTrigger
                 value="protein"
-                className="h-auto min-h-10 whitespace-normal text-center leading-tight py-2 px-2 text-sm font-semibold rounded-lg border border-transparent text-[#2C4250] data-[state=active]:bg-white data-[state=active]:text-[#0A4D68] data-[state=active]:border-[#AEC7D2] data-[state=active]:shadow-sm"
+                style={
+                  activeFormTab === "protein"
+                    ? { backgroundColor: "#1591DC", color: "#fff" }
+                    : undefined
+                }
+                className="h-auto min-h-10 whitespace-normal text-center leading-tight py-2 px-2 text-sm font-semibold rounded-lg border border-transparent text-[#2C4250] data-[state=active]:bg-[#1591DC] data-[state=active]:text-white data-[state=active]:border-[#1591DC] data-[state=active]:shadow-sm"
               >
                 Protein
               </TabsTrigger>
               <TabsTrigger
                 value="food"
-                className="h-auto min-h-10 whitespace-normal text-center leading-tight py-2 px-2 text-sm font-semibold rounded-lg border border-transparent text-[#2C4250] data-[state=active]:bg-white data-[state=active]:text-[#0A4D68] data-[state=active]:border-[#AEC7D2] data-[state=active]:shadow-sm"
+                style={
+                  activeFormTab === "food"
+                    ? { backgroundColor: "#1591DC", color: "#fff" }
+                    : undefined
+                }
+                className="h-auto min-h-10 whitespace-normal text-center leading-tight py-2 px-2 text-sm font-semibold rounded-lg border border-transparent text-[#2C4250] data-[state=active]:bg-[#1591DC] data-[state=active]:text-white data-[state=active]:border-[#1591DC] data-[state=active]:shadow-sm"
               >
                 Food Types
               </TabsTrigger>
@@ -1573,6 +1600,19 @@ export default function FishTypeManagementEnhanced({
                           !formState.allowedFoodTypeIds.includes(foodType.id),
                       );
 
+                      const FOOD_TYPES_PER_PAGE = 6;
+                      const pageCount = Math.ceil(
+                        nonSelectedFoodTypes.length / FOOD_TYPES_PER_PAGE,
+                      );
+                      const safePage = Math.min(
+                        foodTypePage,
+                        Math.max(pageCount - 1, 0),
+                      );
+                      const pagedNonSelected = nonSelectedFoodTypes.slice(
+                        safePage * FOOD_TYPES_PER_PAGE,
+                        safePage * FOOD_TYPES_PER_PAGE + FOOD_TYPES_PER_PAGE,
+                      );
+
                       const renderFoodTypeOption = (
                         foodType: FoodTypeOption,
                         checked: boolean,
@@ -1627,11 +1667,26 @@ export default function FishTypeManagementEnhanced({
                                 All food types are selected.
                               </p>
                             ) : (
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                {nonSelectedFoodTypes.map((foodType) =>
-                                  renderFoodTypeOption(foodType, false),
+                              <>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                  {pagedNonSelected.map((foodType) =>
+                                    renderFoodTypeOption(foodType, false),
+                                  )}
+                                </div>
+                                {pageCount > 1 && (
+                                  <div className="flex justify-center pt-3">
+                                    <Pagination
+                                      count={pageCount}
+                                      page={safePage + 1}
+                                      onChange={(_, page) =>
+                                        setFoodTypePage(page - 1)
+                                      }
+                                      color="primary"
+                                      size="small"
+                                    />
+                                  </div>
                                 )}
-                              </div>
+                              </>
                             )}
                           </div>
                         </div>
