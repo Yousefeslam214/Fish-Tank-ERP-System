@@ -849,6 +849,31 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
     return null;
   };
 
+  const getStockWarning = (item: any) => {
+    const reorderLevel = toNumber(item?.reorderLevel, 0);
+    if (reorderLevel <= 0) return null;
+
+    const quantity = toNumber(item?.quantity, 0);
+
+    // At or below the reorder level → critical
+    if (quantity <= reorderLevel) {
+      return {
+        text: "Critical Stock",
+        className: "bg-red-100 text-red-700 border border-red-200",
+      };
+    }
+
+    // Within 50% above the reorder level → early warning
+    if (quantity <= reorderLevel * 1.5) {
+      return {
+        text: "Warning Stock",
+        className: "bg-yellow-100 text-yellow-700 border border-yellow-200",
+      };
+    }
+
+    return null;
+  };
+
   const handleAddResourceSubmit = async () => {
     const expectsFishCount = newResourceData.resourceType === "fish_batch";
     const expectsUnits = newResourceData.resourceType === "medicine";
@@ -1909,6 +1934,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                     const Icon = getTypeIcon("feed");
                     const daysUntilExpiry = getDaysUntilExpiry(item.expiryDate);
                     const expiryWarning = getExpiryWarning(item.expiryDate);
+                    const stockWarning = getStockWarning(item);
                     const itemName = item.name;
                     const stockStatus = getStockStatus(item);
                     const quantity = toNumber(item.quantity, 0);
@@ -1944,7 +1970,11 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                                   <p className="font-semibold text-[#0A4D68]">
                                     {itemName}
                                   </p>
-
+                                  {stockWarning && (
+                                    <Badge className={stockWarning.className}>
+                                      {stockWarning.text}
+                                    </Badge>
+                                  )}
                                   {expiryWarning && (
                                     <Badge className={expiryWarning.className}>
                                       {expiryWarning.text}
