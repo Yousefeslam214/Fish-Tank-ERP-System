@@ -65,9 +65,16 @@ export default function NotificationCenter({
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case "alert":
-        return AlertTriangle;
+      case "WARNING":
       case "warning":
         return AlertTriangle;
+      case "CRITICAL":
+      case "critical":
+        return AlertTriangle;
+      case "SUCCESS":
+      case "success":
+        return Check;
+      case "INFO":
       case "info":
         return Info;
       default:
@@ -75,21 +82,22 @@ export default function NotificationCenter({
     }
   };
 
-  const getNotificationColor = (priority: string) => {
-    switch (priority) {
-      case "critical":
+  const getNotificationColor = (type: string) => {
+    const t = type?.toUpperCase();
+    switch (t) {
+      case "CRITICAL":
         return "bg-red-50 border-red-200";
-      case "high":
-        return "bg-orange-50 border-orange-200";
-      case "medium":
+      case "WARNING":
         return "bg-yellow-50 border-yellow-200";
-      case "low":
+      case "SUCCESS":
+        return "bg-green-50 border-green-200";
+      case "INFO":
+      case "NORMAL":
         return "bg-blue-50 border-blue-200";
       default:
         return "bg-gray-50 border-gray-200";
     }
   };
-
   const getPriorityBadgeColor = (priority: string) => {
     switch (priority) {
       case "critical":
@@ -160,8 +168,41 @@ export default function NotificationCenter({
     return time ? time.toLocaleString() : "";
   };
   const isWaterChangeDone = (notification: any) =>
-    notification.type === "info" &&
-    notification.message?.toLowerCase().includes("water change done");
+    notification.type === "SUCCESS" ||
+    notification.type === "success" ||
+    notification.templateName === "WATER_CHANGE_DONE" ||
+    notification.subject?.toLowerCase().includes("water change completed") ||
+    notification.subject?.toLowerCase().includes("water change done");
+  const isFeedingCompleted = (notification: any) =>
+    notification.templateName === "FEEDING_DONE" ||
+    notification.templateName === "FEEDING_COMPLETED" ||
+    notification.subject?.toLowerCase().includes("feeding completed") ||
+    notification.subject?.toLowerCase().includes("feeding done");
+  const isHarvestFinished = (notification: any) =>
+    notification.templateName === "HARVEST_FINISHED" ||
+    notification.templateName === "HARVEST_DONE" ||
+    notification.subject?.toLowerCase().includes("harvest finished") ||
+    notification.subject?.toLowerCase().includes("harvest completed");
+  // Notifications styled as a green, "DONE" card
+  const isCompleted = (notification: any) =>
+    isWaterChangeDone(notification) ||
+    isFeedingCompleted(notification) ||
+    isHarvestFinished(notification);
+  const isWaterChangeTask = (notification: any) =>
+    !isCompleted(notification) &&
+    (notification.templateName === "WATER_CHANGE_TASK" ||
+      notification.subject?.toLowerCase().includes("water change task"));
+  const isCritical = (notification: any) =>
+    notification.priority === "critical" ||
+    notification.type?.toUpperCase() === "CRITICAL" ||
+    notification.subject?.toLowerCase().includes("critical");
+  const isHarvestReminder = (notification: any) =>
+    !isCritical(notification) &&
+    (notification.templateName === "HARVEST_REMINDER" ||
+      notification.subject?.toLowerCase().includes("harvest reminder"));
+  // Notifications styled as a blue, badge-less info card
+  const isBlueInfo = (notification: any) =>
+    isWaterChangeTask(notification) || isHarvestReminder(notification);
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -268,23 +309,54 @@ export default function NotificationCenter({
                   return (
                     <div
                       key={notification.id}
-                      className={`p-4 border rounded-lg transition-all ${getNotificationColor(
-                        notification.priority,
-                      )} ${!notification.read ? "border-l-4" : ""}`}
+                      className={`p-4 border rounded-lg transition-all ${!isCompleted(notification) && !isBlueInfo(notification) && !isCritical(notification) ? getNotificationColor(notification.priority) : ""} ${!notification.read ? "border-l-4" : ""}`}
+                      style={
+                        isCompleted(notification)
+                          ? {
+                              backgroundColor: "#f0fdf4",
+                              borderColor: "#bbf7d0",
+                            }
+                          : isBlueInfo(notification)
+                            ? {
+                                backgroundColor: "#eff6ff",
+                                borderColor: "#bfdbfe",
+                              }
+                            : isCritical(notification)
+                              ? {
+                                  backgroundColor: "#fee2e2",
+                                  borderColor: "#fca5a5",
+                                }
+                              : undefined
+                      }
                     >
                       <div className="flex items-start gap-3">
                         <div
-                          className={`mt-0.5 ${
-                            notification.priority === "critical"
-                              ? "text-red-600"
-                              : notification.priority === "high"
-                                ? "text-orange-600"
-                                : notification.priority === "medium"
-                                  ? "text-yellow-600"
-                                  : "text-blue-600"
-                          }`}
+                          className="mt-0.5"
+                          style={{
+                            color: isCritical(notification)
+                              ? "#dc2626"
+                              : isBlueInfo(notification)
+                                ? "#2563eb"
+                                : notification.type?.toUpperCase() === "WARNING"
+                                  ? "#ca8a04"
+                                  : notification.type?.toUpperCase() ===
+                                        "SUCCESS" || isCompleted(notification)
+                                    ? "#16a34a"
+                                    : "#2563eb",
+                          }}
                         >
-                          <Icon className="w-5 h-5" />
+                          {notification.type?.toUpperCase() === "SUCCESS" ||
+                          isCompleted(notification) ? (
+                            <Check className="w-5 h-5" />
+                          ) : isCritical(notification) ? (
+                            <AlertTriangle className="w-5 h-5" />
+                          ) : isBlueInfo(notification) ? (
+                            <Info className="w-5 h-5" />
+                          ) : notification.type?.toUpperCase() === "WARNING" ? (
+                            <AlertTriangle className="w-5 h-5" />
+                          ) : (
+                            <Info className="w-5 h-5" />
+                          )}
                         </div>
 
                         <div className="flex-1 min-w-0">
@@ -295,23 +367,23 @@ export default function NotificationCenter({
                               >
                                 {subjectText}
                               </p>
-                              <Badge
-                                className={getPriorityBadgeColor(
-                                  notification.priority,
-                                )}
-                                variant="outline"
-                              >
-                                {notification.priority}
-                              </Badge>
-                              {isWaterChangeDone(notification) && (
+                              {isCompleted(notification) ? (
                                 <Badge
-                                  className="bg-green-600/50 text-white border-green-600"
+                                  className="bg-green-600 text-white border-green-600"
                                   variant="outline"
                                 >
                                   DONE
                                 </Badge>
+                              ) : isBlueInfo(notification) ? null : (
+                                <Badge
+                                  className={getPriorityBadgeColor(
+                                    notification.priority,
+                                  )}
+                                  variant="outline"
+                                >
+                                  {notification.priority}
+                                </Badge>
                               )}
-
                               {!notification.read && (
                                 <div className="w-2 h-2 bg-blue-600 rounded-full" />
                               )}

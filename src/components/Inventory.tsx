@@ -1590,7 +1590,8 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
 
   // Render
   const currentFarm = selectedFarm;
-  const isWarehouse = user.role === "warehouse";
+  const isWarehouse = user.role.toLocaleLowerCase() === "warehouse";
+  const isTechnican = user.role.toLocaleLowerCase() === "technician";
   return (
     <>
       {" "}
@@ -1808,7 +1809,7 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                     </div>
                     <div className="flex items-center gap-2">
                       {getStatusBadge(batch.status)}
-                      {isWarehouse && (
+                      {isTechnican && (
                         <Button
                           className="bg-[#0A4D68] hover:bg-[#083d52]"
                           onClick={() => {
