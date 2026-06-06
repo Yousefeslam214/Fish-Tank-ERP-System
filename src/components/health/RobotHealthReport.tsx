@@ -7,14 +7,17 @@ import {
   ShieldAlert,
   Syringe,
   UtensilsCrossed,
-} from 'lucide-react';
-import type { ReactNode } from 'react';
-import { Badge } from '../ui/badge';
-import { Button } from '../ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { formatHealthStatus, HealthStatus } from '../../services/healthCheckApi';
-import { HealthReportTemplate } from '../../services/healthKnowledgeBase';
-import { HealthLibraryRecommendation } from '../../services/healthLibraryApi';
+} from "lucide-react";
+import type { ReactNode } from "react";
+import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import {
+  formatHealthStatus,
+  HealthStatus,
+} from "../../services/healthCheckApi";
+import { HealthReportTemplate } from "../../services/healthKnowledgeBase";
+import { HealthLibraryRecommendation } from "../../services/healthLibraryApi";
 
 interface RobotHealthReportProps {
   template: HealthReportTemplate;
@@ -30,24 +33,24 @@ interface RobotHealthReportProps {
 }
 
 const formatDateTime = (value?: string) => {
-  if (!value) return 'Pending save';
+  if (!value) return "Pending save";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 };
 
 const STATUS_STYLES: Record<HealthStatus, string> = {
-  HEALTHY: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  MILD_CONCERN: 'bg-amber-50 text-amber-700 border-amber-200',
-  MODERATE_CONCERN: 'bg-orange-50 text-orange-700 border-orange-200',
-  SEVERE: 'bg-rose-50 text-rose-700 border-rose-200',
-  CRITICAL: 'bg-red-50 text-red-700 border-red-200',
+  HEALTHY: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  MILD_CONCERN: "bg-amber-50 text-amber-700 border-amber-200",
+  MODERATE_CONCERN: "bg-orange-50 text-orange-700 border-orange-200",
+  SEVERE: "bg-rose-50 text-rose-700 border-rose-200",
+  CRITICAL: "bg-red-50 text-red-700 border-red-200",
 };
 
 const cleanItems = (items?: string[], limit = 4) =>
@@ -70,15 +73,15 @@ const uniqueItems = (...groups: Array<string[] | undefined>) => {
 
 const escapeHtml = (value: string) =>
   value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 
 const listMarkup = (items: string[]) =>
   items.length
-    ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+    ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
     : '<p class="muted">Not configured</p>';
 
 function InfoBlock({
@@ -121,19 +124,22 @@ export function RobotHealthReport({
   checkedAt,
   batchLabel,
   topPredictionLabel,
-  title = 'AI Health Check',
+  title = "AI Health Check",
   compact = false,
   libraryRecommendation,
   requireLibraryRecommendation = false,
 }: RobotHealthReportProps) {
   const predictionLabel = topPredictionLabel || template.title;
   const confidenceLabel =
-    confidencePercent == null ? 'Not available' : `${confidencePercent.toFixed(1)}%`;
+    confidencePercent == null
+      ? "Not available"
+      : `${confidencePercent.toFixed(1)}%`;
   const matchedRange = libraryRecommendation?.range
     ? `${libraryRecommendation.range.min}% - ${libraryRecommendation.range.max}%`
     : null;
   const libraryMissing =
-    requireLibraryRecommendation && !libraryRecommendation?.recommendations?.length;
+    requireLibraryRecommendation &&
+    !libraryRecommendation?.recommendations?.length;
   const summary = libraryRecommendation?.summary || template.summary;
   const treatmentItems = uniqueItems(
     libraryRecommendation?.recommendations,
@@ -160,8 +166,8 @@ export function RobotHealthReport({
     4,
   );
   const handlePrint = () => {
-    if (typeof window === 'undefined') return;
-    const printWindow = window.open('', '_blank', 'width=900,height=720');
+    if (typeof window === "undefined") return;
+    const printWindow = window.open("", "_blank", "width=900,height=720");
     if (!printWindow) {
       window.print();
       return;
@@ -169,7 +175,7 @@ export function RobotHealthReport({
     const libraryLabel =
       libraryRecommendation?.level ||
       libraryRecommendation?.status ||
-      (libraryMissing ? 'Missing rule' : 'Default protocol');
+      (libraryMissing ? "Missing rule" : "Default protocol");
     const ruleDetails = [
       libraryRecommendation?.conditionId,
       libraryRecommendation?.medicineName,
@@ -205,15 +211,15 @@ export function RobotHealthReport({
       <div class="box"><div class="label">Detected pattern</div><div class="value">${escapeHtml(predictionLabel)}</div></div>
       <div class="box"><div class="label">Status</div><div class="value">${escapeHtml(formatHealthStatus(healthStatus))}</div></div>
       <div class="box"><div class="label">Confidence</div><div class="value">${escapeHtml(confidenceLabel)}</div></div>
-      <div class="box"><div class="label">Batch</div><div class="value">${escapeHtml(batchLabel || 'Not selected')}</div></div>
+      <div class="box"><div class="label">Batch</div><div class="value">${escapeHtml(batchLabel || "Not selected")}</div></div>
       <div class="box"><div class="label">Checked at</div><div class="value">${escapeHtml(formatDateTime(checkedAt))}</div></div>
       <div class="box"><div class="label">Library match</div><div class="value">${escapeHtml(libraryLabel)}</div></div>
     </section>
-    ${ruleDetails.length ? `<h2>Health Library Rule</h2>${listMarkup(ruleDetails)}` : ''}
+    ${ruleDetails.length ? `<h2>Health Library Rule</h2>${listMarkup(ruleDetails)}` : ""}
     <h2>Next Actions</h2>${listMarkup(treatmentItems)}
     <h2>Feeding</h2>${listMarkup(feedingItems)}
     <h2>Follow-up</h2>${listMarkup(followUpItems)}
-    ${compact ? '' : `<h2>Main Signs</h2>${listMarkup(signsItems)}<h2>Prevention</h2><p>${escapeHtml(libraryRecommendation?.quarantineAdvice || template.quarantineAdvice)}</p>${listMarkup(preventionItems)}`}
+    ${compact ? "" : `<h2>Main Signs</h2>${listMarkup(signsItems)}<h2>Prevention</h2><p>${escapeHtml(libraryRecommendation?.quarantineAdvice || template.quarantineAdvice)}</p>${listMarkup(preventionItems)}`}
   </body>
 </html>`);
     printWindow.document.close();
@@ -231,14 +237,21 @@ export function RobotHealthReport({
               AI generated
             </div>
             <CardTitle className="text-lg text-slate-950">{title}</CardTitle>
-            <p className="max-w-3xl text-sm leading-6 text-slate-600">{summary}</p>
+            <p className="max-w-3xl text-sm leading-6 text-slate-600">
+              {summary}
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline" className={STATUS_STYLES[healthStatus]}>
               {formatHealthStatus(healthStatus)}
             </Badge>
             <Badge className="bg-[#0A4D68] text-white">{confidenceLabel}</Badge>
-            <Button type="button" variant="outline" size="sm" onClick={handlePrint}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handlePrint}
+            >
               <Printer className="mr-2 h-3.5 w-3.5" />
               Print
             </Button>
@@ -247,12 +260,18 @@ export function RobotHealthReport({
 
         <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 md:grid-cols-2 xl:grid-cols-4">
           <div>
-            <p className="text-xs font-medium text-slate-500">Detected pattern</p>
-            <p className="mt-1 text-sm font-semibold text-slate-950">{predictionLabel}</p>
+            <p className="text-xs font-medium text-slate-500">
+              Detected pattern
+            </p>
+            <p className="mt-1 text-sm font-semibold text-slate-950">
+              {predictionLabel}
+            </p>
           </div>
           <div>
             <p className="text-xs font-medium text-slate-500">Batch</p>
-            <p className="mt-1 text-sm font-semibold text-slate-950">{batchLabel || 'Not selected'}</p>
+            <p className="mt-1 text-sm font-semibold text-slate-950">
+              {batchLabel || "Not selected"}
+            </p>
           </div>
           <div>
             <p className="text-xs font-medium text-slate-500">Checked at</p>
@@ -266,9 +285,11 @@ export function RobotHealthReport({
             <p className="mt-1 text-sm font-semibold text-slate-950">
               {libraryRecommendation?.level ||
                 libraryRecommendation?.status ||
-                (libraryMissing ? 'Missing rule' : 'Default protocol')}
+                (libraryMissing ? "Missing rule" : "Default protocol")}
             </p>
-            {matchedRange && <p className="mt-1 text-xs text-slate-500">{matchedRange}</p>}
+            {matchedRange && (
+              <p className="mt-1 text-xs text-slate-500">{matchedRange}</p>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -279,10 +300,15 @@ export function RobotHealthReport({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-[#0A4D68]">
                 <ListChecks className="h-4 w-4" />
-                <p className="text-sm font-semibold">Matched health library rule</p>
+                <p className="text-sm font-semibold">
+                  Matched health library rule
+                </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Badge variant="outline" className="border-[#B9E0E7] text-[#0A4D68]">
+                <Badge
+                  variant="outline"
+                  className="border-[#B9E0E7] text-[#0A4D68]"
+                >
                   {libraryRecommendation.conditionId}
                 </Badge>
                 {libraryRecommendation.medicineName && (
@@ -302,12 +328,13 @@ export function RobotHealthReport({
 
         {libraryMissing && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-            No matching health library level exists for this disease and confidence range. Add a
-            level in Health Library before relying on automated treatment instructions.
+            No matching health library level exists for this disease and
+            confidence range. Add a level in Health Library before relying on
+            automated treatment instructions.
           </div>
         )}
 
-        <div className={`grid gap-4 ${compact ? '' : 'xl:grid-cols-3'}`}>
+        <div className={`grid gap-4 ${compact ? "" : "xl:grid-cols-3"}`}>
           <InfoBlock
             icon={<Syringe className="h-4 w-4 text-[#088395]" />}
             title="Next actions"
@@ -337,9 +364,12 @@ export function RobotHealthReport({
               emptyText="No symptom list is configured yet."
             />
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm font-semibold text-slate-800">Prevention and quarantine</p>
+              <p className="text-sm font-semibold text-slate-800">
+                Prevention and quarantine
+              </p>
               <p className="mt-2 text-sm leading-6 text-slate-700">
-                {libraryRecommendation?.quarantineAdvice || template.quarantineAdvice}
+                {libraryRecommendation?.quarantineAdvice ||
+                  template.quarantineAdvice}
               </p>
               <ul className="mt-3 grid gap-2 text-sm text-slate-700 md:grid-cols-2">
                 {preventionItems.map((item) => (

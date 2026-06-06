@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Book,
@@ -12,18 +12,27 @@ import {
   ShieldCheck,
   Stethoscope,
   Trash2,
-} from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Input } from './ui/input';
-import { Badge } from './ui/badge';
-import { Button } from './ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { User, Farm } from '../types';
-import { apiGet } from '../api';
-import { getHealthTemplateByKey, resolveHealthReportTemplate } from '../services/healthKnowledgeBase';
-import { fetchAllTankHealthOverviews, TankHealthOverview } from '../services/tankHealthOverview';
-import { RobotHealthReport } from './health/RobotHealthReport';
-import { formatHealthStatus, getHealthStatusColor } from '../services/healthCheckApi';
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Input } from "./ui/input";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { User, Farm } from "../types";
+import { apiGet } from "../api";
+import {
+  getHealthTemplateByKey,
+  resolveHealthReportTemplate,
+} from "../services/healthKnowledgeBase";
+import {
+  fetchAllTankHealthOverviews,
+  TankHealthOverview,
+} from "../services/tankHealthOverview";
+import { RobotHealthReport } from "./health/RobotHealthReport";
+import {
+  formatHealthStatus,
+  getHealthStatusColor,
+} from "../services/healthCheckApi";
 import {
   createHealthLibraryConfiguration,
   createDefaultRiskLevel,
@@ -40,61 +49,81 @@ import {
   mergeHealthLibraryConfigurationsWithDefaults,
   normalizeHealthLibraryRiskLevels,
   updateHealthLibraryConfiguration,
-} from '../services/healthLibraryApi';
-import { toast } from 'sonner';
+} from "../services/healthLibraryApi";
+import { toast } from "sonner";
 
 interface HealthLibraryProps {
   user: User;
   selectedFarm: Farm | null;
 }
 const formatDate = (value?: string) => {
-  if (!value) return 'Unknown';
+  if (!value) return "Unknown";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 };
 
 const getBatchLabel = (batch: any) =>
-  batch?.batchNumber ? `Batch ${batch.batchNumber}` : `Batch ${String(batch?.id || '').slice(0, 8)}`;
+  batch?.batchNumber
+    ? `Batch ${batch.batchNumber}`
+    : `Batch ${String(batch?.id || "").slice(0, 8)}`;
 
 const normalizeTextList = (items?: string[], fallback?: string[]) => {
-  const source = Array.isArray(items) && items.length > 0 ? items : fallback || [''];
-  return source.map((item) => String(item || ''));
+  const source =
+    Array.isArray(items) && items.length > 0 ? items : fallback || [""];
+  return source.map((item) => String(item || ""));
 };
 
 const compactTextList = (items: string[]) =>
   items.map((item) => item.trim()).filter(Boolean);
 
-export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTemplateKey, setSelectedTemplateKey] = useState<string>('');
-  const [selectedActiveTankId, setSelectedActiveTankId] = useState<string>('');
-  const [selectedRecoveredTankId, setSelectedRecoveredTankId] = useState<string>('');
+export default function HealthLibrary({
+  user,
+  selectedFarm,
+}: HealthLibraryProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTemplateKey, setSelectedTemplateKey] = useState<string>("");
+  const [selectedActiveTankId, setSelectedActiveTankId] = useState<string>("");
+  const [selectedRecoveredTankId, setSelectedRecoveredTankId] =
+    useState<string>("");
   const [loading, setLoading] = useState(true);
   const [overviews, setOverviews] = useState<TankHealthOverview[]>([]);
-  const [libraryConfigs, setLibraryConfigs] = useState<HealthLibraryConfiguration[]>([]);
+  const [libraryConfigs, setLibraryConfigs] = useState<
+    HealthLibraryConfiguration[]
+  >([]);
   const [loadingConfigs, setLoadingConfigs] = useState(true);
   const [savingConfig, setSavingConfig] = useState(false);
-  const [selectedConfigId, setSelectedConfigId] = useState<string>('');
-  const [configConditionId, setConfigConditionId] = useState(DEFAULT_CONDITION_ID);
-  const [configLevels, setConfigLevels] = useState<HealthLibraryRiskLevel[]>(normalizeHealthLibraryRiskLevels());
-  const [configMedicineId, setConfigMedicineId] = useState('');
-  const [configMedicineName, setConfigMedicineName] = useState('');
-  const [medicineOptions, setMedicineOptions] = useState<{ id: string; name: string }[]>([]);
-  const [configSummary, setConfigSummary] = useState('');
-  const [configSymptoms, setConfigSymptoms] = useState<string[]>(['']);
-  const [configFeedingGuidance, setConfigFeedingGuidance] = useState<string[]>(['']);
-  const [configRecoveryChecklist, setConfigRecoveryChecklist] = useState<string[]>(['']);
-  const [configPreventiveMeasures, setConfigPreventiveMeasures] = useState<string[]>(['']);
-  const [configQuarantineAdvice, setConfigQuarantineAdvice] = useState('');
+  const [selectedConfigId, setSelectedConfigId] = useState<string>("");
+  const [configConditionId, setConfigConditionId] =
+    useState(DEFAULT_CONDITION_ID);
+  const [configLevels, setConfigLevels] = useState<HealthLibraryRiskLevel[]>(
+    normalizeHealthLibraryRiskLevels(),
+  );
+  const [configMedicineId, setConfigMedicineId] = useState("");
+  const [configMedicineName, setConfigMedicineName] = useState("");
+  const [medicineOptions, setMedicineOptions] = useState<
+    { id: string; name: string }[]
+  >([]);
+  const [configSummary, setConfigSummary] = useState("");
+  const [configSymptoms, setConfigSymptoms] = useState<string[]>([""]);
+  const [configFeedingGuidance, setConfigFeedingGuidance] = useState<string[]>([
+    "",
+  ]);
+  const [configRecoveryChecklist, setConfigRecoveryChecklist] = useState<
+    string[]
+  >([""]);
+  const [configPreventiveMeasures, setConfigPreventiveMeasures] = useState<
+    string[]
+  >([""]);
+  const [configQuarantineAdvice, setConfigQuarantineAdvice] = useState("");
 
-  const isAdmin = user.role === 'admin';
+  const isAdmin = user.role === "admin";
 
   const loadHealthData = async () => {
     setLoading(true);
@@ -108,33 +137,53 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
     }
   };
 
-  const loadHealthLibraryConfigs = async (preferredConditionId = configConditionId) => {
+  const loadHealthLibraryConfigs = async (
+    preferredConditionId = configConditionId,
+  ) => {
     setLoadingConfigs(true);
     try {
-      const configs = mergeHealthLibraryConfigurationsWithDefaults(await listHealthLibraryConfigurations());
+      const configs = mergeHealthLibraryConfigurationsWithDefaults(
+        await listHealthLibraryConfigurations(),
+      );
       setLibraryConfigs(configs);
       const targetConditionId = preferredConditionId || DEFAULT_CONDITION_ID;
-      const matchingConfig = configs.find((config) => getHealthLibraryConditionId(config) === targetConditionId);
+      const matchingConfig = configs.find(
+        (config) => getHealthLibraryConditionId(config) === targetConditionId,
+      );
 
       if (matchingConfig) {
         setSelectedConfigId(getHealthLibraryConfigId(matchingConfig));
         setConfigConditionId(getHealthLibraryConditionId(matchingConfig));
-        setConfigLevels(normalizeHealthLibraryRiskLevels(matchingConfig.levels, getDefaultRiskLevelsForTemplate(selectedTemplate)));
+        setConfigLevels(
+          normalizeHealthLibraryRiskLevels(
+            matchingConfig.levels,
+            getDefaultRiskLevelsForTemplate(selectedTemplate),
+          ),
+        );
         setConfigDetails(matchingConfig, selectedTemplate);
         return;
       }
 
       const selectedStillExists = selectedConfigId
-        ? configs.some((config) => getHealthLibraryConfigId(config) === selectedConfigId)
+        ? configs.some(
+            (config) => getHealthLibraryConfigId(config) === selectedConfigId,
+          )
         : false;
       if (!selectedStillExists) {
-        setSelectedConfigId('');
+        setSelectedConfigId("");
         setConfigConditionId(targetConditionId);
-        setConfigLevels(normalizeHealthLibraryRiskLevels(undefined, getDefaultRiskLevelsForTemplate(selectedTemplate)));
+        setConfigLevels(
+          normalizeHealthLibraryRiskLevels(
+            undefined,
+            getDefaultRiskLevelsForTemplate(selectedTemplate),
+          ),
+        );
         setConfigDetails(undefined, selectedTemplate);
       }
     } catch (error) {
-      toast.error(`Failed to load health library configurations: ${(error as Error).message}`);
+      toast.error(
+        `Failed to load health library configurations: ${(error as Error).message}`,
+      );
     } finally {
       setLoadingConfigs(false);
     }
@@ -142,15 +191,17 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
 
   const loadMedicineTypes = async () => {
     try {
-      const res = await apiGet<any>('/inventory/medicine-types');
+      const res = await apiGet<any>("/inventory/medicine-types");
       const data = res?.data ?? res;
       const items = Array.isArray(data)
-        ? data.map((entry: any) => {
-          const id = String(entry?.id || entry?._id || '').trim();
-          const name = String(entry?.name || '').trim();
-          if (!id || !name) return null;
-          return { id, name };
-        }).filter(Boolean)
+        ? data
+            .map((entry: any) => {
+              const id = String(entry?.id || entry?._id || "").trim();
+              const name = String(entry?.name || "").trim();
+              if (!id || !name) return null;
+              return { id, name };
+            })
+            .filter(Boolean)
         : [];
       setMedicineOptions(items);
     } catch {
@@ -172,7 +223,10 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
   const filteredOverviews = useMemo(() => {
     if (!selectedFarm) return overviews;
     return overviews.filter((overview) => {
-      const farmId = overview.tank?.farmId || overview.tank?.farm?.id || overview.tank?.farm?.farmId;
+      const farmId =
+        overview.tank?.farmId ||
+        overview.tank?.farm?.id ||
+        overview.tank?.farm?.farmId;
       return !farmId || farmId === selectedFarm.id;
     });
   }, [overviews, selectedFarm]);
@@ -187,16 +241,19 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
         return (
           template.title.toLowerCase().includes(query) ||
           template.aliases.some((alias) => alias.includes(query)) ||
-          template.symptoms.some((symptom) => symptom.toLowerCase().includes(query))
+          template.symptoms.some((symptom) =>
+            symptom.toLowerCase().includes(query),
+          )
         );
       }),
     [searchQuery, templates],
   );
 
   useEffect(() => {
-    const fallbackKey = filteredTemplates[0]?.key || templates[0]?.key || '';
+    const fallbackKey = filteredTemplates[0]?.key || templates[0]?.key || "";
     setSelectedTemplateKey((previous) =>
-      previous && filteredTemplates.some((template) => template.key === previous)
+      previous &&
+      filteredTemplates.some((template) => template.key === previous)
         ? previous
         : fallbackKey,
     );
@@ -212,97 +269,162 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
   );
 
   useEffect(() => {
-    const fallbackTankId = activeOverviews[0]?.tank.id || '';
+    const fallbackTankId = activeOverviews[0]?.tank.id || "";
     setSelectedActiveTankId((previous) =>
-      previous && activeOverviews.some((overview) => overview.tank.id === previous)
+      previous &&
+      activeOverviews.some((overview) => overview.tank.id === previous)
         ? previous
         : fallbackTankId,
     );
   }, [activeOverviews]);
 
   useEffect(() => {
-    const fallbackTankId = recoveredOverviews[0]?.tank.id || '';
+    const fallbackTankId = recoveredOverviews[0]?.tank.id || "";
     setSelectedRecoveredTankId((previous) =>
-      previous && recoveredOverviews.some((overview) => overview.tank.id === previous)
+      previous &&
+      recoveredOverviews.some((overview) => overview.tank.id === previous)
         ? previous
         : fallbackTankId,
     );
   }, [recoveredOverviews]);
 
-  const selectedTemplate = getHealthTemplateByKey(selectedTemplateKey || templates[0]?.key);
-  const selectedActiveOverview = activeOverviews.find((overview) => overview.tank.id === selectedActiveTankId) || activeOverviews[0] || null;
-  const selectedRecoveredOverview = recoveredOverviews.find((overview) => overview.tank.id === selectedRecoveredTankId) || recoveredOverviews[0] || null;
-  const selectedActiveRecord = selectedActiveOverview?.latestActiveRecord || selectedActiveOverview?.latestRecord || null;
-  const selectedRecoveredRecord = selectedRecoveredOverview?.latestHealthyRecord || selectedRecoveredOverview?.latestRecord || null;
-  const selectedActiveTemplate = resolveHealthReportTemplate(selectedActiveRecord?.bacterialType);
+  const selectedTemplate = getHealthTemplateByKey(
+    selectedTemplateKey || templates[0]?.key,
+  );
+  const selectedActiveOverview =
+    activeOverviews.find(
+      (overview) => overview.tank.id === selectedActiveTankId,
+    ) ||
+    activeOverviews[0] ||
+    null;
+  const selectedRecoveredOverview =
+    recoveredOverviews.find(
+      (overview) => overview.tank.id === selectedRecoveredTankId,
+    ) ||
+    recoveredOverviews[0] ||
+    null;
+  const selectedActiveRecord =
+    selectedActiveOverview?.latestActiveRecord ||
+    selectedActiveOverview?.latestRecord ||
+    null;
+  const selectedRecoveredRecord =
+    selectedRecoveredOverview?.latestHealthyRecord ||
+    selectedRecoveredOverview?.latestRecord ||
+    null;
+  const selectedActiveTemplate = resolveHealthReportTemplate(
+    selectedActiveRecord?.bacterialType,
+  );
   const selectedRecoveredTemplate = resolveHealthReportTemplate(
-    selectedRecoveredOverview?.latestActiveRecord?.bacterialType || selectedRecoveredRecord?.bacterialType,
+    selectedRecoveredOverview?.latestActiveRecord?.bacterialType ||
+      selectedRecoveredRecord?.bacterialType,
   );
   const selectedTemplateConditionId = getDiseaseConditionId(selectedTemplate);
-  const totalReports = filteredOverviews.reduce((sum, overview) => sum + overview.healthChecks.length, 0);
-  const monitoredBatches = filteredOverviews.reduce((sum, overview) => sum + overview.batches.length, 0);
+  const totalReports = filteredOverviews.reduce(
+    (sum, overview) => sum + overview.healthChecks.length,
+    0,
+  );
+  const monitoredBatches = filteredOverviews.reduce(
+    (sum, overview) => sum + overview.batches.length,
+    0,
+  );
   const previewLevel = configLevels[0] || createDefaultRiskLevel();
-  const previewRecommendations = compactTextList(previewLevel.recommendations || []);
+  const previewRecommendations = compactTextList(
+    previewLevel.recommendations || [],
+  );
   const adminPreviewRecommendation = isAdmin
     ? {
-      conditionId: configConditionId,
-      level: previewLevel.level,
-      status: previewLevel.status || 'Draft',
-      risk: previewLevel.risk,
-      medicineId: configMedicineId.trim() || undefined,
-      medicineName: configMedicineName.trim() || undefined,
-      summary: configSummary.trim() || selectedTemplate.summary,
-      symptoms: compactTextList(configSymptoms).length ? compactTextList(configSymptoms) : selectedTemplate.symptoms,
-      feedingGuidance: compactTextList(configFeedingGuidance).length
-        ? compactTextList(configFeedingGuidance)
-        : selectedTemplate.feedingGuidance,
-      recoveryChecklist: compactTextList(configRecoveryChecklist).length
-        ? compactTextList(configRecoveryChecklist)
-        : selectedTemplate.recoveryChecklist,
-      preventiveMeasures: compactTextList(configPreventiveMeasures).length
-        ? compactTextList(configPreventiveMeasures)
-        : selectedTemplate.preventiveMeasures,
-      quarantineAdvice: configQuarantineAdvice.trim() || selectedTemplate.quarantineAdvice,
-      recommendations: previewRecommendations,
-    }
+        conditionId: configConditionId,
+        level: previewLevel.level,
+        status: previewLevel.status || "Draft",
+        risk: previewLevel.risk,
+        medicineId: configMedicineId.trim() || undefined,
+        medicineName: configMedicineName.trim() || undefined,
+        summary: configSummary.trim() || selectedTemplate.summary,
+        symptoms: compactTextList(configSymptoms).length
+          ? compactTextList(configSymptoms)
+          : selectedTemplate.symptoms,
+        feedingGuidance: compactTextList(configFeedingGuidance).length
+          ? compactTextList(configFeedingGuidance)
+          : selectedTemplate.feedingGuidance,
+        recoveryChecklist: compactTextList(configRecoveryChecklist).length
+          ? compactTextList(configRecoveryChecklist)
+          : selectedTemplate.recoveryChecklist,
+        preventiveMeasures: compactTextList(configPreventiveMeasures).length
+          ? compactTextList(configPreventiveMeasures)
+          : selectedTemplate.preventiveMeasures,
+        quarantineAdvice:
+          configQuarantineAdvice.trim() || selectedTemplate.quarantineAdvice,
+        recommendations: previewRecommendations,
+      }
     : null;
 
-  const setConfigDetails = (config?: HealthLibraryConfiguration, template = selectedTemplate) => {
-    setConfigMedicineId(String(config?.medicineId || ''));
-    setConfigMedicineName(String(config?.medicineName || ''));
-    setConfigSummary(String(config?.summary || template.summary || ''));
+  const setConfigDetails = (
+    config?: HealthLibraryConfiguration,
+    template = selectedTemplate,
+  ) => {
+    setConfigMedicineId(String(config?.medicineId || ""));
+    setConfigMedicineName(String(config?.medicineName || ""));
+    setConfigSummary(String(config?.summary || template.summary || ""));
     setConfigSymptoms(normalizeTextList(config?.symptoms, template.symptoms));
-    setConfigFeedingGuidance(normalizeTextList(config?.feedingGuidance, template.feedingGuidance));
-    setConfigRecoveryChecklist(normalizeTextList(config?.recoveryChecklist, template.recoveryChecklist));
-    setConfigPreventiveMeasures(normalizeTextList(config?.preventiveMeasures, template.preventiveMeasures));
-    setConfigQuarantineAdvice(String(config?.quarantineAdvice || template.quarantineAdvice || ''));
+    setConfigFeedingGuidance(
+      normalizeTextList(config?.feedingGuidance, template.feedingGuidance),
+    );
+    setConfigRecoveryChecklist(
+      normalizeTextList(config?.recoveryChecklist, template.recoveryChecklist),
+    );
+    setConfigPreventiveMeasures(
+      normalizeTextList(
+        config?.preventiveMeasures,
+        template.preventiveMeasures,
+      ),
+    );
+    setConfigQuarantineAdvice(
+      String(config?.quarantineAdvice || template.quarantineAdvice || ""),
+    );
   };
 
   const startNewConfig = () => {
-    setSelectedConfigId('');
+    setSelectedConfigId("");
     setConfigConditionId(selectedTemplateConditionId || DEFAULT_CONDITION_ID);
-    setConfigLevels(normalizeHealthLibraryRiskLevels(undefined, getDefaultRiskLevelsForTemplate(selectedTemplate)));
-    setConfigMedicineId('');
+    setConfigLevels(
+      normalizeHealthLibraryRiskLevels(
+        undefined,
+        getDefaultRiskLevelsForTemplate(selectedTemplate),
+      ),
+    );
+    setConfigMedicineId("");
     setConfigDetails(undefined, selectedTemplate);
   };
 
   const selectConfig = (config: HealthLibraryConfiguration) => {
     setSelectedConfigId(getHealthLibraryConfigId(config));
     setConfigConditionId(getHealthLibraryConditionId(config));
-    setConfigLevels(normalizeHealthLibraryRiskLevels(config.levels, getDefaultRiskLevelsForTemplate(selectedTemplate)));
+    setConfigLevels(
+      normalizeHealthLibraryRiskLevels(
+        config.levels,
+        getDefaultRiskLevelsForTemplate(selectedTemplate),
+      ),
+    );
     setConfigDetails(config, selectedTemplate);
   };
 
   const handleConditionSelection = (conditionId: string) => {
-    const existingConfig = libraryConfigs.find((config) => getHealthLibraryConditionId(config) === conditionId);
+    const existingConfig = libraryConfigs.find(
+      (config) => getHealthLibraryConditionId(config) === conditionId,
+    );
     if (existingConfig) {
       selectConfig(existingConfig);
       return;
     }
 
-    setSelectedConfigId('');
+    setSelectedConfigId("");
     setConfigConditionId(conditionId);
-    setConfigLevels(normalizeHealthLibraryRiskLevels(undefined, getDefaultRiskLevelsForTemplate(selectedTemplate)));
+    setConfigLevels(
+      normalizeHealthLibraryRiskLevels(
+        undefined,
+        getDefaultRiskLevelsForTemplate(selectedTemplate),
+      ),
+    );
     setConfigDetails(undefined, selectedTemplate);
   };
 
@@ -314,7 +436,7 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
 
   const updateLevelField = (
     index: number,
-    field: 'level' | 'status' | 'risk',
+    field: "level" | "status" | "risk",
     value: string,
   ) => {
     setConfigLevels((levels) =>
@@ -324,33 +446,44 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
     );
   };
 
-  const updateLevelRange = (index: number, field: 'min' | 'max', value: string) => {
+  const updateLevelRange = (
+    index: number,
+    field: "min" | "max",
+    value: string,
+  ) => {
     const numericValue = Number(value);
     setConfigLevels((levels) =>
       levels.map((level, levelIndex) =>
         levelIndex === index
           ? {
-            ...level,
-            range: {
-              ...level.range,
-              [field]: Number.isFinite(numericValue) ? numericValue : 0,
-            },
-          }
+              ...level,
+              range: {
+                ...level.range,
+                [field]: Number.isFinite(numericValue) ? numericValue : 0,
+              },
+            }
           : level,
       ),
     );
   };
 
-  const updateRecommendation = (levelIndex: number, recommendationIndex: number, value: string) => {
+  const updateRecommendation = (
+    levelIndex: number,
+    recommendationIndex: number,
+    value: string,
+  ) => {
     setConfigLevels((levels) =>
       levels.map((level, currentLevelIndex) =>
         currentLevelIndex === levelIndex
           ? {
-            ...level,
-            recommendations: level.recommendations.map((recommendation, currentRecommendationIndex) =>
-              currentRecommendationIndex === recommendationIndex ? value : recommendation,
-            ),
-          }
+              ...level,
+              recommendations: level.recommendations.map(
+                (recommendation, currentRecommendationIndex) =>
+                  currentRecommendationIndex === recommendationIndex
+                    ? value
+                    : recommendation,
+              ),
+            }
           : level,
       ),
     );
@@ -360,22 +493,26 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
     setConfigLevels((levels) =>
       levels.map((level, currentLevelIndex) =>
         currentLevelIndex === levelIndex
-          ? { ...level, recommendations: [...level.recommendations, ''] }
+          ? { ...level, recommendations: [...level.recommendations, ""] }
           : level,
       ),
     );
   };
 
-  const removeRecommendation = (levelIndex: number, recommendationIndex: number) => {
+  const removeRecommendation = (
+    levelIndex: number,
+    recommendationIndex: number,
+  ) => {
     setConfigLevels((levels) =>
       levels.map((level, currentLevelIndex) =>
         currentLevelIndex === levelIndex
           ? {
-            ...level,
-            recommendations: level.recommendations.filter((_, currentRecommendationIndex) =>
-              currentRecommendationIndex !== recommendationIndex,
-            ),
-          }
+              ...level,
+              recommendations: level.recommendations.filter(
+                (_, currentRecommendationIndex) =>
+                  currentRecommendationIndex !== recommendationIndex,
+              ),
+            }
           : level,
       ),
     );
@@ -386,7 +523,9 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
   };
 
   const removeRiskLevel = (index: number) => {
-    setConfigLevels((levels) => levels.filter((_, levelIndex) => levelIndex !== index));
+    setConfigLevels((levels) =>
+      levels.filter((_, levelIndex) => levelIndex !== index),
+    );
   };
 
   const updateListItem = (
@@ -394,15 +533,26 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
     index: number,
     value: string,
   ) => {
-    setter((items) => items.map((item, itemIndex) => (itemIndex === index ? value : item)));
+    setter((items) =>
+      items.map((item, itemIndex) => (itemIndex === index ? value : item)),
+    );
   };
 
-  const addListItem = (setter: React.Dispatch<React.SetStateAction<string[]>>) => {
-    setter((items) => [...items, '']);
+  const addListItem = (
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+  ) => {
+    setter((items) => [...items, ""]);
   };
 
-  const removeListItem = (setter: React.Dispatch<React.SetStateAction<string[]>>, index: number) => {
-    setter((items) => (items.length === 1 ? items : items.filter((_, itemIndex) => itemIndex !== index)));
+  const removeListItem = (
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+    index: number,
+  ) => {
+    setter((items) =>
+      items.length === 1
+        ? items
+        : items.filter((_, itemIndex) => itemIndex !== index),
+    );
   };
 
   const handleSaveConfig = async () => {
@@ -431,16 +581,18 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
           },
           status: level.status.trim(),
           risk: level.risk.trim(),
-          recommendations: level.recommendations.map((item) => item.trim()).filter(Boolean),
+          recommendations: level.recommendations
+            .map((item) => item.trim())
+            .filter(Boolean),
         })),
       };
 
       if (!payload.condition_id) {
-        throw new Error('condition_id is required.');
+        throw new Error("condition_id is required.");
       }
 
       if (!payload.levels?.length) {
-        throw new Error('At least one risk level is required.');
+        throw new Error("At least one risk level is required.");
       }
 
       const invalidLevel = payload.levels.find(
@@ -453,18 +605,25 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
       );
 
       if (invalidLevel) {
-        throw new Error('Each level needs a name, status, valid min, and valid max.');
+        throw new Error(
+          "Each level needs a name, status, valid min, and valid max.",
+        );
       }
 
       let savedConfig: HealthLibraryConfiguration;
       if (selectedConfigId) {
-        savedConfig = await updateHealthLibraryConfiguration(selectedConfigId, payload);
-        toast.success('Update health library');
+        savedConfig = await updateHealthLibraryConfiguration(
+          selectedConfigId,
+          payload,
+        );
+        toast.success("Update health library");
       } else {
         savedConfig = await createHealthLibraryConfiguration(payload);
-        toast.success(savedConfig.savedLocally
-          ? 'health library created'
-          : 'Health library configuration created.');
+        toast.success(
+          savedConfig.savedLocally
+            ? "health library created"
+            : "Health library configuration created.",
+        );
       }
 
       const savedId = getHealthLibraryConfigId(savedConfig);
@@ -482,11 +641,15 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
     setSavingConfig(true);
     try {
       await deleteHealthLibraryConfiguration(selectedConfigId);
-      toast.success('Health library configuration deleted.');
+      toast.success("Health library configuration deleted.");
       startNewConfig();
-      await loadHealthLibraryConfigs(selectedTemplateConditionId || DEFAULT_CONDITION_ID);
+      await loadHealthLibraryConfigs(
+        selectedTemplateConditionId || DEFAULT_CONDITION_ID,
+      );
     } catch (error) {
-      toast.error(`Failed to delete configuration: ${(error as Error).message}`);
+      toast.error(
+        `Failed to delete configuration: ${(error as Error).message}`,
+      );
     } finally {
       setSavingConfig(false);
     }
@@ -501,13 +664,23 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
               <Book className="h-3.5 w-3.5" />
               Health Library
             </div>
-            <h1 className="text-2xl font-semibold text-slate-950">Health protocol workspace</h1>
+            <h1 className="text-2xl font-semibold text-slate-950">
+              Health protocol workspace
+            </h1>
             <p className="mt-1 max-w-3xl text-sm text-slate-600">
-              Manage disease rules, AI confidence ranges, medicine guidance, active cases, and recovered tanks from one clear workflow.
+              Manage disease rules, AI confidence ranges, medicine guidance,
+              active cases, and recovered tanks from one clear workflow.
             </p>
           </div>
-          <Button variant="outline" className="bg-white" onClick={() => void loadHealthData()} disabled={loading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          <Button
+            variant="outline"
+            className="bg-white"
+            onClick={() => void loadHealthData()}
+            disabled={loading}
+          >
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`}
+            />
             Refresh Data
           </Button>
         </div>
@@ -530,7 +703,9 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
             <CheckCircle2 className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{recoveredOverviews.length}</div>
+            <div className="text-2xl font-bold">
+              {recoveredOverviews.length}
+            </div>
             <p className="mt-1 text-xs text-gray-600">Treatment completed</p>
           </CardContent>
         </Card>
@@ -551,7 +726,9 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{monitoredBatches}</div>
-            <p className="mt-1 text-xs text-gray-600">With tank health context</p>
+            <p className="mt-1 text-xs text-gray-600">
+              With tank health context
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -577,9 +754,12 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
             <CardHeader className="border-b border-slate-200">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <CardTitle className="text-lg">Disease rules and AI levels</CardTitle>
+                  <CardTitle className="text-lg">
+                    Disease rules and AI levels
+                  </CardTitle>
                   <p className="mt-1 text-sm text-slate-500">
-                    Choose a disease, review the fixed protocol, then tune the exact Health Library rules used by AI reports.
+                    Choose a disease, review the fixed protocol, then tune the
+                    exact Health Library rules used by AI reports.
                   </p>
                 </div>
                 <div className="relative w-full max-w-xl">
@@ -598,8 +778,12 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
                 <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <div className="flex items-center justify-between gap-3 px-1">
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">Disease protocols</p>
-                      <p className="text-xs text-slate-500">{filteredTemplates.length} available protocols</p>
+                      <p className="text-sm font-semibold text-slate-900">
+                        Disease protocols
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {filteredTemplates.length} available protocols
+                      </p>
                     </div>
                     <Layers3 className="h-4 w-4 text-[#088395]" />
                   </div>
@@ -609,20 +793,31 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
                       onClick={() => setSelectedTemplateKey(template.key)}
                       className={`w-full rounded-lg border p-3 text-left transition-colors ${
                         selectedTemplateKey === template.key
-                          ? 'border-[#088395] bg-white shadow-sm'
-                          : 'border-transparent bg-white/70 hover:border-slate-200'
+                          ? "border-[#088395] bg-white shadow-sm"
+                          : "border-transparent bg-white/70 hover:border-slate-200"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate font-semibold text-slate-900">{template.title}</p>
-                          <p className="mt-1 text-xs text-slate-500">{template.symptoms.length} key signs</p>
+                          <p className="truncate font-semibold text-slate-900">
+                            {template.title}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {template.symptoms.length} key signs
+                          </p>
                         </div>
-                        <Badge variant="outline" className={getHealthStatusColor(template.defaultHealthStatus)}>
+                        <Badge
+                          variant="outline"
+                          className={getHealthStatusColor(
+                            template.defaultHealthStatus,
+                          )}
+                        >
                           {formatHealthStatus(template.defaultHealthStatus)}
                         </Badge>
                       </div>
-                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">{template.summary}</p>
+                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
+                        {template.summary}
+                      </p>
                     </button>
                   ))}
                 </div>
@@ -640,21 +835,33 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
                     <Card className="border-[#B9E0E7] bg-white">
                       <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                         <div>
-                          <CardTitle className="text-lg">Level Controls for {selectedTemplate.title}</CardTitle>
+                          <CardTitle className="text-lg">
+                            Level Controls for {selectedTemplate.title}
+                          </CardTitle>
                           <p className="mt-1 text-sm text-slate-500">
-                            These are the exact ranges and recommendations used after AI analysis detects this disease.
+                            These are the exact ranges and recommendations used
+                            after AI analysis detects this disease.
                           </p>
                           <p className="mt-2 text-xs text-slate-500">
-                            Condition key: <span className="font-mono text-slate-700">{configConditionId}</span>
+                            Condition key:{" "}
+                            <span className="font-mono text-slate-700">
+                              {configConditionId}
+                            </span>
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-2">
                           <Button
                             variant="outline"
-                            onClick={() => void loadHealthLibraryConfigs(selectedTemplateConditionId)}
+                            onClick={() =>
+                              void loadHealthLibraryConfigs(
+                                selectedTemplateConditionId,
+                              )
+                            }
                             disabled={loadingConfigs}
                           >
-                            <RefreshCw className={`mr-2 h-4 w-4 ${loadingConfigs ? 'animate-spin' : ''}`} />
+                            <RefreshCw
+                              className={`mr-2 h-4 w-4 ${loadingConfigs ? "animate-spin" : ""}`}
+                            />
                             Refresh
                           </Button>
                           <Button variant="outline" onClick={startNewConfig}>
@@ -666,7 +873,11 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
                             disabled={savingConfig}
                           >
                             <Save className="mr-2 h-4 w-4" />
-                            {savingConfig ? 'Saving...' : selectedConfigId ? 'Update Levels' : 'Save Levels'}
+                            {savingConfig
+                              ? "Saving..."
+                              : selectedConfigId
+                                ? "Update Levels"
+                                : "Save Levels"}
                           </Button>
                           <Button
                             variant="outline"
@@ -681,13 +892,19 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <div className="rounded-lg border border-[#D7E9EE] bg-[#F7FCFD] p-4">
-                          <p className="text-sm font-semibold text-slate-900">Report content controlled by admin</p>
+                          <p className="text-sm font-semibold text-slate-900">
+                            Report content controlled by admin
+                          </p>
                           <p className="mt-1 text-xs text-slate-500">
-                            These fields replace the fixed protocol text in the AI report for this disease.
+                            These fields replace the fixed protocol text in the
+                            AI report for this disease.
                           </p>
                           <div className="mt-4 grid gap-3 md:grid-cols-2">
                             <div className="space-y-2">
-                              <label className="text-xs font-semibold text-slate-600" htmlFor="library-medicine-name">
+                              <label
+                                className="text-xs font-semibold text-slate-600"
+                                htmlFor="library-medicine-name"
+                              >
                                 Medicine
                               </label>
                               <select
@@ -696,8 +913,12 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
                                 onChange={(event) => {
                                   const selectedId = event.target.value;
                                   setConfigMedicineId(selectedId);
-                                  const selected = medicineOptions.find((m) => m.id === selectedId);
-                                  setConfigMedicineName(selected ? selected.name : '');
+                                  const selected = medicineOptions.find(
+                                    (m) => m.id === selectedId,
+                                  );
+                                  setConfigMedicineName(
+                                    selected ? selected.name : "",
+                                  );
                                 }}
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                               >
@@ -710,24 +931,34 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
                               </select>
                             </div>
                             <div className="space-y-2 md:col-span-2">
-                              <label className="text-xs font-semibold text-slate-600" htmlFor="library-summary">
+                              <label
+                                className="text-xs font-semibold text-slate-600"
+                                htmlFor="library-summary"
+                              >
                                 Diagnosis summary
                               </label>
                               <Input
                                 id="library-summary"
                                 value={configSummary}
-                                onChange={(event) => setConfigSummary(event.target.value)}
+                                onChange={(event) =>
+                                  setConfigSummary(event.target.value)
+                                }
                                 placeholder="اكتب ملخص التشخيص"
                               />
                             </div>
                             <div className="space-y-2 md:col-span-2">
-                              <label className="text-xs font-semibold text-slate-600" htmlFor="library-quarantine">
+                              <label
+                                className="text-xs font-semibold text-slate-600"
+                                htmlFor="library-quarantine"
+                              >
                                 Prevention and quarantine note
                               </label>
                               <Input
                                 id="library-quarantine"
                                 value={configQuarantineAdvice}
-                                onChange={(event) => setConfigQuarantineAdvice(event.target.value)}
+                                onChange={(event) =>
+                                  setConfigQuarantineAdvice(event.target.value)
+                                }
                                 placeholder="اكتب ملاحظات الوقاية أو العزل"
                               />
                             </div>
@@ -736,49 +967,69 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
 
                         {[
                           {
-                            title: 'Observed signs',
+                            title: "Observed signs",
                             items: configSymptoms,
                             setter: setConfigSymptoms,
-                            placeholder: 'اكتب علامة مرضية',
+                            placeholder: "اكتب علامة مرضية",
                           },
                           {
-                            title: 'Feeding guidance',
+                            title: "Feeding guidance",
                             items: configFeedingGuidance,
                             setter: setConfigFeedingGuidance,
-                            placeholder: 'اكتب إرشاد التغذية',
+                            placeholder: "اكتب إرشاد التغذية",
                           },
                           {
-                            title: 'Recovery checklist',
+                            title: "Recovery checklist",
                             items: configRecoveryChecklist,
                             setter: setConfigRecoveryChecklist,
-                            placeholder: 'اكتب شرط التعافي',
+                            placeholder: "اكتب شرط التعافي",
                           },
                           {
-                            title: 'Preventive measures',
+                            title: "Preventive measures",
                             items: configPreventiveMeasures,
                             setter: setConfigPreventiveMeasures,
-                            placeholder: 'اكتب إجراء وقائي',
+                            placeholder: "اكتب إجراء وقائي",
                           },
                         ].map((section) => (
-                          <div key={section.title} className="rounded-lg border border-slate-200 bg-white p-4">
+                          <div
+                            key={section.title}
+                            className="rounded-lg border border-slate-200 bg-white p-4"
+                          >
                             <div className="mb-3 flex items-center justify-between gap-3">
-                              <p className="text-sm font-semibold text-slate-900">{section.title}</p>
-                              <Button variant="outline" size="sm" onClick={() => addListItem(section.setter)}>
+                              <p className="text-sm font-semibold text-slate-900">
+                                {section.title}
+                              </p>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => addListItem(section.setter)}
+                              >
                                 <Plus className="mr-2 h-3.5 w-3.5" />
                                 Add
                               </Button>
                             </div>
                             <div className="space-y-2">
                               {section.items.map((item, itemIndex) => (
-                                <div key={`${section.title}-${itemIndex}`} className="flex gap-2">
+                                <div
+                                  key={`${section.title}-${itemIndex}`}
+                                  className="flex gap-2"
+                                >
                                   <Input
                                     value={item}
-                                    onChange={(event) => updateListItem(section.setter, itemIndex, event.target.value)}
+                                    onChange={(event) =>
+                                      updateListItem(
+                                        section.setter,
+                                        itemIndex,
+                                        event.target.value,
+                                      )
+                                    }
                                     placeholder={section.placeholder}
                                   />
                                   <Button
                                     variant="outline"
-                                    onClick={() => removeListItem(section.setter, itemIndex)}
+                                    onClick={() =>
+                                      removeListItem(section.setter, itemIndex)
+                                    }
                                     disabled={section.items.length === 1}
                                     className="shrink-0 text-rose-700 hover:text-rose-800"
                                   >
@@ -792,9 +1043,13 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
 
                         <div className="flex flex-col gap-3 rounded-lg border border-[#D7E9EE] bg-[#F7FCFD] p-4 md:flex-row md:items-center md:justify-between">
                           <div>
-                            <p className="text-sm font-semibold text-slate-900">Disease percentage levels</p>
+                            <p className="text-sm font-semibold text-slate-900">
+                              Disease percentage levels
+                            </p>
                             <p className="mt-1 text-xs text-slate-500">
-                              The AI confidence percentage is matched with these ranges. The matching recommendation is shown in the AI report.
+                              The AI confidence percentage is matched with these
+                              ranges. The matching recommendation is shown in
+                              the AI report.
                             </p>
                           </div>
                           <Button variant="outline" onClick={addRiskLevel}>
@@ -805,11 +1060,19 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
 
                         <div className="space-y-4">
                           {configLevels.map((level, levelIndex) => (
-                            <div key={`disease-level-${levelIndex}`} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                            <div
+                              key={`disease-level-${levelIndex}`}
+                              className="rounded-lg border border-slate-200 bg-slate-50 p-4"
+                            >
                               <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                 <div>
-                                  <p className="text-sm font-semibold text-slate-900">Level {levelIndex + 1}</p>
-                                  <p className="text-xs text-slate-500">This is one disease-library level used directly after AI analysis.</p>
+                                  <p className="text-sm font-semibold text-slate-900">
+                                    Level {levelIndex + 1}
+                                  </p>
+                                  <p className="text-xs text-slate-500">
+                                    This is one disease-library level used
+                                    directly after AI analysis.
+                                  </p>
                                 </div>
                                 <Button
                                   variant="outline"
@@ -824,18 +1087,30 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
 
                               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                                 <div className="space-y-2">
-                                  <label className="text-xs font-semibold text-slate-600" htmlFor={`library-level-${levelIndex}`}>
+                                  <label
+                                    className="text-xs font-semibold text-slate-600"
+                                    htmlFor={`library-level-${levelIndex}`}
+                                  >
                                     Level key
                                   </label>
                                   <Input
                                     id={`library-level-${levelIndex}`}
                                     value={level.level}
-                                    onChange={(event) => updateLevelField(levelIndex, 'level', event.target.value)}
+                                    onChange={(event) =>
+                                      updateLevelField(
+                                        levelIndex,
+                                        "level",
+                                        event.target.value,
+                                      )
+                                    }
                                     placeholder="low"
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <label className="text-xs font-semibold text-slate-600" htmlFor={`library-min-${levelIndex}`}>
+                                  <label
+                                    className="text-xs font-semibold text-slate-600"
+                                    htmlFor={`library-min-${levelIndex}`}
+                                  >
                                     Min %
                                   </label>
                                   <Input
@@ -844,11 +1119,20 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
                                     min={0}
                                     max={100}
                                     value={level.range.min}
-                                    onChange={(event) => updateLevelRange(levelIndex, 'min', event.target.value)}
+                                    onChange={(event) =>
+                                      updateLevelRange(
+                                        levelIndex,
+                                        "min",
+                                        event.target.value,
+                                      )
+                                    }
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <label className="text-xs font-semibold text-slate-600" htmlFor={`library-max-${levelIndex}`}>
+                                  <label
+                                    className="text-xs font-semibold text-slate-600"
+                                    htmlFor={`library-max-${levelIndex}`}
+                                  >
                                     Max %
                                   </label>
                                   <Input
@@ -857,28 +1141,52 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
                                     min={0}
                                     max={100}
                                     value={level.range.max}
-                                    onChange={(event) => updateLevelRange(levelIndex, 'max', event.target.value)}
+                                    onChange={(event) =>
+                                      updateLevelRange(
+                                        levelIndex,
+                                        "max",
+                                        event.target.value,
+                                      )
+                                    }
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <label className="text-xs font-semibold text-slate-600" htmlFor={`library-status-${levelIndex}`}>
+                                  <label
+                                    className="text-xs font-semibold text-slate-600"
+                                    htmlFor={`library-status-${levelIndex}`}
+                                  >
                                     Status
                                   </label>
                                   <Input
                                     id={`library-status-${levelIndex}`}
                                     value={level.status}
-                                    onChange={(event) => updateLevelField(levelIndex, 'status', event.target.value)}
+                                    onChange={(event) =>
+                                      updateLevelField(
+                                        levelIndex,
+                                        "status",
+                                        event.target.value,
+                                      )
+                                    }
                                     placeholder="آمن"
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <label className="text-xs font-semibold text-slate-600" htmlFor={`library-risk-${levelIndex}`}>
+                                  <label
+                                    className="text-xs font-semibold text-slate-600"
+                                    htmlFor={`library-risk-${levelIndex}`}
+                                  >
                                     Risk
                                   </label>
                                   <Input
                                     id={`library-risk-${levelIndex}`}
                                     value={level.risk}
-                                    onChange={(event) => updateLevelField(levelIndex, 'risk', event.target.value)}
+                                    onChange={(event) =>
+                                      updateLevelField(
+                                        levelIndex,
+                                        "risk",
+                                        event.target.value,
+                                      )
+                                    }
                                     placeholder="لا يوجد خطر واضح"
                                   />
                                 </div>
@@ -886,32 +1194,56 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
 
                               <div className="mt-4 space-y-2">
                                 <div className="flex items-center justify-between gap-3">
-                                  <p className="text-xs font-semibold text-slate-600">Recommendations shown after AI analysis</p>
-                                  <Button variant="outline" size="sm" onClick={() => addRecommendation(levelIndex)}>
+                                  <p className="text-xs font-semibold text-slate-600">
+                                    Recommendations shown after AI analysis
+                                  </p>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      addRecommendation(levelIndex)
+                                    }
+                                  >
                                     <Plus className="mr-2 h-3.5 w-3.5" />
                                     Add Recommendation
                                   </Button>
                                 </div>
                                 <div className="space-y-2">
-                                  {level.recommendations.map((recommendation, recommendationIndex) => (
-                                    <div key={`${levelIndex}-${recommendationIndex}`} className="flex gap-2">
-                                      <Input
-                                        value={recommendation}
-                                        onChange={(event) =>
-                                          updateRecommendation(levelIndex, recommendationIndex, event.target.value)
-                                        }
-                                        placeholder="اكتب التوصية هنا"
-                                      />
-                                      <Button
-                                        variant="outline"
-                                        onClick={() => removeRecommendation(levelIndex, recommendationIndex)}
-                                        disabled={level.recommendations.length === 1}
-                                        className="shrink-0 text-rose-700 hover:text-rose-800"
+                                  {level.recommendations.map(
+                                    (recommendation, recommendationIndex) => (
+                                      <div
+                                        key={`${levelIndex}-${recommendationIndex}`}
+                                        className="flex gap-2"
                                       >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  ))}
+                                        <Input
+                                          value={recommendation}
+                                          onChange={(event) =>
+                                            updateRecommendation(
+                                              levelIndex,
+                                              recommendationIndex,
+                                              event.target.value,
+                                            )
+                                          }
+                                          placeholder="اكتب التوصية هنا"
+                                        />
+                                        <Button
+                                          variant="outline"
+                                          onClick={() =>
+                                            removeRecommendation(
+                                              levelIndex,
+                                              recommendationIndex,
+                                            )
+                                          }
+                                          disabled={
+                                            level.recommendations.length === 1
+                                          }
+                                          className="shrink-0 text-rose-700 hover:text-rose-800"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    ),
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -926,7 +1258,6 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
           </Card>
         </TabsContent>
 
-
         <TabsContent value="active" className="space-y-4">
           <Card>
             <CardContent className="p-4">
@@ -940,27 +1271,49 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
                     {activeOverviews.map((overview) => (
                       <button
                         key={overview.tank.id}
-                        onClick={() => setSelectedActiveTankId(overview.tank.id)}
+                        onClick={() =>
+                          setSelectedActiveTankId(overview.tank.id)
+                        }
                         className={`w-full rounded-lg border p-3 text-left transition-colors ${
                           selectedActiveOverview?.tank.id === overview.tank.id
-                            ? 'border-[#088395] bg-white shadow-sm'
-                            : 'border-transparent bg-white/70 hover:border-slate-200'
+                            ? "border-[#088395] bg-white shadow-sm"
+                            : "border-transparent bg-white/70 hover:border-slate-200"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-3">
                           <div>
-                            <p className="font-semibold text-slate-900">{overview.tank.name}</p>
-                            <p className="mt-1 text-xs text-slate-500">{overview.currentDiseaseLabel}</p>
+                            <p className="font-semibold text-slate-900">
+                              {overview.tank.name}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {overview.currentDiseaseLabel}
+                            </p>
                           </div>
                           {overview.latestRecord && (
-                            <Badge variant="outline" className={getHealthStatusColor(overview.latestRecord.healthStatus)}>
-                              {formatHealthStatus(overview.latestRecord.healthStatus)}
+                            <Badge
+                              variant="outline"
+                              className={getHealthStatusColor(
+                                overview.latestRecord.healthStatus,
+                              )}
+                            >
+                              {formatHealthStatus(
+                                overview.latestRecord.healthStatus,
+                              )}
                             </Badge>
                           )}
                         </div>
                         <p className="mt-2 text-xs text-slate-500">
-                          {overview.batchOverviews.filter((batch) => batch.requiresAttention).length} affected batch
-                          {overview.batchOverviews.filter((batch) => batch.requiresAttention).length === 1 ? '' : 'es'}
+                          {
+                            overview.batchOverviews.filter(
+                              (batch) => batch.requiresAttention,
+                            ).length
+                          }{" "}
+                          affected batch
+                          {overview.batchOverviews.filter(
+                            (batch) => batch.requiresAttention,
+                          ).length === 1
+                            ? ""
+                            : "es"}
                         </p>
                       </button>
                     ))}
@@ -970,25 +1323,41 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
                     <div className="space-y-4">
                       <Card>
                         <CardHeader>
-                          <CardTitle className="text-lg">{selectedActiveOverview.tank.name}</CardTitle>
+                          <CardTitle className="text-lg">
+                            {selectedActiveOverview.tank.name}
+                          </CardTitle>
                           <p className="text-sm text-slate-500">
-                            Latest alert on {formatDate(selectedActiveRecord.checkedAt)}
+                            Latest alert on{" "}
+                            {formatDate(selectedActiveRecord.checkedAt)}
                           </p>
                         </CardHeader>
                         <CardContent className="grid gap-4 md:grid-cols-3">
                           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Latest disease</p>
-                            <p className="mt-2 text-sm font-semibold text-slate-900">{selectedActiveRecord.bacterialType}</p>
-                          </div>
-                          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Affected batches</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              Latest disease
+                            </p>
                             <p className="mt-2 text-sm font-semibold text-slate-900">
-                              {selectedActiveOverview.batchOverviews.filter((batch) => batch.requiresAttention).map((batch) => getBatchLabel(batch.batch)).join(', ') || 'N/A'}
+                              {selectedActiveRecord.bacterialType}
                             </p>
                           </div>
                           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Saved reports</p>
-                            <p className="mt-2 text-sm font-semibold text-slate-900">{selectedActiveOverview.healthChecks.length}</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              Affected batches
+                            </p>
+                            <p className="mt-2 text-sm font-semibold text-slate-900">
+                              {selectedActiveOverview.batchOverviews
+                                .filter((batch) => batch.requiresAttention)
+                                .map((batch) => getBatchLabel(batch.batch))
+                                .join(", ") || "N/A"}
+                            </p>
+                          </div>
+                          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              Saved reports
+                            </p>
+                            <p className="mt-2 text-sm font-semibold text-slate-900">
+                              {selectedActiveOverview.healthChecks.length}
+                            </p>
                           </div>
                         </CardContent>
                       </Card>
@@ -996,9 +1365,17 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
                       <RobotHealthReport
                         template={selectedActiveTemplate}
                         healthStatus={selectedActiveRecord.healthStatus}
-                        confidencePercent={selectedActiveRecord.bacterialLoadPercentage ?? null}
+                        confidencePercent={
+                          selectedActiveRecord.bacterialLoadPercentage ?? null
+                        }
                         checkedAt={selectedActiveRecord.checkedAt}
-                        batchLabel={getBatchLabel(selectedActiveOverview.batchOverviews.find((batch) => batch.latestRecord?.id === selectedActiveRecord.id)?.batch)}
+                        batchLabel={getBatchLabel(
+                          selectedActiveOverview.batchOverviews.find(
+                            (batch) =>
+                              batch.latestRecord?.id ===
+                              selectedActiveRecord.id,
+                          )?.batch,
+                        )}
                         topPredictionLabel={selectedActiveRecord.bacterialType}
                         title="Current Tank Health Alert"
                       />
@@ -1023,25 +1400,34 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
                     {recoveredOverviews.map((overview) => (
                       <button
                         key={overview.tank.id}
-                        onClick={() => setSelectedRecoveredTankId(overview.tank.id)}
+                        onClick={() =>
+                          setSelectedRecoveredTankId(overview.tank.id)
+                        }
                         className={`w-full rounded-lg border p-3 text-left transition-colors ${
-                          selectedRecoveredOverview?.tank.id === overview.tank.id
-                            ? 'border-emerald-500 bg-white shadow-sm'
-                            : 'border-transparent bg-white/70 hover:border-slate-200'
+                          selectedRecoveredOverview?.tank.id ===
+                          overview.tank.id
+                            ? "border-emerald-500 bg-white shadow-sm"
+                            : "border-transparent bg-white/70 hover:border-slate-200"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-3">
                           <div>
-                            <p className="font-semibold text-slate-900">{overview.tank.name}</p>
+                            <p className="font-semibold text-slate-900">
+                              {overview.tank.name}
+                            </p>
                             <p className="mt-1 text-xs text-slate-500">
-                              Recovered from {overview.latestActiveRecord?.bacterialType || overview.currentDiseaseLabel}
+                              Recovered from{" "}
+                              {overview.latestActiveRecord?.bacterialType ||
+                                overview.currentDiseaseLabel}
                             </p>
                           </div>
                           <Badge className="bg-emerald-100 text-emerald-700">
                             Recovered
                           </Badge>
                         </div>
-                        <p className="mt-2 text-xs text-slate-500">{formatDate(overview.recoveredAt)}</p>
+                        <p className="mt-2 text-xs text-slate-500">
+                          {formatDate(overview.recoveredAt)}
+                        </p>
                       </button>
                     ))}
                   </div>
@@ -1050,20 +1436,38 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
                     <div className="space-y-4">
                       <Card>
                         <CardHeader>
-                          <CardTitle className="text-lg">Recovered Tank Record</CardTitle>
+                          <CardTitle className="text-lg">
+                            Recovered Tank Record
+                          </CardTitle>
                         </CardHeader>
                         <CardContent className="grid gap-4 md:grid-cols-3">
                           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tank</p>
-                            <p className="mt-2 text-sm font-semibold text-slate-900">{selectedRecoveredOverview.tank.name}</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              Tank
+                            </p>
+                            <p className="mt-2 text-sm font-semibold text-slate-900">
+                              {selectedRecoveredOverview.tank.name}
+                            </p>
                           </div>
                           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recovered from</p>
-                            <p className="mt-2 text-sm font-semibold text-slate-900">{selectedRecoveredOverview.latestActiveRecord?.bacterialType || selectedRecoveredOverview.currentDiseaseLabel}</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              Recovered from
+                            </p>
+                            <p className="mt-2 text-sm font-semibold text-slate-900">
+                              {selectedRecoveredOverview.latestActiveRecord
+                                ?.bacterialType ||
+                                selectedRecoveredOverview.currentDiseaseLabel}
+                            </p>
                           </div>
                           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recovery date</p>
-                            <p className="mt-2 text-sm font-semibold text-slate-900">{formatDate(selectedRecoveredOverview.recoveredAt)}</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              Recovery date
+                            </p>
+                            <p className="mt-2 text-sm font-semibold text-slate-900">
+                              {formatDate(
+                                selectedRecoveredOverview.recoveredAt,
+                              )}
+                            </p>
                           </div>
                         </CardContent>
                       </Card>
@@ -1071,10 +1475,23 @@ export default function HealthLibrary({ user, selectedFarm }: HealthLibraryProps
                       <RobotHealthReport
                         template={selectedRecoveredTemplate}
                         healthStatus={selectedRecoveredRecord.healthStatus}
-                        confidencePercent={selectedRecoveredRecord.bacterialLoadPercentage ?? null}
+                        confidencePercent={
+                          selectedRecoveredRecord.bacterialLoadPercentage ??
+                          null
+                        }
                         checkedAt={selectedRecoveredRecord.checkedAt}
-                        batchLabel={getBatchLabel(selectedRecoveredOverview.batchOverviews.find((batch) => batch.latestRecord?.id === selectedRecoveredRecord.id)?.batch)}
-                        topPredictionLabel={selectedRecoveredOverview.latestActiveRecord?.bacterialType || selectedRecoveredRecord.bacterialType}
+                        batchLabel={getBatchLabel(
+                          selectedRecoveredOverview.batchOverviews.find(
+                            (batch) =>
+                              batch.latestRecord?.id ===
+                              selectedRecoveredRecord.id,
+                          )?.batch,
+                        )}
+                        topPredictionLabel={
+                          selectedRecoveredOverview.latestActiveRecord
+                            ?.bacterialType ||
+                          selectedRecoveredRecord.bacterialType
+                        }
                         title="Recovered Tank Report"
                       />
                     </div>

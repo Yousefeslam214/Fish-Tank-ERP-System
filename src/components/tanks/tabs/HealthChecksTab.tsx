@@ -124,7 +124,9 @@ export function HealthChecksTab({
 
   const [selectedBatchId, setSelectedBatchId] = useState("");
   const [selectedRecordId, setSelectedRecordId] = useState("");
-  const [libraryConfigs, setLibraryConfigs] = useState<HealthLibraryConfiguration[]>([]);
+  const [libraryConfigs, setLibraryConfigs] = useState<
+    HealthLibraryConfiguration[]
+  >([]);
 
   useEffect(() => {
     let active = true;
@@ -181,20 +183,21 @@ export function HealthChecksTab({
   const selectedTemplate = resolveHealthReportTemplate(
     selectedRecord?.bacterialType,
   );
-  const selectedLibraryRecommendation = useMemo<HealthLibraryRecommendation | null>(() => {
-    if (!selectedRecord) return null;
-    return resolveHealthLibraryRecommendation(
-      libraryConfigs,
-      [
-        selectedRecord.bacterialType || "",
-        selectedTemplate.key,
-        selectedTemplate.title,
-        ...selectedTemplate.aliases,
-      ],
-      Number(selectedRecord.bacterialLoadPercentage ?? 0),
-      selectedRecord.healthStatus === "HEALTHY",
-    );
-  }, [libraryConfigs, selectedRecord, selectedTemplate]);
+  const selectedLibraryRecommendation =
+    useMemo<HealthLibraryRecommendation | null>(() => {
+      if (!selectedRecord) return null;
+      return resolveHealthLibraryRecommendation(
+        libraryConfigs,
+        [
+          selectedRecord.bacterialType || "",
+          selectedTemplate.key,
+          selectedTemplate.title,
+          ...selectedTemplate.aliases,
+        ],
+        Number(selectedRecord.bacterialLoadPercentage ?? 0),
+        selectedRecord.healthStatus === "HEALTHY",
+      );
+    }, [libraryConfigs, selectedRecord, selectedTemplate]);
 
   const totalChecks = healthChecks.length;
   const activeBatches = batchEntries.filter(
@@ -209,9 +212,7 @@ export function HealthChecksTab({
   const selectedBatchStatus = selectedBatchEntry?.latestRecord
     ? formatHealthStatus(selectedBatchEntry.latestRecord.healthStatus)
     : "No reports yet";
-  const selectedBatchNeedsCare = Boolean(
-    selectedBatchEntry?.requiresAttention,
-  );
+  const selectedBatchNeedsCare = Boolean(selectedBatchEntry?.requiresAttention);
 
   return (
     <div className="space-y-4 pt-4">
@@ -226,7 +227,8 @@ export function HealthChecksTab({
               {tankName || "Selected tank"} health workspace
             </h3>
             <p className="mt-1 max-w-2xl text-sm text-slate-600">
-              Pick a batch, review its saved reports, or run an AI check from the same place.
+              Pick a batch, review its saved reports, or run an AI check from
+              the same place.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -306,11 +308,10 @@ export function HealthChecksTab({
       <Card className="border-slate-200 shadow-sm">
         <CardHeader className="border-b border-slate-200">
           <div>
-            <CardTitle className="text-lg">
-              Batch health history
-            </CardTitle>
+            <CardTitle className="text-lg">Batch health history</CardTitle>
             <p className="mt-1 text-sm text-gray-500">
-              Start by choosing a batch. The report preview updates automatically.
+              Start by choosing a batch. The report preview updates
+              automatically.
             </p>
           </div>
         </CardHeader>
@@ -340,8 +341,12 @@ export function HealthChecksTab({
                     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                       <div className="mb-3 flex items-center justify-between gap-3">
                         <div>
-                          <p className="text-sm font-semibold text-slate-900">Choose batch</p>
-                          <p className="text-xs text-slate-500">Reports are grouped by batch.</p>
+                          <p className="text-sm font-semibold text-slate-900">
+                            Choose batch
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Reports are grouped by batch.
+                          </p>
                         </div>
                         <Badge
                           variant="outline"
@@ -358,7 +363,9 @@ export function HealthChecksTab({
                         {batchEntries.map((entry) => {
                           const selected = selectedBatchId === entry.batch.id;
                           const statusLabel = entry.latestRecord
-                            ? formatHealthStatus(entry.latestRecord.healthStatus)
+                            ? formatHealthStatus(
+                                entry.latestRecord.healthStatus,
+                              )
                             : "No reports";
                           return (
                             <button
@@ -384,7 +391,9 @@ export function HealthChecksTab({
                                   variant="outline"
                                   className={
                                     entry.latestRecord
-                                      ? getHealthStatusColor(entry.latestRecord.healthStatus)
+                                      ? getHealthStatusColor(
+                                          entry.latestRecord.healthStatus,
+                                        )
                                       : "border-slate-200 text-slate-500"
                                   }
                                 >
@@ -398,124 +407,124 @@ export function HealthChecksTab({
                     </div>
 
                     <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">
-                          {getBatchLabel(selectedBatchEntry.batch)}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {selectedBatchHistory.length} saved report
-                          {selectedBatchHistory.length === 1 ? "" : "s"}
-                        </p>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">
+                            {getBatchLabel(selectedBatchEntry.batch)}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {selectedBatchHistory.length} saved report
+                            {selectedBatchHistory.length === 1 ? "" : "s"}
+                          </p>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className="border-slate-200 text-slate-600"
+                        >
+                          {selectedBatchEntry.latestRecord
+                            ? formatHealthStatus(
+                                selectedBatchEntry.latestRecord.healthStatus,
+                              )
+                            : "No data"}
+                        </Badge>
                       </div>
-                      <Badge
-                        variant="outline"
-                        className="border-slate-200 text-slate-600"
-                      >
-                        {selectedBatchEntry.latestRecord
-                          ? formatHealthStatus(
-                              selectedBatchEntry.latestRecord.healthStatus,
-                            )
-                          : "No data"}
-                      </Badge>
-                    </div>
 
-                    {selectedBatchEntry.latestActiveRecord &&
-                      onMarkImproved &&
-                      selectedBatchEntry.requiresAttention && (
-                        <Button
-                          className="w-full bg-emerald-600 hover:bg-emerald-700"
-                          onClick={() =>
-                            onMarkImproved(
-                              selectedBatchEntry.batch,
-                              selectedBatchEntry.latestActiveRecord!,
-                            )
-                          }
-                          disabled={
-                            improvingRecordId ===
+                      {selectedBatchEntry.latestActiveRecord &&
+                        onMarkImproved &&
+                        selectedBatchEntry.requiresAttention && (
+                          <Button
+                            className="w-full bg-emerald-600 hover:bg-emerald-700"
+                            onClick={() =>
+                              onMarkImproved(
+                                selectedBatchEntry.batch,
+                                selectedBatchEntry.latestActiveRecord!,
+                              )
+                            }
+                            disabled={
+                              improvingRecordId ===
+                              selectedBatchEntry.latestActiveRecord.id
+                            }
+                          >
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                            {improvingRecordId ===
                             selectedBatchEntry.latestActiveRecord.id
-                          }
-                        >
-                          <CheckCircle2 className="mr-2 h-4 w-4" />
-                          {improvingRecordId ===
-                          selectedBatchEntry.latestActiveRecord.id
-                            ? "Saving recovery..."
-                            : "Mark Batch Improved"}
-                        </Button>
-                      )}
+                              ? "Saving recovery..."
+                              : "Mark Batch Improved"}
+                          </Button>
+                        )}
 
-                    {selectedBatchHistory.length === 0 ? (
-                      <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
-                        No health reports saved for this batch yet.
-                      </div>
-                    ) : (
-                      selectedBatchHistory.map((record) => (
-                        <div
-                          key={record.id}
-                          className={`w-full rounded-lg border p-3 text-left transition-colors ${
-                            selectedRecord?.id === record.id
-                              ? "border-[#088395] bg-white shadow-sm"
-                              : "border-transparent bg-white/70 hover:border-slate-200"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-semibold text-slate-900">
-                                {record.bacterialType || "Automated report"}
-                              </p>
-                              <p className="text-xs text-slate-500">
-                                {formatDateTime(record.checkedAt)}
-                              </p>
-                            </div>
-                            <Badge
-                              variant="outline"
-                              className={getHealthStatusColor(
-                                record.healthStatus,
-                              )}
-                            >
-                              {formatHealthStatus(record.healthStatus)}
-                            </Badge>
-                          </div>
-                          <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
-                            <span>{formatCheckType(record.checkType)}</span>
-                            {record.bacterialLoadPercentage != null && (
-                              <span>
-                                {Number(record.bacterialLoadPercentage).toFixed(
-                                  1,
+                      {selectedBatchHistory.length === 0 ? (
+                        <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+                          No health reports saved for this batch yet.
+                        </div>
+                      ) : (
+                        selectedBatchHistory.map((record) => (
+                          <div
+                            key={record.id}
+                            className={`w-full rounded-lg border p-3 text-left transition-colors ${
+                              selectedRecord?.id === record.id
+                                ? "border-[#088395] bg-white shadow-sm"
+                                : "border-transparent bg-white/70 hover:border-slate-200"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-slate-900">
+                                  {record.bacterialType || "Automated report"}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  {formatDateTime(record.checkedAt)}
+                                </p>
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className={getHealthStatusColor(
+                                  record.healthStatus,
                                 )}
-                                %
-                              </span>
-                            )}
-                          </div>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-8"
-                              onClick={() => setSelectedRecordId(record.id)}
-                            >
-                              <FileText className="mr-2 h-3.5 w-3.5" />
-                              View Report
-                            </Button>
-                            {onApplyTreatment && record.medicineId && (
+                              >
+                                {formatHealthStatus(record.healthStatus)}
+                              </Badge>
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
+                              <span>{formatCheckType(record.checkType)}</span>
+                              {record.bacterialLoadPercentage != null && (
+                                <span>
+                                  {Number(
+                                    record.bacterialLoadPercentage,
+                                  ).toFixed(1)}
+                                  %
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-3 flex flex-wrap gap-2">
                               <Button
                                 type="button"
+                                variant="outline"
                                 size="sm"
-                                className="h-8 bg-[#088395] hover:bg-[#0A4D68]"
-                                onClick={() => {
-                                  setSelectedRecordId(record.id);
-                                  onApplyTreatment(record.medicineId || "");
-                                }}
+                                className="h-8"
+                                onClick={() => setSelectedRecordId(record.id)}
                               >
-                                <Pill className="mr-2 h-3.5 w-3.5" />
-                                Apply Treatment
+                                <FileText className="mr-2 h-3.5 w-3.5" />
+                                View Report
                               </Button>
-                            )}
+                              {onApplyTreatment && record.medicineId && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="h-8 bg-[#088395] hover:bg-[#0A4D68]"
+                                  onClick={() => {
+                                    setSelectedRecordId(record.id);
+                                    onApplyTreatment(record.medicineId || "");
+                                  }}
+                                >
+                                  <Pill className="mr-2 h-3.5 w-3.5" />
+                                  Apply Treatment
+                                </Button>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))
-                    )}
+                        ))
+                      )}
                     </div>
                   </div>
 
@@ -527,15 +536,21 @@ export function HealthChecksTab({
                             <FileText className="h-5 w-5" />
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-slate-950">Selected report</p>
+                            <p className="text-sm font-semibold text-slate-950">
+                              Selected report
+                            </p>
                             <p className="text-xs text-slate-500">
-                              {selectedRecord.bacterialType || "Automated report"} - {formatDateTime(selectedRecord.checkedAt)}
+                              {selectedRecord.bacterialType ||
+                                "Automated report"}{" "}
+                              - {formatDateTime(selectedRecord.checkedAt)}
                             </p>
                           </div>
                         </div>
                         <Badge
                           variant="outline"
-                          className={getHealthStatusColor(selectedRecord.healthStatus)}
+                          className={getHealthStatusColor(
+                            selectedRecord.healthStatus,
+                          )}
                         >
                           {formatHealthStatus(selectedRecord.healthStatus)}
                         </Badge>
@@ -551,7 +566,9 @@ export function HealthChecksTab({
                         topPredictionLabel={selectedRecord.bacterialType}
                         compact
                         libraryRecommendation={selectedLibraryRecommendation}
-                        requireLibraryRecommendation={selectedRecord.healthStatus !== "HEALTHY"}
+                        requireLibraryRecommendation={
+                          selectedRecord.healthStatus !== "HEALTHY"
+                        }
                         title={
                           selectedRecord.checkType === "POST_TREATMENT"
                             ? "Recovery Health Report"

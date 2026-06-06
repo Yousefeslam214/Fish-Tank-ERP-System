@@ -1,10 +1,10 @@
-import type { CreateHealthCheckDTO, HealthStatus } from './healthCheckApi';
-import { resolveHealthReportTemplate } from './healthKnowledgeBase';
+import type { CreateHealthCheckDTO, HealthStatus } from "./healthCheckApi";
+import { resolveHealthReportTemplate } from "./healthKnowledgeBase";
 import {
   HealthLibraryRecommendation,
   listHealthLibraryConfigurations,
   resolveHealthLibraryRecommendation,
-} from './healthLibraryApi';
+} from "./healthLibraryApi";
 
 export interface AIPredictionClass {
   class: string;
@@ -49,14 +49,16 @@ export interface AutomatedHealthReport {
   libraryRecommendation?: HealthLibraryRecommendation | null;
 }
 
-const DEFAULT_AI_API_BASE = 'https://yousseftallal-ai-fisherman.hf.space';
+const DEFAULT_AI_API_BASE = "https://yousseftallal-ai-fisherman.hf.space";
 
 const getEnvValue = (key: string): string | undefined => {
-  const importMetaEnv = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env;
+  const importMetaEnv = (
+    import.meta as ImportMeta & { env?: Record<string, string | undefined> }
+  ).env;
   const fromVite = importMetaEnv?.[key];
   if (fromVite?.trim()) return fromVite.trim();
 
-  if (typeof process !== 'undefined' && process.env?.[key]?.trim()) {
+  if (typeof process !== "undefined" && process.env?.[key]?.trim()) {
     return process.env[key]?.trim();
   }
 
@@ -64,10 +66,10 @@ const getEnvValue = (key: string): string | undefined => {
 };
 
 export const AI_API_BASE = (
-  getEnvValue('VITE_FISH_AI_API_BASE_URL') ||
-  getEnvValue('FISH_AI_API_BASE_URL') ||
+  getEnvValue("VITE_FISH_AI_API_BASE_URL") ||
+  getEnvValue("FISH_AI_API_BASE_URL") ||
   DEFAULT_AI_API_BASE
-).replace(/\/+$/, '');
+).replace(/\/+$/, "");
 
 const normalizeConfidence = (value: number) => {
   if (!Number.isFinite(value)) return 0;
@@ -78,54 +80,56 @@ export const confidenceToPercent = (value: number) =>
   Math.max(0, Math.min(100, normalizeConfidence(value)));
 
 export const humanizePredictionLabel = (value?: string) => {
-  if (!value) return 'Unknown';
+  if (!value) return "Unknown";
   return value
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
     .trim()
-    .split(' ')
+    .split(" ")
     .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join(' ');
+    .join(" ");
 };
 
 export const isHealthyPrediction = (value?: string) =>
-  (value || '').toLowerCase().includes('healthy');
+  (value || "").toLowerCase().includes("healthy");
 
 const UNKNOWN_CLASSIFICATION_MARKERS = [
-  'unknown',
-  'unrecognized',
-  'other',
-  'non fish',
-  'non-fish',
-  'not fish',
-  'no fish',
-  'invalid',
-  'background',
-  'noise',
+  "unknown",
+  "unrecognized",
+  "other",
+  "non fish",
+  "non-fish",
+  "not fish",
+  "no fish",
+  "invalid",
+  "background",
+  "noise",
 ];
 
 export const isKnownDiseaseClassification = (value?: string) => {
-  const normalized = (value || '')
+  const normalized = (value || "")
     .toLowerCase()
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
 
   if (!normalized) return false;
-  return !UNKNOWN_CLASSIFICATION_MARKERS.some((marker) => normalized.includes(marker));
+  return !UNKNOWN_CLASSIFICATION_MARKERS.some((marker) =>
+    normalized.includes(marker),
+  );
 };
 
 export const mapPredictionToHealthStatus = (
   value?: string,
   confidence = 0,
 ): HealthStatus => {
-  if (isHealthyPrediction(value)) return 'HEALTHY';
+  if (isHealthyPrediction(value)) return "HEALTHY";
 
   const percent = confidenceToPercent(confidence);
-  if (percent >= 90) return 'CRITICAL';
-  if (percent >= 80) return 'SEVERE';
-  if (percent >= 65) return 'MODERATE_CONCERN';
-  return 'MILD_CONCERN';
+  if (percent >= 90) return "CRITICAL";
+  if (percent >= 80) return "SEVERE";
+  if (percent >= 65) return "MODERATE_CONCERN";
+  return "MILD_CONCERN";
 };
 
 export const buildAutomatedHealthReportFromAnalysis = (
@@ -134,29 +138,40 @@ export const buildAutomatedHealthReportFromAnalysis = (
 ): AutomatedHealthReport => {
   const topPrediction = analysis.top_prediction;
   const confidencePercent = confidenceToPercent(topPrediction?.confidence ?? 0);
-  const topPredictionLabel = topPrediction?.class || '';
+  const topPredictionLabel = topPrediction?.class || "";
   const topPredictionDisplay = humanizePredictionLabel(topPredictionLabel);
   const template = resolveHealthReportTemplate(topPredictionLabel);
   const mappedHealthStatus = mapPredictionToHealthStatus(
     topPredictionLabel,
     topPrediction?.confidence,
   );
-  const isKnownClassification = isKnownDiseaseClassification(topPredictionLabel);
-  const diseaseDetected = isKnownClassification && mappedHealthStatus !== 'HEALTHY';
+  const isKnownClassification =
+    isKnownDiseaseClassification(topPredictionLabel);
+  const diseaseDetected =
+    isKnownClassification && mappedHealthStatus !== "HEALTHY";
   const saveBlockedReason = isKnownClassification
     ? undefined
-    : 'The AI marked this image as unknown or not a valid fish disease case, so it cannot be saved to history.';
-  const adminRecommendationLines = libraryRecommendation?.recommendations?.length
+    : "The AI marked this image as unknown or not a valid fish disease case, so it cannot be saved to history.";
+  const adminRecommendationLines = libraryRecommendation?.recommendations
+    ?.length
     ? [
-      ...(libraryRecommendation.level ? [`Level: ${libraryRecommendation.level}`] : []),
-      ...(libraryRecommendation.status ? [`Status: ${libraryRecommendation.status}`] : []),
-      ...(libraryRecommendation.risk ? [`Risk: ${libraryRecommendation.risk}`] : []),
-      ...(libraryRecommendation.medicineName ? [`Medicine: ${libraryRecommendation.medicineName}`] : []),
-      ...libraryRecommendation.recommendations,
-    ]
+        ...(libraryRecommendation.level
+          ? [`Level: ${libraryRecommendation.level}`]
+          : []),
+        ...(libraryRecommendation.status
+          ? [`Status: ${libraryRecommendation.status}`]
+          : []),
+        ...(libraryRecommendation.risk
+          ? [`Risk: ${libraryRecommendation.risk}`]
+          : []),
+        ...(libraryRecommendation.medicineName
+          ? [`Medicine: ${libraryRecommendation.medicineName}`]
+          : []),
+        ...libraryRecommendation.recommendations,
+      ]
     : [];
-  const templateTreatment = template.treatmentProtocol.join(' ');
-  const templateFeeding = template.feedingGuidance.join(' ');
+  const templateTreatment = template.treatmentProtocol.join(" ");
+  const templateFeeding = template.feedingGuidance.join(" ");
 
   return {
     topPredictionLabel,
@@ -169,28 +184,30 @@ export const buildAutomatedHealthReportFromAnalysis = (
     saveBlockedReason,
     libraryRecommendation: libraryRecommendation || null,
     payload: {
-      checkType: 'TARGETED',
-      healthStatus: diseaseDetected ? mappedHealthStatus : 'HEALTHY',
-      bacterialType: isKnownClassification ? template.title : 'Unknown / Unrecognized Result',
+      checkType: "TARGETED",
+      healthStatus: diseaseDetected ? mappedHealthStatus : "HEALTHY",
+      bacterialType: isKnownClassification
+        ? template.title
+        : "Unknown / Unrecognized Result",
       bacterialLoadPercentage: Number(confidencePercent.toFixed(2)),
       treatmentSuggestion: !isKnownClassification
-        ? 'No treatment protocol is generated for unknown or invalid classifications.'
+        ? "No treatment protocol is generated for unknown or invalid classifications."
         : adminRecommendationLines.length
-          ? adminRecommendationLines.join(' ')
+          ? adminRecommendationLines.join(" ")
           : diseaseDetected
-            ? 'No Disease Library level matched this disease and confidence range.'
+            ? "No Disease Library level matched this disease and confidence range."
             : templateTreatment,
       dosageInstructions: template.dosageInstructions,
       suggestedDuration: template.suggestedDuration,
       feedingAdvice: isKnownClassification
-        ? (libraryRecommendation?.feedingGuidance?.join(' ') ||
+        ? libraryRecommendation?.feedingGuidance?.join(" ") ||
           libraryRecommendation?.message ||
           libraryRecommendation?.risk ||
           templateFeeding ||
-          undefined)
-        : 'Run another check with a clear fish image before taking action.',
+          undefined
+        : "Run another check with a clear fish image before taking action.",
       medicineId: isKnownClassification
-        ? (libraryRecommendation?.medicineId || template.medicineId)
+        ? libraryRecommendation?.medicineId || template.medicineId
         : undefined,
       checkedAt: analysis.timestamp || new Date().toISOString(),
     },
@@ -202,18 +219,18 @@ const resolveLibraryRecommendationFromAnalysis = (
   configs: Parameters<typeof resolveHealthLibraryRecommendation>[0] = [],
 ) => {
   const topPrediction = analysis.top_prediction;
-  const label = topPrediction?.class || '';
+  const label = topPrediction?.class || "";
   const template = resolveHealthReportTemplate(label);
   const confidencePercent = confidenceToPercent(topPrediction?.confidence ?? 0);
   const isKnownClassification = isKnownDiseaseClassification(label);
 
   return isKnownClassification
     ? resolveHealthLibraryRecommendation(
-      configs,
-      [label, template.key, template.title, ...template.aliases],
-      confidencePercent,
-      isHealthyPrediction(label),
-    )
+        configs,
+        [label, template.key, template.title, ...template.aliases],
+        confidencePercent,
+        isHealthyPrediction(label),
+      )
     : null;
 };
 
@@ -222,7 +239,10 @@ export const buildAutomatedHealthReportWithLibrary = async (
 ): Promise<AutomatedHealthReport> => {
   try {
     const configs = await listHealthLibraryConfigurations();
-    const recommendation = resolveLibraryRecommendationFromAnalysis(analysis, configs);
+    const recommendation = resolveLibraryRecommendationFromAnalysis(
+      analysis,
+      configs,
+    );
     return buildAutomatedHealthReportFromAnalysis(analysis, recommendation);
   } catch {
     return buildAutomatedHealthReportFromAnalysis(
@@ -234,21 +254,26 @@ export const buildAutomatedHealthReportWithLibrary = async (
 
 export const buildHealthCheckDraftFromAnalysis = (
   analysis: AIPredictResponse,
-): Partial<CreateHealthCheckDTO> => buildAutomatedHealthReportFromAnalysis(analysis).payload;
+): Partial<CreateHealthCheckDTO> =>
+  buildAutomatedHealthReportFromAnalysis(analysis).payload;
 
 export const getAnnotatedImageSrc = (analysis?: AIPredictResponse | null) => {
   const image = analysis?.annotated_image?.trim();
   if (!image) return null;
-  return image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`;
+  return image.startsWith("data:") ? image : `data:image/jpeg;base64,${image}`;
 };
 
 export const getAIServiceHealth = async (): Promise<AIHealthServiceStatus> => {
   const response = await fetch(`${AI_API_BASE}/health`);
   const text = await response.text();
-  const parsed = text.trim() ? (JSON.parse(text) as AIHealthServiceStatus) : null;
+  const parsed = text.trim()
+    ? (JSON.parse(text) as AIHealthServiceStatus)
+    : null;
 
   if (!response.ok) {
-    throw new Error(`AI health check failed [${response.status}]: ${text || response.statusText}`);
+    throw new Error(
+      `AI health check failed [${response.status}]: ${text || response.statusText}`,
+    );
   }
 
   return parsed || {};
@@ -258,10 +283,10 @@ export const predictFishDisease = async (
   file: File,
 ): Promise<AIPredictResponse> => {
   const formData = new FormData();
-  formData.append('file', file);
+  formData.append("file", file);
 
   const response = await fetch(`${AI_API_BASE}/predict`, {
-    method: 'POST',
+    method: "POST",
     body: formData,
   });
 
@@ -274,11 +299,13 @@ export const predictFishDisease = async (
       (parsed as Record<string, any> | null)?.detail ||
       text ||
       response.statusText;
-    throw new Error(`AI prediction failed [${response.status}]: ${errorMessage}`);
+    throw new Error(
+      `AI prediction failed [${response.status}]: ${errorMessage}`,
+    );
   }
 
   if (!parsed?.top_prediction) {
-    throw new Error('AI prediction response is missing the top prediction.');
+    throw new Error("AI prediction response is missing the top prediction.");
   }
 
   return parsed;
