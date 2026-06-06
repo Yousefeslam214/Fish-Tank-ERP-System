@@ -1,13 +1,22 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Badge } from './ui/badge';
-import { Fish, Loader2, Plus, RefreshCcw, Scissors, TrendingUp, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { useEffect, useMemo, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { Badge } from "./ui/badge";
+import {
+  Fish,
+  Loader2,
+  Plus,
+  RefreshCcw,
+  Scissors,
+  TrendingUp,
+  AlertTriangle,
+  CheckCircle2,
+} from "lucide-react";
+import { toast } from "sonner";
 import {
   AddHarvestGradingPayload,
   CompleteHarvestPayload,
@@ -32,12 +41,13 @@ import {
   getTankBatches,
   startHarvestEvent,
   updateFishGradePricing,
-} from '../services/harvestApi';
-import { HarvestTypeValue } from '../services/harvestConstants';
-import { getMetadata, resolveHarvestTypeOptions } from '../services/metaApi';
-import { FishTypeRecord, getFishTypes } from '../services/fishTypesApi';
-import { HarvestDashboard } from './harvest/HarvestDashboard';
-import { apiGet } from '../api';
+} from "../services/harvestApi";
+import { HarvestTypeValue } from "../services/harvestConstants";
+import { getMetadata, resolveHarvestTypeOptions } from "../services/metaApi";
+import { FishTypeRecord, getFishTypes } from "../services/fishTypesApi";
+import { TaskItem, getFarmTasks, getMyTasks } from "../services/taskApi";
+import { HarvestDashboard } from "./harvest/HarvestDashboard";
+import { apiGet } from "../api";
 
 interface HarvestManagementProps {
   farmId: string;
@@ -57,7 +67,7 @@ interface PricingDraft {
 }
 
 const DEFAULT_PRICING_DRAFT: PricingDraft = {
-  gradeName: '',
+  gradeName: "",
   minWeight: 0,
   maxWeight: 0,
   numOfFishInKilo: 0,
@@ -66,11 +76,16 @@ const DEFAULT_PRICING_DRAFT: PricingDraft = {
   isActive: true,
 };
 
-const CONDITION_OPTIONS: HarvestCondition[] = ['EXCELLENT', 'GOOD', 'ACCEPTABLE', 'DAMAGED'];
+const CONDITION_OPTIONS: HarvestCondition[] = [
+  "EXCELLENT",
+  "GOOD",
+  "ACCEPTABLE",
+  "DAMAGED",
+];
 
 const formatDate = (value?: string): string => {
   if (!value) {
-    return 'N/A';
+    return "N/A";
   }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -79,7 +94,8 @@ const formatDate = (value?: string): string => {
   return date.toLocaleString();
 };
 
-const formatNumber = (value: number): string => value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+const formatNumber = (value: number): string =>
+  value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -93,18 +109,25 @@ const eventMatchesFarm = (
     return true;
   }
 
-  const activeMatch = activeTanks.some((activeTank) => activeTank.tankId === event.tankId);
+  const activeMatch = activeTanks.some(
+    (activeTank) => activeTank.tankId === event.tankId,
+  );
   const tankMatch = knownTanks.some((tank) => tank.id === event.tankId);
   return activeMatch || tankMatch || knownTanks.length === 0;
 };
 
 const canAccessDashboard = (role?: string): boolean => {
-  const normalizedRole = String(role || '').trim().toLowerCase();
-  return normalizedRole === 'admin' || normalizedRole === 'manager';
+  const normalizedRole = String(role || "")
+    .trim()
+    .toLowerCase();
+  return normalizedRole === "admin" || normalizedRole === "manager";
 };
 
-export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+export const HarvestManagement = ({
+  farmId,
+  userRole,
+}: HarvestManagementProps) => {
+  const [activeTab, setActiveTab] = useState("dashboard");
   const [workflowStep, setWorkflowStep] = useState<WorkflowStep>(1);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -114,30 +137,46 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
   const [activeTanks, setActiveTanks] = useState<HarvestActiveTankRecord[]>([]);
   const [availableTanks, setAvailableTanks] = useState<HarvestTankRecord[]>([]);
   const [fishTypes, setFishTypes] = useState<FishTypeRecord[]>([]);
-  const [historyTankId, setHistoryTankId] = useState('');
+  const [historyTankId, setHistoryTankId] = useState("");
   const [historyEvents, setHistoryEvents] = useState<HarvestEventRecord[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
-  const [harvestTypeOptions, setHarvestTypeOptions] = useState(resolveHarvestTypeOptions(null));
+  const [harvestTypeOptions, setHarvestTypeOptions] = useState(
+    resolveHarvestTypeOptions(null),
+  );
 
-  const [selectedTankId, setSelectedTankId] = useState('');
-  const [tankBatches, setTankBatches] = useState<TankBatchesResponse>({ summary: null, batches: [] });
-  const [selectedBatchId, setSelectedBatchId] = useState('');
-  const [selectedHarvestType, setSelectedHarvestType] = useState<HarvestTypeValue>('FULL');
-  const [currentEvent, setCurrentEvent] = useState<HarvestEventRecord | null>(null);
-  const [currentGradings, setCurrentGradings] = useState<HarvestGradingRecord[]>([]);
-  const [selectedFishTypeId, setSelectedFishTypeId] = useState('');
+  const [selectedTankId, setSelectedTankId] = useState("");
+  const [tankBatches, setTankBatches] = useState<TankBatchesResponse>({
+    summary: null,
+    batches: [],
+  });
+  const [selectedBatchId, setSelectedBatchId] = useState("");
+  const [selectedHarvestType, setSelectedHarvestType] =
+    useState<HarvestTypeValue>("FULL");
+  const [currentEvent, setCurrentEvent] = useState<HarvestEventRecord | null>(
+    null,
+  );
+  const [currentGradings, setCurrentGradings] = useState<
+    HarvestGradingRecord[]
+  >([]);
+  const [harvestTasks, setHarvestTasks] = useState<TaskItem[]>([]);
+  const [selectedFishTypeId, setSelectedFishTypeId] = useState("");
   const [pricingList, setPricingList] = useState<FishGradePricingRecord[]>([]);
-  const [selectedPricingId, setSelectedPricingId] = useState('');
-  const [gradingWeightKg, setGradingWeightKg] = useState('');
-  const [gradingCondition, setGradingCondition] = useState<HarvestCondition>('GOOD');
+  const [selectedPricingId, setSelectedPricingId] = useState("");
+  const [gradingWeightKg, setGradingWeightKg] = useState("");
+  const [gradingCondition, setGradingCondition] =
+    useState<HarvestCondition>("GOOD");
   const [isSubmittingStepAction, setIsSubmittingStepAction] = useState(false);
 
-  const [completionPayload, setCompletionPayload] = useState<CompleteHarvestPayload>({ notes: '' });
-  const [completedEvent, setCompletedEvent] = useState<HarvestEventRecord | null>(null);
+  const [completionPayload, setCompletionPayload] =
+    useState<CompleteHarvestPayload>({ notes: "" });
+  const [completedEvent, setCompletedEvent] =
+    useState<HarvestEventRecord | null>(null);
 
-  const [pricingFishTypeId, setPricingFishTypeId] = useState('');
-  const [pricingDraft, setPricingDraft] = useState<PricingDraft>(DEFAULT_PRICING_DRAFT);
+  const [pricingFishTypeId, setPricingFishTypeId] = useState("");
+  const [pricingDraft, setPricingDraft] = useState<PricingDraft>(
+    DEFAULT_PRICING_DRAFT,
+  );
   const [editingPricingId, setEditingPricingId] = useState<string | null>(null);
   const [pricingError, setPricingError] = useState<string | null>(null);
   const [isSavingPricing, setIsSavingPricing] = useState(false);
@@ -146,11 +185,14 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
   const [isDashLoading, setIsDashLoading] = useState(false);
 
   const activeEventCount = useMemo(
-    () => harvestEvents.filter((event) => event.status !== 'COMPLETED' && event.status !== 'CANCELLED').length,
+    () =>
+      harvestEvents.filter(
+        (event) => event.status !== "COMPLETED" && event.status !== "CANCELLED",
+      ).length,
     [harvestEvents],
   );
   const completedEventCount = useMemo(
-    () => harvestEvents.filter((event) => event.status === 'COMPLETED').length,
+    () => harvestEvents.filter((event) => event.status === "COMPLETED").length,
     [harvestEvents],
   );
   const totalGradedWeight = useMemo(
@@ -163,12 +205,16 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
   );
 
   const selectedBatch = useMemo(
-    () => tankBatches.batches.find((batch) => batch.id === selectedBatchId) || null,
+    () =>
+      tankBatches.batches.find((batch) => batch.id === selectedBatchId) || null,
     [tankBatches.batches, selectedBatchId],
   );
 
   const currentFarmEvents = useMemo(
-    () => harvestEvents.filter((event) => eventMatchesFarm(event, activeTanks, availableTanks)),
+    () =>
+      harvestEvents.filter((event) =>
+        eventMatchesFarm(event, activeTanks, availableTanks),
+      ),
     [harvestEvents, activeTanks, availableTanks],
   );
 
@@ -182,14 +228,21 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
     }
 
     try {
-      const [events, activeTankList, tankList, fishTypeList, metadata, dashRes] = await Promise.all([
+      const [
+        events,
+        activeTankList,
+        tankList,
+        fishTypeList,
+        metadata,
+        dashRes,
+      ] = await Promise.all([
         getHarvestEvents(),
         getActiveHarvestTanks(),
         getHarvestTanks(),
         getFishTypes(false),
         getMetadata(),
         canAccessDashboard(userRole)
-          ? apiGet<any>('/dashboard')
+          ? apiGet<any>("/dashboard")
           : Promise.resolve(null),
       ]);
 
@@ -199,6 +252,7 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
       setFishTypes(fishTypeList);
       setHarvestTypeOptions(resolveHarvestTypeOptions(metadata));
       setDashSummary(dashRes?.data || null);
+      void loadHarvestTasks();
 
       if (!historyTankId && tankList.length > 0) {
         setHistoryTankId(tankList[0].id);
@@ -207,10 +261,26 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
         setPricingFishTypeId(fishTypeList[0].id);
       }
     } catch (error) {
-      setGlobalError(error instanceof Error ? error.message : 'Failed to load harvest data.');
+      setGlobalError(
+        error instanceof Error ? error.message : "Failed to load harvest data.",
+      );
     } finally {
       setIsBootstrapping(false);
       setIsRefreshing(false);
+    }
+  };
+
+  const loadHarvestTasks = async () => {
+    try {
+      let data: TaskItem[] = [];
+      try {
+        data = await getFarmTasks();
+      } catch {
+        data = await getMyTasks();
+      }
+      setHarvestTasks(data);
+    } catch {
+      setHarvestTasks([]);
     }
   };
 
@@ -226,7 +296,9 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
       const pricing = await getPricingByFishType(fishTypeId);
       setPricingList(pricing);
     } catch (error) {
-      setPricingError(error instanceof Error ? error.message : 'Failed to load pricing list.');
+      setPricingError(
+        error instanceof Error ? error.message : "Failed to load pricing list.",
+      );
       setPricingList([]);
     } finally {
       setIsLoadingPricing(false);
@@ -244,7 +316,9 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
       const events = await getHarvestEventsByTank(tankId);
       setHistoryEvents(events);
     } catch (error) {
-      setGlobalError(error instanceof Error ? error.message : 'Failed to load tank history.');
+      setGlobalError(
+        error instanceof Error ? error.message : "Failed to load tank history.",
+      );
       setHistoryEvents([]);
     } finally {
       setIsLoadingHistory(false);
@@ -278,7 +352,7 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
   useEffect(() => {
     if (!selectedTankId) {
       setTankBatches({ summary: null, batches: [] });
-      setSelectedBatchId('');
+      setSelectedBatchId("");
       return;
     }
 
@@ -289,13 +363,17 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
         const response = await getTankBatches(selectedTankId);
         if (!cancelled) {
           setTankBatches(response);
-          setSelectedBatchId(response.batches[0]?.id || '');
+          setSelectedBatchId(response.batches[0]?.id || "");
         }
       } catch (error) {
         if (!cancelled) {
-          setGlobalError(error instanceof Error ? error.message : 'Failed to load tank batches.');
+          setGlobalError(
+            error instanceof Error
+              ? error.message
+              : "Failed to load tank batches.",
+          );
           setTankBatches({ summary: null, batches: [] });
-          setSelectedBatchId('');
+          setSelectedBatchId("");
         }
       }
     };
@@ -308,15 +386,23 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
 
   useEffect(() => {
     if (selectedBatch?.fishType) {
-      console.log('[SyncFishType] Selected Batch FishType:', selectedBatch.fishType);
-      const ft = fishTypes.find((f) => f.name.toLowerCase() === selectedBatch.fishType?.toLowerCase());
+      console.log(
+        "[SyncFishType] Selected Batch FishType:",
+        selectedBatch.fishType,
+      );
+      const ft = fishTypes.find(
+        (f) => f.name.toLowerCase() === selectedBatch.fishType?.toLowerCase(),
+      );
       if (ft) {
-        console.log('[SyncFishType] Found matching fishType ID:', ft.id);
+        console.log("[SyncFishType] Found matching fishType ID:", ft.id);
         if (ft.id !== selectedFishTypeId) {
           setSelectedFishTypeId(ft.id);
         }
       } else {
-        console.warn('[SyncFishType] No matching fishType found for name:', selectedBatch.fishType);
+        console.warn(
+          "[SyncFishType] No matching fishType found for name:",
+          selectedBatch.fishType,
+        );
       }
     }
   }, [selectedBatch, fishTypes]);
@@ -324,12 +410,22 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
   // Sync fish type from tank if no batch is selected or batch has no type
   useEffect(() => {
     if (selectedTankId && !selectedBatch?.fishType) {
-      const tank = availableTanks.find(t => t.id === selectedTankId);
-      console.log('[SyncFishType] Selected Tank:', tank?.name, 'FishType:', tank?.fishType);
+      const tank = availableTanks.find((t) => t.id === selectedTankId);
+      console.log(
+        "[SyncFishType] Selected Tank:",
+        tank?.name,
+        "FishType:",
+        tank?.fishType,
+      );
       if (tank?.fishType) {
-        const ft = fishTypes.find(f => f.name.toLowerCase() === tank.fishType?.toLowerCase());
+        const ft = fishTypes.find(
+          (f) => f.name.toLowerCase() === tank.fishType?.toLowerCase(),
+        );
         if (ft) {
-          console.log('[SyncFishType] Found matching fishType ID from tank:', ft.id);
+          console.log(
+            "[SyncFishType] Found matching fishType ID from tank:",
+            ft.id,
+          );
           if (ft.id !== selectedFishTypeId) {
             setSelectedFishTypeId(ft.id);
           }
@@ -341,7 +437,7 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
   useEffect(() => {
     if (!selectedFishTypeId) {
       setPricingList([]);
-      setSelectedPricingId('');
+      setSelectedPricingId("");
       return;
     }
 
@@ -354,13 +450,15 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
         if (!cancelled) {
           setPricingList(pricing);
           // Always reset or pick the first one when fish type changes
-          setSelectedPricingId(pricing[0]?.id || '');
+          setSelectedPricingId(pricing[0]?.id || "");
         }
       } catch (error) {
         if (!cancelled) {
-          setPricingError(error instanceof Error ? error.message : 'Failed to load pricing.');
+          setPricingError(
+            error instanceof Error ? error.message : "Failed to load pricing.",
+          );
           setPricingList([]);
-          setSelectedPricingId('');
+          setSelectedPricingId("");
         }
       } finally {
         if (!cancelled) {
@@ -375,15 +473,48 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
     };
   }, [selectedFishTypeId]);
 
+  // While on the grading step, refresh tasks now and poll every few seconds so
+  // the grading lock clears automatically within a few seconds of the harvest
+  // task being marked Done — no manual refresh needed.
+  useEffect(() => {
+    if (workflowStep !== 2) {
+      return;
+    }
+    void loadHarvestTasks();
+    const intervalId = window.setInterval(() => {
+      void loadHarvestTasks();
+    }, 4000);
+    return () => window.clearInterval(intervalId);
+  }, [workflowStep, currentEvent?.id]);
+
+  // Lock grading while any harvest task is still open (OPEN/IN_PROGRESS).
+  // It unlocks as soon as that task is marked Done.
+  const isHarvestTaskPending = useMemo(
+    () =>
+      harvestTasks.some((task) => {
+        const isHarvest =
+          `${task.templateId || ""} ${task.title || ""} ${task.description || ""}`
+            .toLowerCase()
+            .includes("harvest");
+        return (
+          isHarvest && (task.status === "OPEN" || task.status === "IN_PROGRESS")
+        );
+      }),
+    [harvestTasks],
+  );
+
   const refreshEventsAndActiveTanks = async () => {
-    const [events, activeTankList] = await Promise.all([getHarvestEvents(), getActiveHarvestTanks()]);
+    const [events, activeTankList] = await Promise.all([
+      getHarvestEvents(),
+      getActiveHarvestTanks(),
+    ]);
     setHarvestEvents(events);
     setActiveTanks(activeTankList);
   };
 
   const handleStartHarvest = async () => {
     if (!selectedTankId || !selectedBatchId) {
-      setGlobalError('Select tank and batch before starting harvest.');
+      setGlobalError("Select tank and batch before starting harvest.");
       return;
     }
 
@@ -398,9 +529,11 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
       setCurrentEvent(event);
       setCurrentGradings([]);
 
-      const tank = availableTanks.find(t => t.id === selectedTankId);
+      const tank = availableTanks.find((t) => t.id === selectedTankId);
       if (tank?.fishType) {
-        const ft = fishTypes.find(f => f.name.toLowerCase() === tank.fishType?.toLowerCase());
+        const ft = fishTypes.find(
+          (f) => f.name.toLowerCase() === tank.fishType?.toLowerCase(),
+        );
         if (ft) setSelectedFishTypeId(ft.id);
       }
 
@@ -408,11 +541,15 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
       await refreshEventsAndActiveTanks();
     } catch (error: any) {
       // Handle 409 Conflict: If a harvest is already started for this tank, find it and resume
-      if (error?.status === 409 || (error?.message && error.message.includes('409'))) {
-        const existingEvent = harvestEvents.find(e =>
-          e.tankId === selectedTankId &&
-          e.status !== 'COMPLETED' &&
-          e.status !== 'CANCELLED'
+      if (
+        error?.status === 409 ||
+        (error?.message && error.message.includes("409"))
+      ) {
+        const existingEvent = harvestEvents.find(
+          (e) =>
+            e.tankId === selectedTankId &&
+            e.status !== "COMPLETED" &&
+            e.status !== "CANCELLED",
         );
 
         if (existingEvent) {
@@ -421,9 +558,11 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
           setCurrentGradings(gradings);
 
           // Set fish type based on tank if available
-          const tank = availableTanks.find(t => t.id === selectedTankId);
+          const tank = availableTanks.find((t) => t.id === selectedTankId);
           if (tank?.fishType) {
-            const ft = fishTypes.find(f => f.name.toLowerCase() === tank.fishType?.toLowerCase());
+            const ft = fishTypes.find(
+              (f) => f.name.toLowerCase() === tank.fishType?.toLowerCase(),
+            );
             if (ft) setSelectedFishTypeId(ft.id);
           }
 
@@ -431,7 +570,9 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
           return;
         }
       }
-      setGlobalError(error instanceof Error ? error.message : 'Failed to start harvest.');
+      setGlobalError(
+        error instanceof Error ? error.message : "Failed to start harvest.",
+      );
     } finally {
       setIsSubmittingStepAction(false);
     }
@@ -439,25 +580,27 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
 
   const handleAddGrading = async () => {
     if (!currentEvent || !selectedPricingId || !selectedFishTypeId) {
-      setGlobalError('Harvest event, fish type, and grade are required.');
+      setGlobalError("Harvest event, fish type, and grade are required.");
       return;
     }
     if (!selectedBatchId) {
-      setGlobalError('Source batch is required for grading.');
+      setGlobalError("Source batch is required for grading.");
       return;
     }
     if (!UUID_PATTERN.test(selectedPricingId)) {
-      setGlobalError('Selected pricing is invalid. Please choose a valid grade.');
+      setGlobalError(
+        "Selected pricing is invalid. Please choose a valid grade.",
+      );
       return;
     }
     if (!UUID_PATTERN.test(selectedBatchId)) {
-      setGlobalError('Selected batch is invalid. Please reselect tank batch.');
+      setGlobalError("Selected batch is invalid. Please reselect tank batch.");
       return;
     }
 
     const parsedWeight = Number(gradingWeightKg);
     if (!Number.isFinite(parsedWeight) || parsedWeight <= 0) {
-      setGlobalError('Enter a valid grading weight.');
+      setGlobalError("Enter a valid grading weight.");
       return;
     }
     const payload: AddHarvestGradingPayload = {
@@ -468,18 +611,21 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
       condition: gradingCondition,
     };
 
-    console.log('[handleAddGrading] Submitting grading', {
+    console.log("[handleAddGrading] Submitting grading", {
       selectedFishTypeId,
       selectedPricingId,
       selectedBatchId,
-      payload
+      payload,
     });
 
     setIsSubmittingStepAction(true);
     setGlobalError(null);
     try {
-      const createdGrading = await addHarvestGradingRecord(currentEvent.id, payload);
-      toast.success('Grading record added successfully');
+      const createdGrading = await addHarvestGradingRecord(
+        currentEvent.id,
+        payload,
+      );
+      toast.success("Grading record added successfully");
       await refreshEventsAndActiveTanks();
       const gradings = await getHarvestGradings(currentEvent.id);
       if (gradings.length > 0) {
@@ -490,10 +636,13 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
           return exists ? previous : [createdGrading, ...previous];
         });
       }
-      setGradingWeightKg('');
+      setGradingWeightKg("");
       // Removed automatic step jump to allow multiple gradings
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Failed to add grading record.';
+      const msg =
+        error instanceof Error
+          ? error.message
+          : "Failed to add grading record.";
       setGlobalError(msg);
       toast.error(msg);
     } finally {
@@ -503,7 +652,7 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
 
   const handleCompleteHarvest = async () => {
     if (!currentEvent) {
-      setGlobalError('No active harvest to complete.');
+      setGlobalError("No active harvest to complete.");
       return;
     }
 
@@ -512,12 +661,17 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
     try {
       const persistedGradings = await getHarvestGradings(currentEvent.id);
       if (persistedGradings.length === 0) {
-        throw new Error('No grading records persisted on server yet. Please add grading again and retry.');
+        throw new Error(
+          "No grading records persisted on server yet. Please add grading again and retry.",
+        );
       }
       setCurrentGradings(persistedGradings);
 
-      const completed = await completeHarvestEvent(currentEvent.id, completionPayload);
-      toast.success('Harvest event completed successfully');
+      const completed = await completeHarvestEvent(
+        currentEvent.id,
+        completionPayload,
+      );
+      toast.success("Harvest event completed successfully");
       setCompletedEvent(completed);
       setWorkflowStep(4);
       await refreshEventsAndActiveTanks();
@@ -529,11 +683,13 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
             await sleep(1000);
           }
           const latestEvents = await getHarvestEvents();
-          const latest = latestEvents.find((event) => event.id === currentEvent.id);
-          if (latest?.status === 'COMPLETED') {
+          const latest = latestEvents.find(
+            (event) => event.id === currentEvent.id,
+          );
+          if (latest?.status === "COMPLETED") {
             setCompletedEvent(latest);
             setWorkflowStep(4);
-            toast.success('Harvest completed successfully');
+            toast.success("Harvest completed successfully");
             await refreshEventsAndActiveTanks();
             return;
           }
@@ -542,22 +698,24 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
         // Ignore recovery lookup failure and show original error.
       }
 
-      const message = error instanceof Error ? error.message.toLowerCase() : '';
+      const message = error instanceof Error ? error.message.toLowerCase() : "";
       if (
-        (message.includes('internal server error') || message.includes('500')) &&
+        (message.includes("internal server error") ||
+          message.includes("500")) &&
         currentGradings.length > 0
       ) {
         setGlobalError(null);
         setCompletedEvent({
           ...currentEvent,
-          status: 'COMPLETED',
+          status: "COMPLETED",
         });
         setWorkflowStep(4);
-        toast.success('Harvest completed successfully');
+        toast.success("Harvest completed successfully");
         return;
       }
 
-      const msg = error instanceof Error ? error.message : 'Failed to complete harvest.';
+      const msg =
+        error instanceof Error ? error.message : "Failed to complete harvest.";
       setGlobalError(msg);
       toast.error(msg);
     } finally {
@@ -568,7 +726,7 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
   const handleContinueHarvest = async (harvest: any) => {
     const event = harvestEvents.find((e) => e.id === harvest.id);
     if (!event) {
-      toast.error('Harvest event not found');
+      toast.error("Harvest event not found");
       return;
     }
 
@@ -582,10 +740,10 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
       // Try to find the batch ID from the event's source batches or metadata
       // For now, setting step 2 is the most important
       setWorkflowStep(2);
-      setActiveTab('workflow');
+      setActiveTab("workflow");
       toast.info(`Resuming harvest for ${harvest.tankName}`);
     } catch (error) {
-      toast.error('Failed to load harvest details');
+      toast.error("Failed to load harvest details");
     } finally {
       setIsDashLoading(false);
     }
@@ -596,15 +754,15 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
     setCurrentEvent(null);
     setCurrentGradings([]);
     setCompletedEvent(null);
-    setSelectedPricingId('');
-    setGradingWeightKg('');
-    setCompletionPayload({ notes: '' });
-    setSelectedBatchId('');
+    setSelectedPricingId("");
+    setGradingWeightKg("");
+    setCompletionPayload({ notes: "" });
+    setSelectedBatchId("");
   };
 
   const handleSavePricing = async () => {
     if (!pricingFishTypeId || !pricingDraft.gradeName.trim()) {
-      setPricingError('Fish type and grade name are required.');
+      setPricingError("Fish type and grade name are required.");
       return;
     }
     setIsSavingPricing(true);
@@ -631,7 +789,9 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
       setEditingPricingId(null);
       await loadPricingForFishType(pricingFishTypeId);
     } catch (error) {
-      setPricingError(error instanceof Error ? error.message : 'Failed to save pricing.');
+      setPricingError(
+        error instanceof Error ? error.message : "Failed to save pricing.",
+      );
     } finally {
       setIsSavingPricing(false);
     }
@@ -677,7 +837,11 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
             onClick={() => void loadBootstrapData(true)}
             disabled={isRefreshing}
           >
-            {isRefreshing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCcw className="w-4 h-4 mr-2" />}
+            {isRefreshing ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCcw className="w-4 h-4 mr-2" />
+            )}
             Refresh
           </Button>
         </div>
@@ -686,7 +850,9 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
       <div className="p-6 space-y-6">
         {globalError && (
           <Card className="border-red-200 bg-red-50">
-            <CardContent className="py-3 text-sm text-red-700">{globalError}</CardContent>
+            <CardContent className="py-3 text-sm text-red-700">
+              {globalError}
+            </CardContent>
           </Card>
         )}
 
@@ -700,42 +866,63 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
           <TabsContent value="dashboard" className="space-y-4">
             <HarvestDashboard
               farmId={farmId}
-              onStartHarvest={() => setActiveTab('workflow')}
+              onStartHarvest={() => setActiveTab("workflow")}
               onViewTankPerformance={(tid) => {
                 // Since history is gone, maybe just stay on dashboard or do nothing
-                console.log('View performance for', tid);
+                console.log("View performance for", tid);
               }}
               onContinueHarvest={handleContinueHarvest}
               loading={isBootstrapping}
               kpis={{
                 activeHarvests: activeEventCount,
-                thisMonthHarvested: dashSummary?.fishSummary?.totalBiomassKg || 0,
-                thisMonthRevenue: dashSummary?.predictedRevenue?.totalProjectedRevenue || 0,
-
+                thisMonthHarvested:
+                  dashSummary?.fishSummary?.totalBiomassKg || 0,
+                thisMonthRevenue:
+                  dashSummary?.predictedRevenue?.totalProjectedRevenue || 0,
               }}
-              activeHarvests={harvestEvents.filter(e => e.status !== 'COMPLETED' && e.status !== 'CANCELLED').map(e => ({
-                id: e.id,
-                tankId: e.tankId,
-                tankName: availableTanks.find(t => t.id === e.tankId)?.name || e.tankId,
-                batchNumber: e.harvestTypeLabel,
-                type: e.harvestType,
-                started: formatDate(e.harvestDate),
-                status: e.status === 'STARTED' ? 'DRAFT' : e.status,
-                progress: e.estimatedWeight > 0
-                  ? Math.min(100, Math.round(((e.actualTotalWeight || 0) / e.estimatedWeight) * 100))
-                  : (e.status === 'GRADING' ? 50 : 10),
-                estimatedWeight: e.estimatedWeight,
-                gradedWeight: e.actualTotalWeight || 0
-              }))}
-              completedHarvests={harvestEvents.filter(e => e.status === 'COMPLETED').slice(0, 5).map(e => ({
-                id: e.id,
-                tankName: availableTanks.find(t => t.id === e.tankId)?.name || e.tankId,
-                date: formatDate(e.harvestDate),
-                type: e.harvestType,
-                weight: e.actualTotalWeight,
-                revenue: e.totalRevenue,
-                status: '✅'
-              }))}
+              activeHarvests={harvestEvents
+                .filter(
+                  (e) => e.status !== "COMPLETED" && e.status !== "CANCELLED",
+                )
+                .map((e) => ({
+                  id: e.id,
+                  tankId: e.tankId,
+                  tankName:
+                    availableTanks.find((t) => t.id === e.tankId)?.name ||
+                    e.tankId,
+                  batchNumber: e.harvestTypeLabel,
+                  type: e.harvestType,
+                  started: formatDate(e.harvestDate),
+                  status: e.status === "STARTED" ? "DRAFT" : e.status,
+                  progress:
+                    e.estimatedWeight > 0
+                      ? Math.min(
+                          100,
+                          Math.round(
+                            ((e.actualTotalWeight || 0) / e.estimatedWeight) *
+                              100,
+                          ),
+                        )
+                      : e.status === "GRADING"
+                        ? 50
+                        : 10,
+                  estimatedWeight: e.estimatedWeight,
+                  gradedWeight: e.actualTotalWeight || 0,
+                }))}
+              completedHarvests={harvestEvents
+                .filter((e) => e.status === "COMPLETED")
+                .slice(0, 5)
+                .map((e) => ({
+                  id: e.id,
+                  tankName:
+                    availableTanks.find((t) => t.id === e.tankId)?.name ||
+                    e.tankId,
+                  date: formatDate(e.harvestDate),
+                  type: e.harvestType,
+                  weight: e.actualTotalWeight,
+                  revenue: e.totalRevenue,
+                  status: "✅",
+                }))}
             />
           </TabsContent>
 
@@ -754,7 +941,9 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                           id="workflow-tank"
                           className="mt-1 w-full h-9 border rounded-md px-3 bg-white"
                           value={selectedTankId}
-                          onChange={(event) => setSelectedTankId(event.target.value)}
+                          onChange={(event) =>
+                            setSelectedTankId(event.target.value)
+                          }
                         >
                           <option value="">Select tank</option>
                           {availableTanks.map((tank) => (
@@ -771,13 +960,16 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                           id="workflow-batch"
                           className="mt-1 w-full h-9 border rounded-md px-3 bg-white"
                           value={selectedBatchId}
-                          onChange={(event) => setSelectedBatchId(event.target.value)}
+                          onChange={(event) =>
+                            setSelectedBatchId(event.target.value)
+                          }
                           disabled={!selectedTankId}
                         >
                           <option value="">Select batch</option>
                           {tankBatches.batches.map((batch) => (
                             <option key={batch.id} value={batch.id}>
-                              {batch.id} {batch.fishType ? `- ${batch.fishType}` : ''}
+                              {batch.id}{" "}
+                              {batch.fishType ? `- ${batch.fishType}` : ""}
                             </option>
                           ))}
                         </select>
@@ -796,18 +988,24 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                     <Button
                       className="bg-[#088395] hover:bg-[#0A4D68]"
                       onClick={() => void handleStartHarvest()}
-                      disabled={isSubmittingStepAction || !selectedTankId || !selectedBatchId}
+                      disabled={
+                        isSubmittingStepAction ||
+                        !selectedTankId ||
+                        !selectedBatchId
+                      }
                     >
                       {isSubmittingStepAction ? (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : activeTanks.some(t => t.tankId === selectedTankId) ? (
+                      ) : activeTanks.some(
+                          (t) => t.tankId === selectedTankId,
+                        ) ? (
                         <TrendingUp className="w-4 h-4 mr-2" />
                       ) : (
                         <Plus className="w-4 h-4 mr-2" />
                       )}
-                      {activeTanks.some(t => t.tankId === selectedTankId)
-                        ? 'Resume Active Harvest'
-                        : 'Start Harvest Event'}
+                      {activeTanks.some((t) => t.tankId === selectedTankId)
+                        ? "Resume Active Harvest"
+                        : "Start Harvest Event"}
                     </Button>
                   </div>
                 )}
@@ -821,7 +1019,9 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                           id="workflow-fish-type"
                           className="mt-1 w-full h-9 border rounded-md px-3 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
                           value={selectedFishTypeId}
-                          onChange={(event) => setSelectedFishTypeId(event.target.value)}
+                          onChange={(event) =>
+                            setSelectedFishTypeId(event.target.value)
+                          }
                           disabled={!!currentEvent}
                         >
                           <option value="">Select fish type</option>
@@ -838,18 +1038,24 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                           id="workflow-pricing"
                           className="mt-1 w-full h-9 border rounded-md px-3 bg-white"
                           value={selectedPricingId}
-                          onChange={(event) => setSelectedPricingId(event.target.value)}
+                          onChange={(event) =>
+                            setSelectedPricingId(event.target.value)
+                          }
                           disabled={isLoadingPricing}
                         >
                           <option value="">Select pricing</option>
                           {pricingList.map((pricing) => (
                             <option key={pricing.id} value={pricing.id}>
-                              {pricing.gradeName} ({pricing.minWeight}-{pricing.maxWeight}g, {pricing.pricePerKg} EGP/kg)
+                              {pricing.gradeName} ({pricing.minWeight}-
+                              {pricing.maxWeight}g, {pricing.pricePerKg} EGP/kg)
                             </option>
                           ))}
                         </select>
                         {pricingList.length === 0 && (
-                          <p className="text-xs text-amber-700 mt-1">No pricing found. Configure pricing in the Pricing tab.</p>
+                          <p className="text-xs text-amber-700 mt-1">
+                            No pricing found. Configure pricing in the Pricing
+                            tab.
+                          </p>
                         )}
                       </div>
                       <div>
@@ -858,7 +1064,11 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                           id="workflow-condition"
                           className="mt-1 w-full h-9 border rounded-md px-3 bg-white"
                           value={gradingCondition}
-                          onChange={(event) => setGradingCondition(event.target.value as HarvestCondition)}
+                          onChange={(event) =>
+                            setGradingCondition(
+                              event.target.value as HarvestCondition,
+                            )
+                          }
                         >
                           {CONDITION_OPTIONS.map((condition) => (
                             <option key={condition} value={condition}>
@@ -878,25 +1088,48 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                           min="0.01"
                           step="0.01"
                           value={gradingWeightKg}
-                          onChange={(event) => setGradingWeightKg(event.target.value)}
+                          onChange={(event) =>
+                            setGradingWeightKg(event.target.value)
+                          }
                           placeholder="Enter harvested weight in kg"
                         />
                       </div>
                     </div>
 
+                    {isHarvestTaskPending && (
+                      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                        <span className="flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 shrink-0" />
+                          Grading is locked until the harvest task for this tank
+                          is marked Done.
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void loadHarvestTasks()}
+                        >
+                          <RefreshCcw className="w-4 h-4 mr-1" />
+                          Recheck
+                        </Button>
+                      </div>
+                    )}
+
                     <div className="flex gap-2">
                       <Button
-                        className="bg-[#088395] hover:bg-[#0A4D68]"
+                        className="bg-[#088395] hover:bg-[#0A4D68] disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={() => void handleAddGrading()}
                         disabled={
                           isSubmittingStepAction ||
+                          isHarvestTaskPending ||
                           !selectedFishTypeId ||
                           !selectedPricingId ||
                           !selectedBatchId ||
                           !gradingWeightKg
                         }
                       >
-                        {isSubmittingStepAction ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                        {isSubmittingStepAction ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : null}
                         Add Grading
                       </Button>
                       <Button
@@ -923,36 +1156,60 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                   <div className="space-y-4">
                     <Card className="bg-gray-50">
                       <CardContent className="py-3 text-sm space-y-1">
-                        <p className="font-semibold text-gray-700">Harvest Summary</p>
+                        <p className="font-semibold text-gray-700">
+                          Harvest Summary
+                        </p>
                         <p>Harvest Event: {currentEvent?.id}</p>
-                        <p>Graded Weight: {formatNumber(totalGradedWeight)} kg</p>
-                        <p>Estimated Revenue: {formatNumber(totalGradingRevenue)} EGP</p>
+                        <p>
+                          Graded Weight: {formatNumber(totalGradedWeight)} kg
+                        </p>
+                        <p>
+                          Estimated Revenue: {formatNumber(totalGradingRevenue)}{" "}
+                          EGP
+                        </p>
                       </CardContent>
                     </Card>
 
                     <div className="space-y-3">
-                      <Label className="text-base font-semibold">Grading History</Label>
+                      <Label className="text-base font-semibold">
+                        Grading History
+                      </Label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {currentGradings.map((grading) => (
-                          <Card key={grading.id} className="overflow-hidden border-blue-100 shadow-sm">
+                          <Card
+                            key={grading.id}
+                            className="overflow-hidden border-blue-100 shadow-sm"
+                          >
                             <CardHeader className="bg-blue-50/50 py-2 px-4 border-b">
                               <CardTitle className="text-sm font-bold flex justify-between items-center">
-                                <span>{grading.gradeName || 'Grading Record'}</span>
-                                <Badge variant="outline" className="bg-white">{grading.condition}</Badge>
+                                <span>
+                                  {grading.gradeName || "Grading Record"}
+                                </span>
+                                <Badge variant="outline" className="bg-white">
+                                  {grading.condition}
+                                </Badge>
                               </CardTitle>
                             </CardHeader>
                             <CardContent className="p-4 space-y-2">
                               <div className="flex justify-between text-sm">
                                 <span className="text-gray-600">Weight:</span>
-                                <span className="font-semibold">{formatNumber(grading.weightKg)} kg</span>
+                                <span className="font-semibold">
+                                  {formatNumber(grading.weightKg)} kg
+                                </span>
                               </div>
                               <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Price at Harvest:</span>
-                                <span className="font-semibold">{formatNumber(grading.pricePerKg)} EGP/kg</span>
+                                <span className="text-gray-600">
+                                  Price at Harvest:
+                                </span>
+                                <span className="font-semibold">
+                                  {formatNumber(grading.pricePerKg)} EGP/kg
+                                </span>
                               </div>
                               <div className="border-t pt-2 flex justify-between font-bold text-blue-800">
                                 <span>Total Value:</span>
-                                <span>{formatNumber(grading.totalValue)} EGP</span>
+                                <span>
+                                  {formatNumber(grading.totalValue)} EGP
+                                </span>
                               </div>
                             </CardContent>
                           </Card>
@@ -966,7 +1223,7 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                         id="completion-notes"
                         rows={4}
                         placeholder="Add optional completion notes..."
-                        value={completionPayload.notes || ''}
+                        value={completionPayload.notes || ""}
                         onChange={(event) =>
                           setCompletionPayload({
                             notes: event.target.value,
@@ -976,7 +1233,10 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                     </div>
 
                     <div className="flex gap-2">
-                      <Button variant="outline" onClick={() => setWorkflowStep(2)}>
+                      <Button
+                        variant="outline"
+                        onClick={() => setWorkflowStep(2)}
+                      >
                         Back to Grading
                       </Button>
                       <Button
@@ -984,7 +1244,9 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                         onClick={() => void handleCompleteHarvest()}
                         disabled={isSubmittingStepAction}
                       >
-                        {isSubmittingStepAction ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                        {isSubmittingStepAction ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : null}
                         Complete Harvest
                       </Button>
                     </div>
@@ -995,17 +1257,29 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                   <div className="space-y-4">
                     <Card className="border-green-200 bg-green-50">
                       <CardHeader>
-                        <CardTitle className="text-green-800">Harvest Completed</CardTitle>
+                        <CardTitle className="text-green-800">
+                          Harvest Completed
+                        </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-2 text-sm">
-                        <p>Event ID: {completedEvent?.id || currentEvent?.id}</p>
-                        <p>Status: {completedEvent?.status || 'COMPLETED'}</p>
-                        <p>Total Graded Weight: {formatNumber(totalGradedWeight)} kg</p>
-                        {completionPayload.notes?.trim() ? <p>Notes: {completionPayload.notes}</p> : null}
+                        <p>
+                          Event ID: {completedEvent?.id || currentEvent?.id}
+                        </p>
+                        <p>Status: {completedEvent?.status || "COMPLETED"}</p>
+                        <p>
+                          Total Graded Weight: {formatNumber(totalGradedWeight)}{" "}
+                          kg
+                        </p>
+                        {completionPayload.notes?.trim() ? (
+                          <p>Notes: {completionPayload.notes}</p>
+                        ) : null}
                       </CardContent>
                     </Card>
 
-                    <Button className="bg-[#088395] hover:bg-[#0A4D68]" onClick={handleResetWorkflow}>
+                    <Button
+                      className="bg-[#088395] hover:bg-[#0A4D68]"
+                      onClick={handleResetWorkflow}
+                    >
                       Start Another Harvest
                     </Button>
                   </div>
@@ -1043,14 +1317,22 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                   </div>
 
                   <div className="flex items-end">
-                    <Button variant="outline" onClick={() => void loadPricingForFishType(pricingFishTypeId)} disabled={!pricingFishTypeId}>
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        void loadPricingForFishType(pricingFishTypeId)
+                      }
+                      disabled={!pricingFishTypeId}
+                    >
                       <RefreshCcw className="w-4 h-4 mr-2" />
                       Reload Grading
                     </Button>
                   </div>
                 </div>
 
-                {pricingError && <p className="text-sm text-red-700">{pricingError}</p>}
+                {pricingError && (
+                  <p className="text-sm text-red-700">{pricingError}</p>
+                )}
 
                 {isLoadingPricing ? (
                   <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -1058,20 +1340,28 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                     Loading grading...
                   </div>
                 ) : pricingList.length === 0 ? (
-                  <p className="text-sm text-gray-600">No grading found for selected fish type.</p>
+                  <p className="text-sm text-gray-600">
+                    No grading found for selected fish type.
+                  </p>
                 ) : (
                   <div className="space-y-2">
                     {pricingList.map((pricing) => (
-                      <div key={pricing.id} className="border rounded-md p-3 flex items-center justify-between">
+                      <div
+                        key={pricing.id}
+                        className="border rounded-md p-3 flex items-center justify-between"
+                      >
                         <div className="text-sm">
                           <p className="font-medium">{pricing.gradeName}</p>
                           <p className="text-gray-600">
-                            {pricing.minWeight}-{pricing.maxWeight} g, {pricing.numOfFishInKilo} fish/kg
+                            {pricing.minWeight}-{pricing.maxWeight} g,{" "}
+                            {pricing.numOfFishInKilo} fish/kg
                           </p>
                           {formatNumber(pricing.pricePerKg)} EGP/kg
-
                         </div>
-                        <Button variant="outline" onClick={() => startEditingPricing(pricing)}>
+                        <Button
+                          variant="outline"
+                          onClick={() => startEditingPricing(pricing)}
+                        >
                           Edit
                         </Button>
                       </div>
@@ -1081,7 +1371,9 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
 
                 <Card className="bg-gray-50">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">{editingPricingId ? 'Edit Grading' : 'Create Grading'}</CardTitle>
+                    <CardTitle className="text-sm">
+                      {editingPricingId ? "Edit Grading" : "Create Grading"}
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1090,55 +1382,79 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                         <Input
                           id="pricing-grade-name"
                           value={pricingDraft.gradeName}
-                          onChange={(event) => setPricingDraft((prev) => ({ ...prev, gradeName: event.target.value }))}
+                          onChange={(event) =>
+                            setPricingDraft((prev) => ({
+                              ...prev,
+                              gradeName: event.target.value,
+                            }))
+                          }
                           placeholder="Grade 1"
                         />
                       </div>
                       <div>
-                        <Label htmlFor="pricing-price-per-kg">Grading Value Per Kg</Label>
+                        <Label htmlFor="pricing-price-per-kg">
+                          Grading Value Per Kg
+                        </Label>
                         <Input
                           id="pricing-price-per-kg"
                           type="number"
                           value={pricingDraft.pricePerKg}
                           onChange={(event) =>
-                            setPricingDraft((prev) => ({ ...prev, pricePerKg: Number(event.target.value) || 0 }))
+                            setPricingDraft((prev) => ({
+                              ...prev,
+                              pricePerKg: Number(event.target.value) || 0,
+                            }))
                           }
                         />
                       </div>
                       <div>
-                        <Label htmlFor="pricing-min-weight">Min Weight (g)</Label>
+                        <Label htmlFor="pricing-min-weight">
+                          Min Weight (g)
+                        </Label>
                         <Input
                           id="pricing-min-weight"
                           type="number"
                           value={pricingDraft.minWeight}
                           onChange={(event) =>
-                            setPricingDraft((prev) => ({ ...prev, minWeight: Number(event.target.value) || 0 }))
+                            setPricingDraft((prev) => ({
+                              ...prev,
+                              minWeight: Number(event.target.value) || 0,
+                            }))
                           }
                         />
                       </div>
                       <div>
-                        <Label htmlFor="pricing-max-weight">Max Weight (g)</Label>
+                        <Label htmlFor="pricing-max-weight">
+                          Max Weight (g)
+                        </Label>
                         <Input
                           id="pricing-max-weight"
                           type="number"
                           value={pricingDraft.maxWeight}
                           onChange={(event) =>
-                            setPricingDraft((prev) => ({ ...prev, maxWeight: Number(event.target.value) || 0 }))
+                            setPricingDraft((prev) => ({
+                              ...prev,
+                              maxWeight: Number(event.target.value) || 0,
+                            }))
                           }
                         />
                       </div>
                       <div>
-                        <Label htmlFor="pricing-fish-in-kilo">Fish In Kilo</Label>
+                        <Label htmlFor="pricing-fish-in-kilo">
+                          Fish In Kilo
+                        </Label>
                         <Input
                           id="pricing-fish-in-kilo"
                           type="number"
                           value={pricingDraft.numOfFishInKilo}
                           onChange={(event) =>
-                            setPricingDraft((prev) => ({ ...prev, numOfFishInKilo: Number(event.target.value) || 0 }))
+                            setPricingDraft((prev) => ({
+                              ...prev,
+                              numOfFishInKilo: Number(event.target.value) || 0,
+                            }))
                           }
                         />
                       </div>
-
                     </div>
 
                     <div className="flex gap-2">
@@ -1147,9 +1463,10 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
                         onClick={() => void handleSavePricing()}
                         disabled={isSavingPricing || !pricingFishTypeId}
                       >
-                        {isSavingPricing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                        {editingPricingId ? 'Update Grading' : 'Create Grading'}
-
+                        {isSavingPricing ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : null}
+                        {editingPricingId ? "Update Grading" : "Create Grading"}
                       </Button>
                       {editingPricingId && (
                         <Button
@@ -1168,8 +1485,6 @@ export const HarvestManagement = ({ farmId, userRole }: HarvestManagementProps) 
               </CardContent>
             </Card>
           </TabsContent>
-
-
         </Tabs>
       </div>
     </div>

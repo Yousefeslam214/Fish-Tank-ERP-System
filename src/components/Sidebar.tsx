@@ -43,7 +43,7 @@ export default function Sidebar({
   moduleLabelMap,
 }: SidebarProps) {
   const unreadCount = notifications.filter((n) => !n.read).length;
-
+  const isTechnician = user.role.toLocaleLowerCase() === "technician";
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "tanks", label: "Tank Management", icon: Droplet },
@@ -90,9 +90,10 @@ export default function Sidebar({
       comingSoon: true,
     },
   ];
-
   const visibleMenuItems = menuItems.filter(
-    (item) => allowedPages.includes(item.id) || item.comingSoon,
+    (item) =>
+      (allowedPages.includes(item.id) || item.comingSoon) &&
+      !(isTechnician && item.id === "tasks"),
   );
 
   const getInitials = (name: string) => {

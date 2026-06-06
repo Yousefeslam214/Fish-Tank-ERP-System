@@ -1,19 +1,19 @@
-﻿import { useEffect, useMemo, useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
+﻿import { useEffect, useMemo, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from './ui/select';
-import { Fish, AlertCircle } from 'lucide-react';
-import { FishInventoryBatch } from '../types';
-import { mockTanks } from '../mockData';
+} from "./ui/select";
+import { Fish, AlertCircle } from "lucide-react";
+import { FishInventoryBatch } from "../types";
+import { mockTanks } from "../mockData";
 
 interface AllocateFishToTankProps {
   batch: FishInventoryBatch;
@@ -25,7 +25,7 @@ interface AllocateFishToTankProps {
     quantity: number,
     avgWeight: number,
     stockingDate: string,
-    notes?: string
+    notes?: string,
   ) => void;
   farmId: string;
   availableTanks?: any[];
@@ -39,7 +39,6 @@ interface FormErrors {
   notes?: string;
 }
 
-const ALLOCATABLE_STATUSES = new Set(['ACTIVE', 'READY', 'EMPTY']);
 const MAX_NOTES_LENGTH = 500;
 
 export default function AllocateFishToTank({
@@ -50,13 +49,15 @@ export default function AllocateFishToTank({
   farmId,
   availableTanks = [],
 }: AllocateFishToTankProps) {
-  const todayDate = new Date().toISOString().split('T')[0];
+  const todayDate = new Date().toISOString().split("T")[0];
 
-  const [selectedTankId, setSelectedTankId] = useState<string>('');
-  const [quantity, setQuantity] = useState<string>('');
-  const [avgWeight, setAvgWeight] = useState<string>(String(batch.averageWeight ?? 0));
+  const [selectedTankId, setSelectedTankId] = useState<string>("");
+  const [quantity, setQuantity] = useState<string>("");
+  const [avgWeight, setAvgWeight] = useState<string>(
+    String(batch.averageWeight ?? 0),
+  );
   const [stockingDate, setStockingDate] = useState<string>(todayDate);
-  const [notes, setNotes] = useState<string>('');
+  const [notes, setNotes] = useState<string>("");
   const [errors, setErrors] = useState<FormErrors>({});
 
   useEffect(() => {
@@ -70,10 +71,12 @@ export default function AllocateFishToTank({
     return {
       id: String(id),
       name: String(tank?.name || `Tank ${String(id).slice(0, 6)}`),
-      farmId: String(tank?.farmId || ''),
-      status: String(tank?.status || 'UNKNOWN').toUpperCase(),
+      farmId: String(tank?.farmId || ""),
+      status: String(tank?.status || "UNKNOWN").toUpperCase(),
       biomass: Number(tank?.biomass?.actual ?? tank?.biomass ?? 0),
-      capacity: Number(tank?.biomass?.capacity ?? tank?.capacity ?? tank?.biomassLimit ?? 0),
+      capacity: Number(
+        tank?.biomass?.capacity ?? tank?.capacity ?? tank?.biomassLimit ?? 0,
+      ),
     };
   };
 
@@ -90,8 +93,8 @@ export default function AllocateFishToTank({
 
     return normalized.filter((tank) => {
       const farmMatch = !farmId || tank.farmId === farmId;
-      const statusMatch = ALLOCATABLE_STATUSES.has(tank.status);
-      return farmMatch && statusMatch;
+      const isEmpty = tank.biomass <= 0;
+      return farmMatch && isEmpty;
     });
   }, [availableTanks, farmId]);
 
@@ -99,37 +102,37 @@ export default function AllocateFishToTank({
     const newErrors: FormErrors = {};
 
     if (tanks.length === 0) {
-      newErrors.tank = 'No allocatable tanks available';
+      newErrors.tank = "No allocatable tanks available";
     }
 
     if (!selectedTankId) {
-      newErrors.tank = 'Please select a tank';
+      newErrors.tank = "Please select a tank";
     } else if (!tanks.some((tank) => tank.id === selectedTankId)) {
-      newErrors.tank = 'Selected tank is not valid';
+      newErrors.tank = "Selected tank is not valid";
     }
 
     const parsedQuantity = Number(quantity);
     if (!quantity || Number.isNaN(parsedQuantity)) {
-      newErrors.quantity = 'Please enter a valid quantity';
+      newErrors.quantity = "Please enter a valid quantity";
     } else if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
-      newErrors.quantity = 'Quantity must be a whole number greater than zero';
+      newErrors.quantity = "Quantity must be a whole number greater than zero";
     } else if (parsedQuantity > batch.quantity) {
       newErrors.quantity = `Quantity cannot exceed ${batch.quantity.toLocaleString()} fish`;
     }
 
     const parsedAvgWeight = Number(avgWeight);
-    if (avgWeight === '' || Number.isNaN(parsedAvgWeight)) {
-      newErrors.avgWeight = 'Please enter average weight';
+    if (avgWeight === "" || Number.isNaN(parsedAvgWeight)) {
+      newErrors.avgWeight = "Please enter average weight";
     } else if (parsedAvgWeight < 0) {
-      newErrors.avgWeight = 'Average weight cannot be negative';
+      newErrors.avgWeight = "Average weight cannot be negative";
     } else if (parsedAvgWeight > 10000) {
-      newErrors.avgWeight = 'Average weight is too high';
+      newErrors.avgWeight = "Average weight is too high";
     }
 
     if (!stockingDate) {
-      newErrors.stockingDate = 'Please select a stocking date';
+      newErrors.stockingDate = "Please select a stocking date";
     } else if (stockingDate > todayDate) {
-      newErrors.stockingDate = 'Stocking date cannot be in the future';
+      newErrors.stockingDate = "Stocking date cannot be in the future";
     }
 
     if (notes.length > MAX_NOTES_LENGTH) {
@@ -149,18 +152,18 @@ export default function AllocateFishToTank({
       Number(quantity),
       Number(avgWeight),
       stockingDate,
-      notes.trim() || undefined
+      notes.trim() || undefined,
     );
 
     handleClose();
   };
 
   const handleClose = () => {
-    setSelectedTankId('');
-    setQuantity('');
+    setSelectedTankId("");
+    setQuantity("");
     setAvgWeight(String(batch.averageWeight ?? 0));
     setStockingDate(todayDate);
-    setNotes('');
+    setNotes("");
     setErrors({});
     onClose();
   };
@@ -169,7 +172,7 @@ export default function AllocateFishToTank({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent
         className="max-w-2xl p-0 h-[90vh] max-h-[90vh] overflow-hidden gap-0"
-        style={{ display: 'flex', flexDirection: 'column' }}
+        style={{ display: "flex", flexDirection: "column" }}
       >
         <div className="h-full flex flex-col" style={{ minHeight: 0 }}>
           <DialogHeader className="px-6 pt-6 pb-3 shrink-0 border-b">
@@ -179,7 +182,10 @@ export default function AllocateFishToTank({
             </DialogTitle>
           </DialogHeader>
 
-          <div className="allocate-modal-scroll px-6 py-4 space-y-6 pb-8" style={{ flex: 1, minHeight: 0 }}>
+          <div
+            className="allocate-modal-scroll px-6 py-4 space-y-6 pb-8"
+            style={{ flex: 1, minHeight: 0 }}
+          >
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-start gap-3">
                 <div className="bg-blue-100 p-2 rounded-lg">
@@ -187,8 +193,12 @@ export default function AllocateFishToTank({
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
-                    <p className="text-sm font-bold text-gray-700">Inventory Batch</p>
-                    <span className="text-[10px] text-gray-400 font-mono">ID: {batch.id.split('-')[0]}</span>
+                    <p className="text-sm font-bold text-gray-700">
+                      Inventory Batch
+                    </p>
+                    <span className="text-[10px] text-gray-400 font-mono">
+                      ID: {batch.id.split("-")[0]}
+                    </span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -197,7 +207,9 @@ export default function AllocateFishToTank({
                     </div>
                     <div>
                       <p className="text-xs text-gray-600">Available</p>
-                      <p className="font-medium">{batch.quantity.toLocaleString()} fish</p>
+                      <p className="font-medium">
+                        {batch.quantity.toLocaleString()} fish
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -209,7 +221,10 @@ export default function AllocateFishToTank({
                 Select Tank <span className="text-red-500">*</span>
               </Label>
               <Select value={selectedTankId} onValueChange={setSelectedTankId}>
-                <SelectTrigger id="tank" className={errors.tank ? 'border-red-500' : ''}>
+                <SelectTrigger
+                  id="tank"
+                  className={errors.tank ? "border-red-500" : ""}
+                >
                   <SelectValue placeholder="Choose a tank..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -225,10 +240,13 @@ export default function AllocateFishToTank({
                   )}
                 </SelectContent>
               </Select>
-              {errors.tank && <p className="text-xs text-red-600">{errors.tank}</p>}
+              {errors.tank && (
+                <p className="text-xs text-red-600">{errors.tank}</p>
+              )}
               {tanks.length === 0 && (
                 <p className="text-xs text-orange-600">
-                  No allocatable tanks found. Tank must be in ACTIVE, READY, or EMPTY status.
+                  No allocatable tanks found. Tank must be in ACTIVE, READY, or
+                  EMPTY status.
                 </p>
               )}
             </div>
@@ -248,7 +266,7 @@ export default function AllocateFishToTank({
                   }
                 }}
                 placeholder="Enter average weight in grams"
-                className={errors.avgWeight ? 'border-red-500' : ''}
+                className={errors.avgWeight ? "border-red-500" : ""}
                 min="0"
                 step="0.01"
               />
@@ -276,12 +294,14 @@ export default function AllocateFishToTank({
                     }
                   }}
                   placeholder="Enter number of fish"
-                  className={errors.quantity ? 'border-red-500' : ''}
+                  className={errors.quantity ? "border-red-500" : ""}
                   min="1"
                   step="1"
                   max={batch.quantity}
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">fish</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                  fish
+                </span>
               </div>
               {errors.quantity && (
                 <p className="text-xs text-red-600 flex items-center gap-1">
@@ -291,7 +311,10 @@ export default function AllocateFishToTank({
               )}
               {quantity && !errors.quantity && Number(quantity) > 0 && (
                 <p className="text-xs text-gray-600">
-                  Remaining in inventory: <span className="font-medium">{(batch.quantity - Number(quantity)).toLocaleString()} fish</span>
+                  Remaining in inventory:{" "}
+                  <span className="font-medium">
+                    {(batch.quantity - Number(quantity)).toLocaleString()} fish
+                  </span>
                 </p>
               )}
             </div>
@@ -311,10 +334,12 @@ export default function AllocateFishToTank({
                   }
                 }}
                 max={todayDate}
-                className={errors.stockingDate ? 'border-red-500' : ''}
+                className={errors.stockingDate ? "border-red-500" : ""}
               />
               <p className="text-xs text-gray-500">Default: Today</p>
-              {errors.stockingDate && <p className="text-xs text-red-600">{errors.stockingDate}</p>}
+              {errors.stockingDate && (
+                <p className="text-xs text-red-600">{errors.stockingDate}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -330,11 +355,15 @@ export default function AllocateFishToTank({
                 }}
                 placeholder="Add any additional notes..."
                 rows={3}
-                className={errors.notes ? 'border-red-500' : ''}
+                className={errors.notes ? "border-red-500" : ""}
               />
               <div className="flex items-center justify-between">
-                <p className="text-xs text-gray-500">{notes.length}/{MAX_NOTES_LENGTH}</p>
-                {errors.notes && <p className="text-xs text-red-600">{errors.notes}</p>}
+                <p className="text-xs text-gray-500">
+                  {notes.length}/{MAX_NOTES_LENGTH}
+                </p>
+                {errors.notes && (
+                  <p className="text-xs text-red-600">{errors.notes}</p>
+                )}
               </div>
             </div>
           </div>
@@ -343,7 +372,10 @@ export default function AllocateFishToTank({
             <Button variant="outline" onClick={handleClose}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} className="bg-[#0A4D68] hover:bg-[#083d52]">
+            <Button
+              onClick={handleSubmit}
+              className="bg-[#0A4D68] hover:bg-[#083d52]"
+            >
               <Fish className="w-4 h-4 mr-2" />
               Stock Tank
             </Button>

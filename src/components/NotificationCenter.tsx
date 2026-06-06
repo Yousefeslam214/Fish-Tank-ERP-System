@@ -200,9 +200,15 @@ export default function NotificationCenter({
     !isCritical(notification) &&
     (notification.templateName === "HARVEST_REMINDER" ||
       notification.subject?.toLowerCase().includes("harvest reminder"));
+  const isHarvestTask = (notification: any) =>
+    !isCompleted(notification) &&
+    (notification.templateName === "HARVEST_TASK" ||
+      notification.subject?.toLowerCase().includes("harvest task"));
   // Notifications styled as a blue, badge-less info card
   const isBlueInfo = (notification: any) =>
-    isWaterChangeTask(notification) || isHarvestReminder(notification);
+    isWaterChangeTask(notification) ||
+    isHarvestReminder(notification) ||
+    isHarvestTask(notification);
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
