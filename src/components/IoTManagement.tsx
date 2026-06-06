@@ -47,7 +47,7 @@ export default function IoTManagement({ user, selectedFarm }: Props) {
   const [deviceIdInput, setDeviceIdInput] = useState<string>("");
   const [isRegistering, setIsRegistering] = useState(false);
   const [liveReading, setLiveReading] = useState<SensorReadingEvent | null>(
-    null
+    null,
   );
   const [streamConnected, setStreamConnected] = useState(false);
 
@@ -127,12 +127,12 @@ export default function IoTManagement({ user, selectedFarm }: Props) {
   };
 
   const tanksWithDevices = tanks.filter((t) =>
-    registrations.some((r) => r.tank_id === t.id)
+    registrations.some((r) => r.tank_id === t.id),
   );
 
   const selectedTank = tanks.find((t) => t.id === selectedTankId);
   const selectedTankRegs = registrations.filter(
-    (r) => r.tank_id === selectedTankId
+    (r) => r.tank_id === selectedTankId,
   );
 
   return (
@@ -154,7 +154,9 @@ export default function IoTManagement({ user, selectedFarm }: Props) {
           disabled={loading}
           className="rounded-xl border-gray-200"
         >
-          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
+          />
           Refresh
         </Button>
       </div>
@@ -171,8 +173,13 @@ export default function IoTManagement({ user, selectedFarm }: Props) {
           <CardContent className="p-6">
             <form onSubmit={handleRegister} className="space-y-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Select Tank</label>
-                <Select value={selectedTankId} onValueChange={setSelectedTankId}>
+                <label className="text-sm font-medium text-gray-700">
+                  Select Tank
+                </label>
+                <Select
+                  value={selectedTankId}
+                  onValueChange={setSelectedTankId}
+                >
                   <SelectTrigger className="rounded-xl bg-gray-50 border-gray-100">
                     <SelectValue placeholder="Chose a tank" />
                   </SelectTrigger>
@@ -188,7 +195,9 @@ export default function IoTManagement({ user, selectedFarm }: Props) {
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Device ID (MAC)</label>
+                  <label className="text-sm font-medium text-gray-700">
+                    Device ID (MAC)
+                  </label>
                   <div className="flex gap-2">
                     <Input
                       placeholder="FF:FF:FF:FF:FF:FF"
@@ -214,8 +223,12 @@ export default function IoTManagement({ user, selectedFarm }: Props) {
 
                 <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider">Suggested Device</p>
-                    <p className="text-sm font-mono mt-1 text-blue-900">{SPECIFIC_DEVICE_ID}</p>
+                    <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider">
+                      Suggested Device
+                    </p>
+                    <p className="text-sm font-mono mt-1 text-blue-900">
+                      {SPECIFIC_DEVICE_ID}
+                    </p>
                   </div>
                   <Button
                     type="button"
@@ -234,28 +247,6 @@ export default function IoTManagement({ user, selectedFarm }: Props) {
 
         {/* Live Monitoring & Assigned Devices */}
         <div className="lg:col-span-2 space-y-6">
-          {selectedTankId && (
-            <Card className="shadow-lg border-none rounded-2xl overflow-hidden ring-1 ring-gray-200">
-              <CardHeader className="bg-white border-b border-gray-50 flex flex-row items-center justify-between py-4">
-                <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-emerald-500 font-bold" />
-                  Live Monitoring: {selectedTank?.name}
-                </CardTitle>
-                <Badge
-                  variant={streamConnected ? "outline" : "secondary"}
-                  className={`rounded-full px-4 py-1 flex items-center gap-2 ${streamConnected ? "bg-emerald-100 text-emerald-700 animate-pulse border-emerald-200" : "bg-gray-100 text-gray-600 border-gray-200"
-                    }`}
-                >
-                  <div className={`w-2 h-2 rounded-full ${streamConnected ? "bg-emerald-500" : "bg-gray-400"}`} />
-                  {streamConnected ? "Live" : "Connecting..."}
-                </Badge>
-              </CardHeader>
-              <CardContent className="p-8">
-                
-              </CardContent>
-            </Card>
-          )}
-
           {/* Tanks with Devices Table */}
           <Card className="shadow-sm border-none rounded-2xl overflow-hidden ring-1 ring-gray-200">
             <CardHeader className="bg-white border-b border-gray-50 flex flex-row items-center justify-between">
@@ -278,15 +269,20 @@ export default function IoTManagement({ user, selectedFarm }: Props) {
                   <tbody className="divide-y divide-gray-100">
                     {tanksWithDevices.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="px-6 py-12 text-center text-gray-400">
+                        <td
+                          colSpan={4}
+                          className="px-6 py-12 text-center text-gray-400"
+                        >
                           <Cpu className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                          <p className="text-sm font-medium">No devices currently assigned</p>
+                          <p className="text-sm font-medium">
+                            No devices currently assigned
+                          </p>
                         </td>
                       </tr>
                     ) : (
                       tanksWithDevices.map((tank) => {
                         const reg = registrations.find(
-                          (r) => r.tank_id === tank.id
+                          (r) => r.tank_id === tank.id,
                         );
                         return (
                           <tr
@@ -295,8 +291,12 @@ export default function IoTManagement({ user, selectedFarm }: Props) {
                             onClick={() => setSelectedTankId(tank.id)}
                           >
                             <td className="px-6 py-4">
-                              <div className="font-semibold text-gray-900">{tank.name}</div>
-                              <div className="text-xs text-gray-500">Capacity: {tank.capacity}L</div>
+                              <div className="font-semibold text-gray-900">
+                                {tank.name}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                Capacity: {tank.capacity}L
+                              </div>
                             </td>
                             <td className="px-6 py-4">
                               <Badge className="bg-white border text-blue-600 font-mono border-blue-100 rounded-lg">
@@ -304,7 +304,11 @@ export default function IoTManagement({ user, selectedFarm }: Props) {
                               </Badge>
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-500">
-                              {reg?.registered_at ? new Date(reg.registered_at).toLocaleDateString() : 'N/A'}
+                              {reg?.registered_at
+                                ? new Date(
+                                    reg.registered_at,
+                                  ).toLocaleDateString()
+                                : "N/A"}
                             </td>
                             <td className="px-6 py-4 text-right">
                               <Button
