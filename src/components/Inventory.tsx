@@ -2342,24 +2342,6 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                   }
                 />
               </div>
-
-              {newResourceData.resourceType === "medicine" && (
-                <div className="grid gap-2">
-                  <Label htmlFor="medicineCompany">Company</Label>
-                  <Input
-                    id="medicineCompany"
-                    placeholder="Enter manufacturer or supplier"
-                    value={newResourceData.medicineCompany}
-                    onChange={(event) =>
-                      setNewResourceData((previous) => ({
-                        ...previous,
-                        medicineCompany: event.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              )}
-
               {newResourceData.resourceType === "medicine" && (
                 <div className="grid gap-2">
                   <Label htmlFor="mlPerUnit">Each unit contains (ml)*</Label>
@@ -2374,6 +2356,22 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                       setNewResourceData((previous) => ({
                         ...previous,
                         mlPerUnit: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              )}
+              {newResourceData.resourceType === "medicine" && (
+                <div className="grid gap-2">
+                  <Label htmlFor="medicineCompany">Company</Label>
+                  <Input
+                    id="medicineCompany"
+                    placeholder="Enter manufacturer or supplier"
+                    value={newResourceData.medicineCompany}
+                    onChange={(event) =>
+                      setNewResourceData((previous) => ({
+                        ...previous,
+                        medicineCompany: event.target.value,
                       }))
                     }
                   />
@@ -2395,20 +2393,22 @@ export default function Inventory({ user, selectedFarm }: InventoryProps) {
                 />
               </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="expiryDate">Expiry Date</Label>
-                <Input
-                  id="expiryDate"
-                  type="date"
-                  value={newResourceData.expiryDate}
-                  onChange={(event) =>
-                    setNewResourceData((previous) => ({
-                      ...previous,
-                      expiryDate: event.target.value,
-                    }))
-                  }
-                />
-              </div>
+              {newResourceData.resourceType !== "fish_batch" && (
+                <div className="grid gap-2">
+                  <Label htmlFor="expiryDate">Expiry Date</Label>
+                  <Input
+                    id="expiryDate"
+                    type="date"
+                    value={newResourceData.expiryDate}
+                    onChange={(event) =>
+                      setNewResourceData((previous) => ({
+                        ...previous,
+                        expiryDate: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button
